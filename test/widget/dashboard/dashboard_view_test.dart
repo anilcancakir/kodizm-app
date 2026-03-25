@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
 
@@ -98,6 +101,8 @@ class HttpCall {
 /// Wraps [DashboardView] in a [WindTheme] + [MaterialApp] for widget testing.
 ///
 /// Wind UI widgets require a [WindTheme] ancestor to resolve className tokens.
+/// [Lang.delegate] is included so that `trans()` resolves actual strings from
+/// `assets/lang/en.json` rather than falling back to raw keys.
 Widget _buildTestWidget() {
   return WindTheme(
     data: WindThemeData(),
@@ -108,12 +113,67 @@ Widget _buildTestWidget() {
 }
 
 // ---------------------------------------------------------------------------
+// Test-safe translation loader
+// ---------------------------------------------------------------------------
+
+/// A lightweight [TranslationLoader] for widget tests.
+///
+/// [JsonAssetLoader] from magic calls [Log.info] which requires the magic
+/// service container to be bootstrapped. In tests that don't boot magic, this
+/// loader reads the asset bundle directly without any service dependencies.
+/// It also flattens nested keys (e.g., `{"tasks":{"status_draft":"Draft"}}`
+/// becomes `{"tasks.status_draft": "Draft"}`).
+class _TestAssetLoader implements TranslationLoader {
+  @override
+  Future<Map<String, dynamic>> load(Locale locale) async {
+    try {
+      final content = await rootBundle.loadString(
+        'assets/lang/${locale.languageCode}.json',
+      );
+      final nested = jsonDecode(content) as Map<String, dynamic>;
+      return _flatten(nested);
+    } catch (_) {
+      return {};
+    }
+  }
+
+  // -------
+
+  /// Recursively flattens nested JSON into dot-separated keys.
+  Map<String, dynamic> _flatten(
+    Map<String, dynamic> json, [
+    String prefix = '',
+  ]) {
+    final result = <String, dynamic>{};
+    for (final entry in json.entries) {
+      final key = prefix.isEmpty ? entry.key : '$prefix.${entry.key}';
+      if (entry.value is Map<String, dynamic>) {
+        result.addAll(_flatten(entry.value as Map<String, dynamic>, key));
+      } else {
+        result[key] = entry.value;
+      }
+    }
+    return result;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
 void main() {
   late FakeDashboardHttpClient http;
   late DashboardState state;
+
+  setUpAll(() async {
+    // Ensure Flutter bindings are initialized so rootBundle is available.
+    TestWidgetsFlutterBinding.ensureInitialized();
+    // Pre-load translations so trans() resolves actual strings (not raw keys).
+    // JsonAssetLoader uses Log.info which requires magic bootstrap — instead we
+    // inject a lightweight loader that reads the asset bundle directly.
+    Translator.instance.setLoader(_TestAssetLoader());
+    await Translator.instance.setLocale(const Locale('en'));
+  });
 
   setUp(() {
     http = FakeDashboardHttpClient();
@@ -290,7 +350,7 @@ void main() {
   // 7. Quick actions are disabled
   // -------------------------------------------------------------------------
 
-  testWidgets('quick actions are rendered as disabled placeholders', (
+  testWidgets('quick actions section renders create task and ba chat', (
     tester,
   ) async {
     await pumpWithData(tester);
@@ -299,8 +359,10 @@ void main() {
     expect(find.text(trans('dashboard.create_task')), findsOneWidget);
     expect(find.text(trans('dashboard.ba_chat')), findsOneWidget);
 
-    // Buttons wrapped in WDiv with opacity-50 className for disabled appearance.
-    // Verify that the disabled action buttons are rendered (text confirms presence).
-    expect(find.byType(Tooltip), findsNWidgets(2));
+    // Create Task is now an active WAnchor button.
+    expect(find.byType(WAnchor), findsWidgets);
+
+    // BA Chat is still a disabled placeholder with Tooltip.
+    expect(find.byType(Tooltip), findsNWidgets(1));
   });
 }

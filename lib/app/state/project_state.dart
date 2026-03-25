@@ -299,7 +299,7 @@ class ProjectState extends MagicController with MagicStateMixin<List<Project>> {
   /// Stores the result in [repoStatus] and calls [refreshUI].
   Future<void> fetchRepoStatus(String teamId, String projectId) async {
     final response = await _http.get(
-      '/teams/$teamId/projects/$projectId/repo-status',
+      '/teams/$teamId/projects/$projectId/repo/status',
     );
 
     if (response.successful) {

@@ -6,6 +6,9 @@ import '../resources/views/dashboard_view.dart';
 import '../resources/views/project/project_list_view.dart';
 import '../resources/views/project/project_create_view.dart';
 import '../resources/views/project/project_detail_view.dart';
+import '../resources/views/task/task_list_view.dart';
+import '../resources/views/task/task_create_view.dart';
+import '../resources/views/task/task_detail_view.dart';
 
 /// Application Route Definitions.
 ///
@@ -27,6 +30,19 @@ void registerAppRoutes() {
       MagicRoute.page(
         '/projects/:id',
         (String id) => ProjectDetailView(projectId: id),
+      );
+      MagicRoute.page(
+        '/projects/:projectId/tasks',
+        (String projectId) => TaskListView(projectId: projectId),
+      );
+      MagicRoute.page(
+        '/projects/:projectId/tasks/create',
+        (String projectId) => TaskCreateView(projectId: projectId),
+      );
+      MagicRoute.page(
+        '/projects/:projectId/tasks/:taskId',
+        (String projectId, String taskId) =>
+            TaskDetailView(projectId: projectId, taskId: taskId),
       );
     },
   );

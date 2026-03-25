@@ -1,9 +1,13 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
 
 import 'package:app/app/models/user.dart';
 import 'package:app/app/state/project_state.dart';
+import 'package:app/app/state/task_state.dart';
 import 'package:app/resources/views/project/project_detail_view.dart';
 
 // ---------------------------------------------------------------------------
@@ -92,13 +96,89 @@ class _HttpCall {
 }
 
 // ---------------------------------------------------------------------------
+// Fake Task HTTP client
+// ---------------------------------------------------------------------------
+
+class _FakeTaskHttpClient implements TaskHttpClient {
+  @override
+  Future<MagicResponse> get(
+    String url, {
+    Map<String, dynamic>? query,
+    Map<String, String>? headers,
+  }) async {
+    return MagicResponse(data: {'data': <dynamic>[]}, statusCode: 200);
+  }
+
+  @override
+  Future<MagicResponse> post(
+    String url, {
+    dynamic data,
+    Map<String, String>? headers,
+  }) async {
+    return MagicResponse(data: {'data': {}}, statusCode: 200);
+  }
+
+  @override
+  Future<MagicResponse> put(
+    String url, {
+    dynamic data,
+    Map<String, String>? headers,
+  }) async {
+    return MagicResponse(data: {'data': {}}, statusCode: 200);
+  }
+
+  @override
+  Future<MagicResponse> delete(
+    String url, {
+    Map<String, String>? headers,
+  }) async {
+    return MagicResponse(data: {'data': {}}, statusCode: 200);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Test-safe translation loader
+// ---------------------------------------------------------------------------
+
+class _TestAssetLoader implements TranslationLoader {
+  @override
+  Future<Map<String, dynamic>> load(Locale locale) async {
+    try {
+      final content = await rootBundle.loadString(
+        'assets/lang/${locale.languageCode}.json',
+      );
+      final nested = jsonDecode(content) as Map<String, dynamic>;
+      return _flatten(nested);
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Map<String, dynamic> _flatten(
+    Map<String, dynamic> json, [
+    String prefix = '',
+  ]) {
+    final result = <String, dynamic>{};
+    for (final entry in json.entries) {
+      final key = prefix.isEmpty ? entry.key : '$prefix.${entry.key}';
+      if (entry.value is Map<String, dynamic>) {
+        result.addAll(_flatten(entry.value as Map<String, dynamic>, key));
+      } else {
+        result[key] = entry.value;
+      }
+    }
+    return result;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Test helpers
 // ---------------------------------------------------------------------------
 
 /// Configures a standard responder on the fake HTTP client.
 void _configureResponder(_FakeHttpClient http) {
   http.whenAny((url) {
-    if (url.contains('/repo-status')) {
+    if (url.contains('/repo/status')) {
       return MagicResponse(
         data: {
           'data': {'status': 'connected'},
@@ -152,13 +232,22 @@ Future<void> _pumpTestWidget(
 void main() {
   late _FakeHttpClient http;
   late ProjectState state;
+  late TaskState taskState;
+
+  setUpAll(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    Translator.instance.setLoader(_TestAssetLoader());
+    await Translator.instance.setLocale(const Locale('en'));
+  });
 
   setUp(() {
     http = _FakeHttpClient();
     state = ProjectState(httpClient: http);
+    taskState = TaskState(httpClient: _FakeTaskHttpClient());
 
-    // Pre-register the fake state so ProjectState.instance returns it.
+    // Pre-register fake states so .instance returns them.
     Magic.put<ProjectState>(state);
+    Magic.put<TaskState>(taskState);
 
     // Set up auth context — owner/admin role so settings section renders.
     Auth.manager.setUserFactory((data) => User.fromMap(data));
@@ -178,7 +267,9 @@ void main() {
 
   tearDown(() {
     state.dispose();
+    taskState.dispose();
     Magic.delete<ProjectState>();
+    Magic.delete<TaskState>();
   });
 
   // -------------------------------------------------------------------------

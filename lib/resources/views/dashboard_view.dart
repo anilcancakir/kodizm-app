@@ -4,6 +4,8 @@ import 'package:magic/magic.dart';
 import '../../app/models/dashboard_data.dart';
 import '../../app/models/user.dart';
 import '../../app/state/dashboard_state.dart';
+import '../../app/state/project_state.dart';
+import '../widgets/atoms/status_badge.dart';
 import '../widgets/molecules/page_header.dart';
 import '../widgets/molecules/section_card.dart';
 
@@ -491,47 +493,6 @@ Color _statusColor(String status) {
   };
 }
 
-/// Status slug to className tokens for badges and legend dots.
-String _statusBadgeClassName(String status) {
-  return switch (status) {
-    'draft' => 'bg-slate-300/15 text-slate-400',
-    'analysis' => 'bg-indigo-500/15 text-indigo-500',
-    'planning' => 'bg-blue-500/15 text-blue-500',
-    'design' => 'bg-violet-500/15 text-violet-500',
-    'in_progress' => 'bg-amber-400/15 text-amber-500',
-    'review' => 'bg-orange-500/15 text-orange-500',
-    'testing' => 'bg-teal-500/15 text-teal-500',
-    'done' => 'bg-emerald-500/15 text-emerald-500',
-    'failed' => 'bg-red-500/15 text-red-500',
-    _ => 'bg-slate-400/15 text-slate-400',
-  };
-}
-
-/// Status slug to legend dot background className.
-String _statusDotClassName(String status) {
-  return switch (status) {
-    'draft' => 'bg-slate-300',
-    'analysis' => 'bg-indigo-500',
-    'planning' => 'bg-blue-500',
-    'design' => 'bg-violet-500',
-    'in_progress' => 'bg-amber-400',
-    'review' => 'bg-orange-500',
-    'testing' => 'bg-teal-500',
-    'done' => 'bg-emerald-500',
-    'failed' => 'bg-red-500',
-    _ => 'bg-slate-400',
-  };
-}
-
-/// Human-friendly status label.
-String _statusLabel(String status) {
-  return switch (status) {
-    'in_progress' => 'In Progress',
-    _ =>
-      status.isEmpty ? status : status[0].toUpperCase() + status.substring(1),
-  };
-}
-
 class _TasksByStatusCard extends StatelessWidget {
   const _TasksByStatusCard({required this.summary});
 
@@ -575,10 +536,10 @@ class _TasksByStatusCard extends StatelessWidget {
                 children: [
                   WDiv(
                     className:
-                        'w-2 h-2 rounded-sm ${_statusDotClassName(entry.key)}',
+                        'w-2 h-2 rounded-sm ${statusDotClassName(entry.key)}',
                   ),
                   WText(
-                    '${_statusLabel(entry.key)}  ${entry.value}',
+                    '${statusLabel(entry.key)}  ${entry.value}',
                     className: 'text-xs text-slate-500 dark:text-slate-400',
                   ),
                 ],
@@ -655,7 +616,7 @@ class _RecentRunItem extends StatelessWidget {
             WDiv(
               className: 'flex flex-row items-center gap-2',
               children: [
-                _StatusBadge(status: run.status),
+                StatusBadge(status: run.status),
                 WText(
                   '\$${run.costUsd.toStringAsFixed(2)}',
                   className: 'text-xs text-slate-400 dark:text-slate-500',
@@ -674,34 +635,59 @@ class _RecentRunItem extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Status badge
-// ---------------------------------------------------------------------------
-
-class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.status});
-
-  final String status;
-
-  @override
-  Widget build(BuildContext context) {
-    final cn = _statusBadgeClassName(status);
-
-    return WDiv(
-      className: 'px-1.5 py-0.5 rounded $cn',
-      child: WText(
-        _statusLabel(status),
-        className: 'text-[11px] font-semibold',
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Quick actions section
 // ---------------------------------------------------------------------------
 
 class _QuickActionsSection extends StatelessWidget {
   const _QuickActionsSection();
+
+  // -------
+
+  /// Shows a project picker dialog, then navigates to task create.
+  void _onCreateTask(BuildContext context) {
+    final projects = ProjectState.instance.rxState;
+    if (projects == null || projects.isEmpty) return;
+
+    // If only one project, navigate directly.
+    if (projects.length == 1) {
+      MagicRoute.to('/projects/${projects.first.id}/tasks/create');
+      return;
+    }
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(trans('dashboard.select_project')),
+        content: WDiv(
+          className: 'w-96',
+          child: ListView.separated(
+            shrinkWrap: true,
+            itemCount: projects.length,
+            separatorBuilder: (_, _) => const WSpacer(className: 'h-1'),
+            itemBuilder: (_, index) {
+              final project = projects[index];
+              return ListTile(
+                title: Text(project.name ?? ''),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  MagicRoute.to('/projects/${project.id}/tasks/create');
+                },
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(trans('common.cancel')),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -711,10 +697,25 @@ class _QuickActionsSection extends StatelessWidget {
         WDiv(
           className: 'flex flex-row gap-3 flex-wrap',
           children: [
-            _DisabledActionButton(
-              label: trans('dashboard.create_task'),
-              icon: Icons.add_task,
-              tooltip: trans('dashboard.coming_in_wave', {'wave': '3'}),
+            WAnchor(
+              onTap: () => _onCreateTask(context),
+              child: WDiv(
+                className: '''
+                  flex flex-row items-center gap-2
+                  px-4 py-2 rounded-lg
+                  bg-amber-400
+                ''',
+                children: [
+                  WIcon(
+                    Icons.add_task,
+                    className: 'text-base text-primary-900',
+                  ),
+                  WText(
+                    trans('dashboard.create_task'),
+                    className: 'text-sm font-semibold text-primary-900',
+                  ),
+                ],
+              ),
             ),
             _DisabledActionButton(
               label: trans('dashboard.ba_chat'),

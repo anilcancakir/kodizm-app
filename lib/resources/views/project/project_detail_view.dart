@@ -5,6 +5,9 @@ import 'package:magic/magic.dart';
 import '../../../app/models/project.dart';
 import '../../../app/models/user.dart';
 import '../../../app/state/project_state.dart';
+import '../../../app/state/task_state.dart';
+import '../../widgets/atoms/priority_badge.dart';
+import '../../widgets/atoms/status_badge.dart';
 import '../../widgets/molecules/page_header.dart';
 import '../../widgets/molecules/section_card.dart';
 
@@ -76,6 +79,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
     await Future.wait([
       ProjectState.instance.fetchProject(teamId, widget.projectId),
       ProjectState.instance.fetchRepoStatus(teamId, widget.projectId),
+      TaskState.instance.fetchTasks(teamId, widget.projectId),
     ]);
 
     _populateForm();
@@ -547,30 +551,78 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   // 4. Recent Tasks Section (placeholder)
   // ---------------------------------------------------------------------------
 
-  /// Builds the recent tasks placeholder section.
+  /// Builds the recent tasks section showing the latest 5 tasks.
   Widget _buildRecentTasksSection() {
-    return SectionCard(
-      title: trans('projects.recent_tasks'),
-      children: [
-        WDiv(
-          className: '''
-            flex flex-col items-center justify-center
-            py-8 rounded-xl
-            bg-slate-50 dark:bg-gray-900
-          ''',
+    return ListenableBuilder(
+      listenable: TaskState.instance,
+      builder: (context, _) {
+        final tasks = TaskState.instance.rxState;
+
+        return SectionCard(
+          title: trans('projects.recent_tasks'),
           children: [
-            WIcon(
-              Icons.task_alt,
-              className: 'text-3xl text-slate-300 dark:text-slate-600',
-            ),
-            const WSpacer(className: 'h-2'),
-            WText(
-              trans('projects.tasks_placeholder'),
-              className: 'text-sm text-slate-400 dark:text-slate-500',
-            ),
+            if (tasks == null || tasks.isEmpty)
+              WDiv(
+                className: '''
+                  flex flex-col items-center justify-center w-full
+                  py-8 rounded-xl
+                  bg-slate-50 dark:bg-gray-900
+                ''',
+                children: [
+                  WIcon(
+                    Icons.task_alt,
+                    className: 'text-3xl text-slate-300 dark:text-slate-600',
+                  ),
+                  const WSpacer(className: 'h-2'),
+                  WText(
+                    trans('projects.tasks_placeholder'),
+                    className: 'text-sm text-slate-400 dark:text-slate-500',
+                  ),
+                ],
+              )
+            else ...[
+              ...tasks
+                  .take(5)
+                  .map(
+                    (task) => WAnchor(
+                      onTap: () => MagicRoute.to(
+                        '/projects/${widget.projectId}/tasks/${task.id}',
+                      ),
+                      child: WDiv(
+                        className: '''
+                      flex flex-row items-center gap-3
+                      p-3 rounded-xl
+                      bg-white dark:bg-gray-800
+                      border border-slate-200 dark:border-slate-700
+                    ''',
+                        children: [
+                          WDiv(
+                            className: 'flex-1',
+                            child: WText(
+                              task.title ?? trans('projects.unnamed_project'),
+                              className:
+                                  'text-sm font-medium text-slate-700 dark:text-slate-200',
+                            ),
+                          ),
+                          StatusBadge(status: task.status ?? 'draft'),
+                          PriorityBadge(priority: task.priority ?? 'p3'),
+                        ],
+                      ),
+                    ),
+                  ),
+              const WSpacer(className: 'h-2'),
+              WAnchor(
+                onTap: () =>
+                    MagicRoute.to('/projects/${widget.projectId}/tasks'),
+                child: WText(
+                  trans('projects.view_all_tasks'),
+                  className: 'text-sm font-medium text-amber-500',
+                ),
+              ),
+            ],
           ],
-        ),
-      ],
+        );
+      },
     );
   }
 

@@ -362,7 +362,7 @@ void main() {
       expect(state.repoStatus, equals('cloned'));
       expect(
         http.calls.first.url,
-        equals('/teams/team-uuid-001/projects/proj-uuid-001/repo-status'),
+        equals('/teams/team-uuid-001/projects/proj-uuid-001/repo/status'),
       );
     });
 

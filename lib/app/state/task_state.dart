@@ -1,0 +1,500 @@
+import 'package:magic/magic.dart';
+
+import '../models/agent_role.dart';
+import '../models/task.dart';
+import '../models/task_run.dart';
+import '../models/task_section.dart';
+
+// ---------------------------------------------------------------------------
+// Sort support
+// ---------------------------------------------------------------------------
+
+/// Fields by which the task list can be sorted locally.
+enum TaskSortField {
+  /// Sort by task priority (critical → high → medium → low).
+  priority,
+
+  /// Sort by task status (alphabetically).
+  status,
+
+  /// Sort by creation timestamp (oldest first).
+  createdAt,
+
+  /// Sort by last updated timestamp (most recent first).
+  updatedAt,
+}
+
+// ---------------------------------------------------------------------------
+// HTTP abstraction for testability
+// ---------------------------------------------------------------------------
+
+/// Thin interface over the HTTP verbs [TaskState] uses.
+///
+/// In production the default [_MagicTaskHttpClient] delegates to [Http].
+/// Tests inject a fake that records calls and returns canned responses.
+abstract class TaskHttpClient {
+  /// Perform a GET request.
+  Future<MagicResponse> get(
+    String url, {
+    Map<String, dynamic>? query,
+    Map<String, String>? headers,
+  });
+
+  /// Perform a POST request.
+  Future<MagicResponse> post(
+    String url, {
+    dynamic data,
+    Map<String, String>? headers,
+  });
+
+  /// Perform a PUT request.
+  Future<MagicResponse> put(
+    String url, {
+    dynamic data,
+    Map<String, String>? headers,
+  });
+
+  /// Perform a DELETE request.
+  Future<MagicResponse> delete(String url, {Map<String, String>? headers});
+}
+
+/// Default production [TaskHttpClient] backed by the Magic [Http] facade.
+class _MagicTaskHttpClient implements TaskHttpClient {
+  const _MagicTaskHttpClient();
+
+  @override
+  Future<MagicResponse> get(
+    String url, {
+    Map<String, dynamic>? query,
+    Map<String, String>? headers,
+  }) => Http.get(url, query: query, headers: headers);
+
+  @override
+  Future<MagicResponse> post(
+    String url, {
+    dynamic data,
+    Map<String, String>? headers,
+  }) => Http.post(url, data: data, headers: headers);
+
+  @override
+  Future<MagicResponse> put(
+    String url, {
+    dynamic data,
+    Map<String, String>? headers,
+  }) => Http.put(url, data: data, headers: headers);
+
+  @override
+  Future<MagicResponse> delete(String url, {Map<String, String>? headers}) =>
+      Http.delete(url, headers: headers);
+}
+
+// ---------------------------------------------------------------------------
+// TaskState controller
+// ---------------------------------------------------------------------------
+
+/// Reactive state controller for task CRUD, filters, sorting, and related
+/// operations.
+///
+/// Manages the list of tasks for a project, a single selected task, task
+/// sections, task runs, and available agent roles.
+///
+/// The primary state (`rxState`) holds the `List<Task>` for the active
+/// project. Secondary state fields ([selectedTask], [sections], [runs],
+/// [agentRoles], [startingRun]) are managed independently with manual
+/// [refreshUI] calls.
+///
+/// ## Usage
+///
+/// ```dart
+/// // Access the singleton instance.
+/// final tasks = TaskState.instance;
+///
+/// // Fetch all tasks for a project (with optional filters).
+/// await tasks.fetchTasks(
+///   'team-uuid-001',
+///   'proj-uuid-001',
+///   statusFilter: ['draft', 'in_progress'],
+/// );
+/// final list = tasks.rxState; // List<Task>?
+///
+/// // Fetch a single task.
+/// await tasks.fetchTask('team-uuid-001', 'proj-uuid-001', 'task-uuid-001');
+/// final selected = tasks.selectedTask;
+///
+/// // Sort the in-memory list.
+/// tasks.sortTasks(TaskSortField.priority);
+/// ```
+class TaskState extends MagicController with MagicStateMixin<List<Task>> {
+  /// Creates a [TaskState] with an optional [httpClient] for testing.
+  ///
+  /// When [httpClient] is `null` (production), the Magic [Http] facade is
+  /// used via [_MagicTaskHttpClient].
+  TaskState({TaskHttpClient? httpClient})
+    : _http = httpClient ?? const _MagicTaskHttpClient();
+
+  /// Lazy singleton accessor.
+  ///
+  /// Uses [Magic.findOrPut] to ensure a single instance is shared across
+  /// the application.
+  static TaskState get instance => Magic.findOrPut(TaskState.new);
+
+  final TaskHttpClient _http;
+
+  // ---------------------------------------------------------------------------
+  // Secondary state
+  // ---------------------------------------------------------------------------
+
+  Task? _selectedTask;
+  List<TaskSection> _sections = [];
+  List<TaskRun> _runs = [];
+  List<AgentRole> _agentRoles = [];
+  bool _startingRun = false;
+
+  /// The currently selected task (set by [fetchTask]).
+  Task? get selectedTask => _selectedTask;
+
+  /// The sections belonging to the selected task (set by [fetchSections]).
+  List<TaskSection> get sections => _sections;
+
+  /// The runs belonging to the selected task (set by [fetchRuns]).
+  List<TaskRun> get runs => _runs;
+
+  /// The agent roles available for the active team (set by [fetchAgentRoles]).
+  List<AgentRole> get agentRoles => _agentRoles;
+
+  /// Whether a new run is being dispatched via [startRun].
+  bool get startingRun => _startingRun;
+
+  // ---------------------------------------------------------------------------
+  // Task list operations
+  // ---------------------------------------------------------------------------
+
+  /// Fetch all tasks for the given [teamId] and [projectId].
+  ///
+  /// Optional filter and sort query parameters:
+  /// - [statusFilter] — comma-separated status slugs (e.g. `['draft', 'in_progress']`)
+  /// - [typeFilter] — comma-separated type slugs (e.g. `['bug', 'feature']`)
+  /// - [priorityFilter] — comma-separated priority slugs (e.g. `['high', 'critical']`)
+  /// - [sort] — API sort token (e.g. `'-updated_at'`)
+  ///
+  /// Sets loading, then populates `rxState` with the parsed task list on
+  /// success, or transitions to error on failure.
+  Future<void> fetchTasks(
+    String teamId,
+    String projectId, {
+    List<String>? statusFilter,
+    List<String>? typeFilter,
+    List<String>? priorityFilter,
+    String? sort,
+  }) async {
+    setLoading();
+
+    final Map<String, dynamic> query = {};
+
+    if (statusFilter != null && statusFilter.isNotEmpty) {
+      query['status'] = statusFilter.join(',');
+    }
+    if (typeFilter != null && typeFilter.isNotEmpty) {
+      query['type'] = typeFilter.join(',');
+    }
+    if (priorityFilter != null && priorityFilter.isNotEmpty) {
+      query['priority'] = priorityFilter.join(',');
+    }
+    if (sort != null) {
+      query['sort'] = sort;
+    }
+
+    final response = await _http.get(
+      '/teams/$teamId/projects/$projectId/tasks',
+      query: query.isEmpty ? null : query,
+    );
+
+    if (response.successful) {
+      final List<dynamic> items =
+          (response.data as Map<String, dynamic>)['data'] as List<dynamic>;
+      final tasks = items
+          .map((item) => Task.fromMap(item as Map<String, dynamic>))
+          .toList();
+      tasks.isEmpty ? setEmpty() : setSuccess(tasks);
+    } else {
+      setError(response.errorMessage ?? 'Failed to fetch tasks');
+    }
+  }
+
+  /// Fetch a single task and store it as [selectedTask].
+  ///
+  /// Does **not** affect the primary list state. Calls [refreshUI] after
+  /// updating [_selectedTask].
+  Future<void> fetchTask(String teamId, String projectId, String taskId) async {
+    final response = await _http.get(
+      '/teams/$teamId/projects/$projectId/tasks/$taskId',
+    );
+
+    if (response.successful) {
+      final Map<String, dynamic> data =
+          (response.data as Map<String, dynamic>)['data']
+              as Map<String, dynamic>;
+      _selectedTask = Task.fromMap(data);
+    } else {
+      _selectedTask = null;
+    }
+
+    refreshUI();
+  }
+
+  // ---------------------------------------------------------------------------
+  // CRUD operations
+  // ---------------------------------------------------------------------------
+
+  /// Create a new task under the given [teamId] and [projectId].
+  ///
+  /// Returns the created [Task] on success, or `null` on failure.
+  Future<Task?> createTask(
+    String teamId,
+    String projectId,
+    Map<String, dynamic> data,
+  ) async {
+    final response = await _http.post(
+      '/teams/$teamId/projects/$projectId/tasks',
+      data: data,
+    );
+
+    if (response.successful) {
+      final Map<String, dynamic> taskData =
+          (response.data as Map<String, dynamic>)['data']
+              as Map<String, dynamic>;
+      return Task.fromMap(taskData);
+    }
+
+    return null;
+  }
+
+  /// Update an existing task.
+  ///
+  /// Returns the updated [Task] on success (and stores it as [selectedTask]),
+  /// or `null` on failure.
+  Future<Task?> updateTask(
+    String teamId,
+    String projectId,
+    String taskId,
+    Map<String, dynamic> data,
+  ) async {
+    final response = await _http.put(
+      '/teams/$teamId/projects/$projectId/tasks/$taskId',
+      data: data,
+    );
+
+    if (response.successful) {
+      final Map<String, dynamic> taskData =
+          (response.data as Map<String, dynamic>)['data']
+              as Map<String, dynamic>;
+      _selectedTask = Task.fromMap(taskData);
+      refreshUI();
+      return _selectedTask;
+    }
+
+    return null;
+  }
+
+  /// Delete a task.
+  ///
+  /// Returns `true` on success, `false` on failure.
+  Future<bool> deleteTask(
+    String teamId,
+    String projectId,
+    String taskId,
+  ) async {
+    final response = await _http.delete(
+      '/teams/$teamId/projects/$projectId/tasks/$taskId',
+    );
+
+    return response.successful;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Status transition
+  // ---------------------------------------------------------------------------
+
+  /// Transition a task to a new [newStatus].
+  ///
+  /// Sends a PUT with `{status: newStatus}` and updates [selectedTask].
+  /// Returns the updated [Task] on success, or `null` on failure.
+  Future<Task?> transitionStatus(
+    String teamId,
+    String projectId,
+    String taskId,
+    String newStatus,
+  ) async {
+    final response = await _http.put(
+      '/teams/$teamId/projects/$projectId/tasks/$taskId',
+      data: {'status': newStatus},
+    );
+
+    if (response.successful) {
+      final Map<String, dynamic> taskData =
+          (response.data as Map<String, dynamic>)['data']
+              as Map<String, dynamic>;
+      _selectedTask = Task.fromMap(taskData);
+      refreshUI();
+      return _selectedTask;
+    }
+
+    return null;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Sections
+  // ---------------------------------------------------------------------------
+
+  /// Fetch all sections for the given task and store them in [sections].
+  ///
+  /// Calls [refreshUI] after updating [_sections].
+  Future<void> fetchSections(
+    String teamId,
+    String projectId,
+    String taskId,
+  ) async {
+    final response = await _http.get(
+      '/teams/$teamId/projects/$projectId/tasks/$taskId/sections',
+    );
+
+    if (response.successful) {
+      final List<dynamic> items =
+          (response.data as Map<String, dynamic>)['data'] as List<dynamic>;
+      _sections = items
+          .map((item) => TaskSection.fromMap(item as Map<String, dynamic>))
+          .toList();
+    } else {
+      _sections = [];
+    }
+
+    refreshUI();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Runs
+  // ---------------------------------------------------------------------------
+
+  /// Fetch all runs for the given task and store them in [runs].
+  ///
+  /// Calls [refreshUI] after updating [_runs].
+  Future<void> fetchRuns(String teamId, String projectId, String taskId) async {
+    final response = await _http.get(
+      '/teams/$teamId/projects/$projectId/tasks/$taskId/runs',
+    );
+
+    if (response.successful) {
+      final List<dynamic> items =
+          (response.data as Map<String, dynamic>)['data'] as List<dynamic>;
+      _runs = items
+          .map((item) => TaskRun.fromMap(item as Map<String, dynamic>))
+          .toList();
+    } else {
+      _runs = [];
+    }
+
+    refreshUI();
+  }
+
+  /// Dispatch a new agent run for the given task.
+  ///
+  /// Sets [startingRun] to `true` during the request. Returns the created
+  /// [TaskRun] on success, or `null` on failure.
+  Future<TaskRun?> startRun(
+    String teamId,
+    String projectId,
+    String taskId,
+    String agentRoleId,
+  ) async {
+    _startingRun = true;
+    refreshUI();
+
+    final response = await _http.post(
+      '/teams/$teamId/projects/$projectId/tasks/$taskId/runs',
+      data: {'agent_role_id': agentRoleId},
+    );
+
+    _startingRun = false;
+
+    if (response.successful) {
+      final Map<String, dynamic> runData =
+          (response.data as Map<String, dynamic>)['data']
+              as Map<String, dynamic>;
+      refreshUI();
+      return TaskRun.fromMap(runData);
+    }
+
+    refreshUI();
+    return null;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Agent roles
+  // ---------------------------------------------------------------------------
+
+  /// Fetch the available agent roles for the given [teamId].
+  ///
+  /// Stores results in [agentRoles] and calls [refreshUI].
+  Future<void> fetchAgentRoles(String teamId) async {
+    final response = await _http.get('/teams/$teamId/agent-roles');
+
+    if (response.successful) {
+      final List<dynamic> items =
+          (response.data as Map<String, dynamic>)['data'] as List<dynamic>;
+      _agentRoles = items
+          .map((item) => AgentRole.fromMap(item as Map<String, dynamic>))
+          .toList();
+    } else {
+      _agentRoles = [];
+    }
+
+    refreshUI();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Sorting
+  // ---------------------------------------------------------------------------
+
+  /// Sort the in-memory task list by the given [field].
+  ///
+  /// - [TaskSortField.priority] sorts critical → high → medium → low.
+  /// - [TaskSortField.status] sorts alphabetically by status slug.
+  /// - [TaskSortField.createdAt] sorts oldest first.
+  /// - [TaskSortField.updatedAt] sorts most recently updated first.
+  ///
+  /// No-ops when `rxState` is null or empty. Calls [setSuccess] to notify
+  /// listeners.
+  void sortTasks(TaskSortField field) {
+    final tasks = rxState;
+    if (tasks == null || tasks.isEmpty) return;
+
+    const priorityOrder = {'critical': 0, 'high': 1, 'medium': 2, 'low': 3};
+
+    final sorted = List<Task>.from(tasks);
+
+    switch (field) {
+      case TaskSortField.priority:
+        sorted.sort((a, b) {
+          final aOrder = priorityOrder[a.priority] ?? 99;
+          final bOrder = priorityOrder[b.priority] ?? 99;
+          return aOrder.compareTo(bOrder);
+        });
+      case TaskSortField.status:
+        sorted.sort((a, b) => (a.status ?? '').compareTo(b.status ?? ''));
+      case TaskSortField.createdAt:
+        sorted.sort((a, b) {
+          final aDate = a.createdAt?.toDateTime ?? DateTime(0);
+          final bDate = b.createdAt?.toDateTime ?? DateTime(0);
+          return aDate.compareTo(bDate); // Oldest first.
+        });
+      case TaskSortField.updatedAt:
+        sorted.sort((a, b) {
+          final aDate = a.updatedAt?.toDateTime ?? DateTime(0);
+          final bDate = b.updatedAt?.toDateTime ?? DateTime(0);
+          return bDate.compareTo(aDate); // Most recent first.
+        });
+    }
+
+    setSuccess(sorted);
+  }
+}

@@ -41,7 +41,7 @@ void main() {
       await tester.tap(submitButtonFinder);
       await tester.pump();
 
-      expect(find.text('Project name is required.'), findsOneWidget);
+      expect(find.text(trans('projects.name_required')), findsOneWidget);
     });
 
     testWidgets('shows validation error when name exceeds 255 characters', (
@@ -59,7 +59,7 @@ void main() {
       await tester.tap(submitButtonFinder);
       await tester.pumpAndSettle();
 
-      expect(find.text('Must not exceed 255 characters.'), findsOneWidget);
+      expect(find.text(trans('projects.name_max')), findsOneWidget);
     });
 
     testWidgets(
@@ -69,9 +69,12 @@ void main() {
         await tester.pump();
 
         expect(submitButtonFinder, findsOneWidget);
-        expect(find.text('Cancel'), findsOneWidget);
-        // Page title "Create Project" is present (at least one occurrence).
-        expect(find.text('Create Project'), findsAtLeastNWidgets(1));
+        expect(find.text(trans('common.cancel')), findsOneWidget);
+        // Page title translation key is present (at least one occurrence).
+        expect(
+          find.text(trans('projects.create_project')),
+          findsAtLeastNWidgets(1),
+        );
       },
     );
 

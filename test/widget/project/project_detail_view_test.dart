@@ -131,6 +131,20 @@ Widget _buildTestWidget({required String projectId}) {
   );
 }
 
+/// Pumps [ProjectDetailView] with a wide viewport (1440x900) to prevent
+/// Wind UI flex-row overflow in tests.
+Future<void> _pumpTestWidget(
+  WidgetTester tester, {
+  required String projectId,
+}) async {
+  tester.view.physicalSize = const Size(1440, 900);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(() => tester.view.reset());
+
+  await tester.pumpWidget(_buildTestWidget(projectId: projectId));
+  await tester.pumpAndSettle();
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -177,8 +191,7 @@ void main() {
     _configureResponder(http);
     await _preloadState(state);
 
-    await tester.pumpWidget(_buildTestWidget(projectId: 'proj-uuid-001'));
-    await tester.pumpAndSettle();
+    await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
 
     // Project name is displayed.
     expect(find.text('Alpha'), findsWidgets);
@@ -201,11 +214,10 @@ void main() {
     _configureResponder(http);
     await _preloadState(state);
 
-    await tester.pumpWidget(_buildTestWidget(projectId: 'proj-uuid-001'));
-    await tester.pumpAndSettle();
+    await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
 
     // SSH key section header is displayed.
-    expect(find.text('SSH Deploy Key'), findsOneWidget);
+    expect(find.text(trans('projects.ssh_deploy_key')), findsOneWidget);
 
     // Public key text is displayed.
     expect(
@@ -214,7 +226,7 @@ void main() {
     );
 
     // Generate button is displayed.
-    expect(find.text('Generate New Key'), findsOneWidget);
+    expect(find.text(trans('projects.generate_new_key')), findsOneWidget);
   });
 
   // -------------------------------------------------------------------------
@@ -227,17 +239,16 @@ void main() {
     _configureResponder(http);
     await _preloadState(state);
 
-    await tester.pumpWidget(_buildTestWidget(projectId: 'proj-uuid-001'));
-    await tester.pumpAndSettle();
+    await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
 
     // Git status section header.
-    expect(find.text('Git Status'), findsOneWidget);
+    expect(find.text(trans('projects.git_status')), findsOneWidget);
 
     // Status text.
     expect(find.text('connected'), findsOneWidget);
 
     // Check Status button.
-    expect(find.text('Check Status'), findsOneWidget);
+    expect(find.text(trans('projects.check_status')), findsOneWidget);
   });
 
   // -------------------------------------------------------------------------
@@ -248,11 +259,10 @@ void main() {
     _configureResponder(http);
     await _preloadState(state);
 
-    await tester.pumpWidget(_buildTestWidget(projectId: 'proj-uuid-001'));
-    await tester.pumpAndSettle();
+    await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
 
     // Settings section header.
-    expect(find.text('Settings'), findsOneWidget);
+    expect(find.text(trans('projects.settings')), findsOneWidget);
 
     // Form fields are pre-filled — look for WFormInput instances.
     // The name field should contain the project name.
@@ -267,8 +277,8 @@ void main() {
     expect(descField, findsOneWidget);
 
     // Save and Delete buttons.
-    expect(find.text('Save Changes'), findsOneWidget);
-    expect(find.text('Delete Project'), findsOneWidget);
+    expect(find.text(trans('projects.save_changes')), findsOneWidget);
+    expect(find.text(trans('projects.delete_project')), findsOneWidget);
   });
 
   // -------------------------------------------------------------------------
@@ -279,29 +289,23 @@ void main() {
     _configureResponder(http);
     await _preloadState(state);
 
-    await tester.pumpWidget(_buildTestWidget(projectId: 'proj-uuid-001'));
-    await tester.pumpAndSettle();
+    await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
 
     // Scroll the delete button into view — it is below the fold.
-    await tester.ensureVisible(find.text('Delete Project'));
+    await tester.ensureVisible(find.text(trans('projects.delete_project')));
     await tester.pumpAndSettle();
 
     // Tap the delete button.
-    await tester.tap(find.text('Delete Project'));
+    await tester.tap(find.text(trans('projects.delete_project')));
     await tester.pumpAndSettle();
 
     // Confirmation dialog appears.
-    expect(find.text('Delete Project?'), findsOneWidget);
-    expect(
-      find.text(
-        'This action cannot be undone. All project data will be permanently deleted.',
-      ),
-      findsOneWidget,
-    );
+    expect(find.text(trans('projects.delete_confirm_title')), findsOneWidget);
+    expect(find.text(trans('projects.delete_confirm_body')), findsOneWidget);
 
     // Cancel and Confirm buttons in the dialog.
-    expect(find.text('Cancel'), findsOneWidget);
-    expect(find.text('Delete'), findsOneWidget);
+    expect(find.text(trans('common.cancel')), findsOneWidget);
+    expect(find.text(trans('common.delete')), findsOneWidget);
   });
 
   // -------------------------------------------------------------------------
@@ -312,11 +316,10 @@ void main() {
     _configureResponder(http);
     await _preloadState(state);
 
-    await tester.pumpWidget(_buildTestWidget(projectId: 'proj-uuid-001'));
-    await tester.pumpAndSettle();
+    await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
 
-    expect(find.text('Recent Tasks'), findsOneWidget);
-    expect(find.text('Tasks will appear here'), findsOneWidget);
+    expect(find.text(trans('projects.recent_tasks')), findsOneWidget);
+    expect(find.text(trans('projects.tasks_placeholder')), findsOneWidget);
   });
 
   // -------------------------------------------------------------------------

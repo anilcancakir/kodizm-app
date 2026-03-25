@@ -56,8 +56,8 @@ class _ProjectListViewState extends State<ProjectListView> {
         // Header row: title + create button
         // ---------------------------------------------------------------
         PageHeader(
-          title: 'Projects',
-          subtitle: 'Manage your team\'s projects.',
+          title: trans('projects.title'),
+          subtitle: trans('projects.manage_subtitle'),
           actions: [
             WAnchor(
               onTap: () => MagicRoute.to('/projects/create'),
@@ -70,7 +70,7 @@ class _ProjectListViewState extends State<ProjectListView> {
                 children: [
                   WIcon(Icons.add, className: 'text-base text-primary'),
                   WText(
-                    'Create Project',
+                    trans('projects.create_project'),
                     className: 'text-sm font-semibold text-primary',
                   ),
                 ],
@@ -86,16 +86,16 @@ class _ProjectListViewState extends State<ProjectListView> {
           className: 'flex flex-row items-center gap-2',
           children: [
             WText(
-              'Sort by:',
+              trans('projects.sort_by'),
               className: 'text-sm text-slate-500 dark:text-slate-400',
             ),
             _SortButton(
-              label: 'Name',
+              label: trans('projects.sort_name'),
               isActive: _sortField == SortField.name,
               onTap: () => _onSortChanged(SortField.name),
             ),
             _SortButton(
-              label: 'Last Updated',
+              label: trans('projects.sort_last_updated'),
               isActive: _sortField == SortField.lastUpdated,
               onTap: () => _onSortChanged(SortField.lastUpdated),
             ),
@@ -110,7 +110,8 @@ class _ProjectListViewState extends State<ProjectListView> {
               _ProjectGrid(projects: projects, onRefresh: _fetchProjects),
           onLoading: const _LoadingView(),
           onError: (msg) => _ErrorView(message: msg),
-          onEmpty: _EmptyView(
+          onEmpty: // ignore: const_widgets_require_const_arguments
+          _EmptyView(
             onCreateTap: () => MagicRoute.to('/projects/create'),
           ),
         ),
@@ -190,7 +191,7 @@ class _ErrorView extends StatelessWidget {
           className: 'text-4xl text-red-500 dark:text-red-400',
         ),
         WText(
-          'Failed to load projects',
+          trans('projects.failed_to_load'),
           className: 'text-base font-semibold text-gray-900 dark:text-white',
         ),
         WText(message, className: 'text-sm text-slate-500 dark:text-slate-400'),
@@ -222,11 +223,11 @@ class _EmptyView extends StatelessWidget {
           ),
         ),
         WText(
-          'No projects yet',
+          trans('projects.empty_title'),
           className: 'text-lg font-semibold text-slate-800 dark:text-white',
         ),
         WText(
-          'Get started by creating your first project.',
+          trans('projects.empty_subtitle'),
           className:
               'text-sm text-slate-500 dark:text-slate-400 max-w-xs text-center',
         ),
@@ -238,7 +239,7 @@ class _EmptyView extends StatelessWidget {
             children: [
               WIcon(Icons.add, className: 'text-sm text-primary-900'),
               WText(
-                'Create your first project',
+                trans('projects.create_your_first'),
                 className: 'text-sm font-medium text-primary-900',
               ),
             ],
@@ -312,7 +313,7 @@ class _ProjectCard extends StatelessWidget {
             className: 'flex flex-row items-center justify-between',
             children: [
               WText(
-                project.name ?? 'Unnamed Project',
+                project.name ?? trans('projects.unnamed_project'),
                 className: '''
                   text-lg font-semibold
                   text-gray-900 dark:text-white
@@ -330,7 +331,9 @@ class _ProjectCard extends StatelessWidget {
                       ''',
                     ),
                     WText(
-                      '${project.activeRunCount} active',
+                      trans('projects.active_count', {
+                        'count': project.activeRunCount.toString(),
+                      }),
                       className:
                           'text-xs font-medium text-amber-600 dark:text-amber-400',
                     ),
@@ -350,7 +353,7 @@ class _ProjectCard extends StatelessWidget {
                 className: 'text-sm text-slate-400 dark:text-slate-500',
               ),
               WText(
-                project.repositoryUrl ?? 'No repo connected',
+                project.repositoryUrl ?? trans('projects.no_repo_connected'),
                 className: '''
                   text-sm text-slate-500 dark:text-slate-400
                 ''',
@@ -386,7 +389,9 @@ class _ProjectCard extends StatelessWidget {
                     className: 'text-sm text-slate-400 dark:text-slate-500',
                   ),
                   WText(
-                    '${project.taskCount ?? 0} tasks',
+                    trans('projects.task_count', {
+                      'count': (project.taskCount ?? 0).toString(),
+                    }),
                     className: 'text-sm text-slate-500 dark:text-slate-400',
                   ),
                 ],

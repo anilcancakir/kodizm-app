@@ -61,7 +61,7 @@ class _ProjectCreateViewState extends State<ProjectCreateView> {
 
     final teamId = User.current.currentTeam?.id;
     if (teamId == null || teamId.isEmpty) {
-      setState(() => _submitError = 'No active team found.');
+      setState(() => _submitError = trans('projects.no_active_team'));
       return;
     }
 
@@ -92,7 +92,7 @@ class _ProjectCreateViewState extends State<ProjectCreateView> {
     } else {
       setState(() {
         _submitting = false;
-        _submitError = 'Failed to create project. Please try again.';
+        _submitError = trans('projects.failed_to_create');
       });
     }
   }
@@ -107,14 +107,14 @@ class _ProjectCreateViewState extends State<ProjectCreateView> {
       className: 'p-4 lg:p-6 flex flex-col gap-6',
       children: [
         // Page header — outside card.
-        const PageHeader(
-          title: 'Create Project',
-          subtitle: 'Set up a new project for your team.',
+        PageHeader(
+          title: trans('projects.create_project'),
+          subtitle: trans('projects.create_subtitle'),
         ),
 
         // Form section card.
         SectionCard(
-          title: 'Project Details',
+          title: trans('projects.details'),
           children: [
             Form(
               key: _formKey,
@@ -122,40 +122,40 @@ class _ProjectCreateViewState extends State<ProjectCreateView> {
                 className: 'flex flex-col gap-5',
                 children: [
                   _buildField(
-                    label: 'Project Name',
-                    hint: 'My Awesome Project',
+                    label: trans('projects.project_name'),
+                    hint: trans('projects.name_placeholder'),
                     controller: _nameController,
                     required: true,
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
-                        return 'Project name is required.';
+                        return trans('projects.name_required');
                       }
                       if (value.trim().length > 255) {
-                        return 'Must not exceed 255 characters.';
+                        return trans('projects.name_max');
                       }
                       return null;
                     },
                   ),
                   _buildField(
-                    label: 'Description',
-                    hint: 'A short description of the project (optional)',
+                    label: trans('projects.description'),
+                    hint: trans('projects.description_placeholder_optional'),
                     controller: _descriptionController,
                     maxLines: 3,
                   ),
                   _buildField(
-                    label: 'Repository URL',
-                    hint: 'https://github.com/org/repo (optional)',
+                    label: trans('projects.repo_url'),
+                    hint: trans('projects.repo_url_placeholder_optional'),
                     controller: _repositoryUrlController,
                     keyboardType: TextInputType.url,
                   ),
                   _buildField(
-                    label: 'Tech Stack',
-                    hint: 'Laravel, Flutter, Docker (optional)',
+                    label: trans('projects.tech_stack'),
+                    hint: trans('projects.tech_stack_placeholder_optional'),
                     controller: _techStackController,
                   ),
                   _buildField(
-                    label: 'Default Branch',
-                    hint: 'main',
+                    label: trans('projects.default_branch'),
+                    hint: trans('projects.default_branch_placeholder'),
                     controller: _defaultBranchController,
                   ),
 
@@ -254,7 +254,9 @@ class _ProjectCreateViewState extends State<ProjectCreateView> {
               ),
             ),
           WText(
-            _submitting ? 'Creating...' : 'Create Project',
+            _submitting
+                ? trans('projects.creating')
+                : trans('projects.create_project'),
             className: '''
               text-sm font-semibold
               text-primary dark:text-primary-900
@@ -276,7 +278,7 @@ class _ProjectCreateViewState extends State<ProjectCreateView> {
           border border-slate-200 dark:border-gray-600
         ''',
         child: WText(
-          'Cancel',
+          trans('common.cancel'),
           className: '''
             text-sm font-medium
             text-slate-600 dark:text-slate-300

@@ -152,15 +152,15 @@ void main() {
     await pumpWithData(tester);
 
     // Active Runs label appears in stat card + section heading.
-    expect(find.text('Active Runs'), findsNWidgets(2));
+    expect(find.text(trans('dashboard.active_runs')), findsNWidgets(2));
     expect(find.text('2'), findsOneWidget);
 
     // Tasks total — stat card label.
-    expect(find.text('Total Tasks'), findsOneWidget);
+    expect(find.text(trans('dashboard.total_tasks')), findsOneWidget);
     expect(find.text('20'), findsOneWidget);
 
     // Monthly cost.
-    expect(find.text('Monthly Cost'), findsOneWidget);
+    expect(find.text(trans('dashboard.monthly_cost')), findsOneWidget);
     expect(find.text('\$8.75'), findsOneWidget);
   });
 
@@ -172,7 +172,7 @@ void main() {
     await pumpWithData(tester);
 
     // Section title (also in stat card = 2 total).
-    expect(find.text('Active Runs'), findsNWidgets(2));
+    expect(find.text(trans('dashboard.active_runs')), findsNWidgets(2));
 
     // Task titles from active runs.
     expect(find.text('Implement login screen'), findsOneWidget);
@@ -183,7 +183,7 @@ void main() {
     expect(find.text('BA'), findsOneWidget);
 
     // Should NOT show "No active runs" since there are active runs.
-    expect(find.text('No active runs'), findsNothing);
+    expect(find.text(trans('dashboard.no_active_runs')), findsNothing);
   });
 
   // -------------------------------------------------------------------------
@@ -194,7 +194,7 @@ void main() {
     await pumpWithData(tester);
 
     // Section title.
-    expect(find.text('Tasks by Status'), findsOneWidget);
+    expect(find.text(trans('dashboard.tasks_by_status')), findsOneWidget);
 
     // Legend labels with counts.
     expect(find.text('Draft  4'), findsOneWidget);
@@ -216,7 +216,7 @@ void main() {
     await pumpWithData(tester);
 
     // Section title.
-    expect(find.text('Recent Runs'), findsOneWidget);
+    expect(find.text(trans('dashboard.recent_runs')), findsOneWidget);
 
     // Recent run task title.
     expect(find.text('Review PR #12'), findsOneWidget);
@@ -234,7 +234,7 @@ void main() {
     expect(find.text('Done'), findsOneWidget);
 
     // Should NOT show empty state.
-    expect(find.text('No recent runs'), findsNothing);
+    expect(find.text(trans('dashboard.no_recent_runs')), findsNothing);
   });
 
   // -------------------------------------------------------------------------
@@ -283,7 +283,7 @@ void main() {
     final data = _buildDashboardData(overrides: {'active_runs': []});
     await pumpWithData(tester, data: data);
 
-    expect(find.text('No active runs'), findsOneWidget);
+    expect(find.text(trans('dashboard.no_active_runs')), findsOneWidget);
   });
 
   // -------------------------------------------------------------------------
@@ -295,9 +295,9 @@ void main() {
   ) async {
     await pumpWithData(tester);
 
-    expect(find.text('Quick Actions'), findsOneWidget);
-    expect(find.text('Create Task'), findsOneWidget);
-    expect(find.text('BA Chat'), findsOneWidget);
+    expect(find.text(trans('dashboard.quick_actions')), findsOneWidget);
+    expect(find.text(trans('dashboard.create_task')), findsOneWidget);
+    expect(find.text(trans('dashboard.ba_chat')), findsOneWidget);
 
     // Buttons wrapped in WDiv with opacity-50 className for disabled appearance.
     // Verify that the disabled action buttons are rendered (text confirms presence).

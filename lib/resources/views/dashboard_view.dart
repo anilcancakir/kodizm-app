@@ -89,7 +89,7 @@ class _ErrorView extends StatelessWidget {
           className: 'text-4xl text-red-500 dark:text-red-400',
         ),
         WText(
-          'Failed to load dashboard',
+          trans('dashboard.failed_to_load'),
           className: 'text-base font-semibold text-gray-900 dark:text-white',
         ),
         WText(message, className: 'text-sm text-slate-500 dark:text-slate-400'),
@@ -115,7 +115,7 @@ class _EmptyView extends StatelessWidget {
           className: 'text-4xl text-slate-400 dark:text-slate-500',
         ),
         WText(
-          'No dashboard data available',
+          trans('dashboard.empty'),
           className: 'text-base font-semibold text-gray-900 dark:text-white',
         ),
       ],
@@ -175,7 +175,7 @@ class _DashboardHeader extends StatelessWidget {
     final teamName = user?.currentTeam?.name ?? 'Team';
 
     return PageHeader(
-      title: 'Dashboard',
+      title: trans('nav.dashboard'),
       subtitle: teamName,
       actions: [_BalanceBadge(balance: data.balance)],
     );
@@ -248,7 +248,7 @@ class _StatsRow extends StatelessWidget {
         WDiv(
           className: 'flex-1',
           child: _StatCard(
-            label: 'Active Runs',
+            label: trans('dashboard.active_runs'),
             value: data.activeRuns.length.toString(),
             icon: Icons.play_circle_outline,
             iconType: 'active_runs',
@@ -257,7 +257,7 @@ class _StatsRow extends StatelessWidget {
         WDiv(
           className: 'flex-1',
           child: _StatCard(
-            label: 'Total Tasks',
+            label: trans('dashboard.total_tasks'),
             value: data.tasksSummary.total.toString(),
             icon: Icons.task_alt,
             iconType: 'total_tasks',
@@ -266,11 +266,10 @@ class _StatsRow extends StatelessWidget {
         WDiv(
           className: 'flex-1',
           child: _StatCard(
-            label: 'Monthly Cost',
+            label: trans('dashboard.monthly_cost'),
             value: '\$${data.monthlyUsage.totalCostUsd.toStringAsFixed(2)}',
             icon: Icons.receipt_long_outlined,
             iconType: 'monthly_cost',
-            subtitle: '${data.monthlyUsage.runCount} runs',
           ),
         ),
       ],
@@ -380,12 +379,12 @@ class _ActiveRunsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SectionCard(
-      title: 'Active Runs',
+      title: trans('dashboard.active_runs'),
       children: [
         if (activeRuns.isEmpty)
-          const _EmptySection(
+          _EmptySection(
             icon: Icons.play_circle_outline,
-            message: 'No active runs',
+            message: trans('dashboard.no_active_runs'),
           )
         else
           WDiv(
@@ -544,10 +543,13 @@ class _TasksByStatusCard extends StatelessWidget {
     final total = summary.total;
 
     return SectionCard(
-      title: 'Tasks by Status',
+      title: trans('dashboard.tasks_by_status'),
       children: [
         if (total == 0)
-          const _EmptySection(icon: Icons.task_alt, message: 'No tasks yet')
+          _EmptySection(
+            icon: Icons.task_alt,
+            message: trans('dashboard.no_tasks_yet'),
+          )
         else ...[
           // Stacked horizontal bar.
           WDiv(
@@ -601,10 +603,13 @@ class _RecentRunsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SectionCard(
-      title: 'Recent Runs',
+      title: trans('dashboard.recent_runs'),
       children: [
         if (recentRuns.isEmpty)
-          const _EmptySection(icon: Icons.history, message: 'No recent runs')
+          _EmptySection(
+            icon: Icons.history,
+            message: trans('dashboard.no_recent_runs'),
+          )
         else
           WDiv(
             className: 'flex flex-col gap-3',
@@ -701,20 +706,20 @@ class _QuickActionsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SectionCard(
-      title: 'Quick Actions',
+      title: trans('dashboard.quick_actions'),
       children: [
         WDiv(
           className: 'flex flex-row gap-3 flex-wrap',
           children: [
             _DisabledActionButton(
-              label: 'Create Task',
+              label: trans('dashboard.create_task'),
               icon: Icons.add_task,
-              tooltip: 'Coming in Wave 3',
+              tooltip: trans('dashboard.coming_in_wave', {'wave': '3'}),
             ),
             _DisabledActionButton(
-              label: 'BA Chat',
+              label: trans('dashboard.ba_chat'),
               icon: Icons.chat_outlined,
-              tooltip: 'Coming in Wave 5',
+              tooltip: trans('dashboard.coming_in_wave', {'wave': '5'}),
             ),
           ],
         ),

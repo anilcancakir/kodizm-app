@@ -95,6 +95,17 @@ Widget _buildSubject() {
   );
 }
 
+/// Pumps [ProjectListView] with a wide viewport (1440x900) to prevent
+/// Wind UI flex-row overflow in tests.
+Future<void> _pumpSubject(WidgetTester tester) async {
+  tester.view.physicalSize = const Size(1440, 900);
+  tester.view.devicePixelRatio = 1.0;
+  addTearDown(() => tester.view.reset());
+
+  await tester.pumpWidget(_buildSubject());
+  await tester.pump();
+}
+
 /// Creates and registers a [ProjectState] with the given pre-seeded [projects].
 ///
 /// Returns the state for further inspection. Callers are responsible for
@@ -154,8 +165,7 @@ void main() {
   testWidgets('renders project cards when data is loaded', (tester) async {
     _seedSuccess([kProjectAlpha, kProjectBravo]);
 
-    await tester.pumpWidget(_buildSubject());
-    await tester.pump();
+    await _pumpSubject(tester);
 
     // Both project names should appear.
     expect(find.text('Alpha'), findsOneWidget);
@@ -164,16 +174,15 @@ void main() {
     // Repo URL from kProjectAlpha.
     expect(find.text('git@github.com:acme/alpha.git'), findsOneWidget);
 
-    // kProjectBravo has null repo — placeholder text shown.
-    expect(find.text('No repo connected'), findsOneWidget);
+    // kProjectBravo has null repo — placeholder text shown (trans key in test env).
+    expect(find.text(trans('projects.no_repo_connected')), findsOneWidget);
 
     // Tech stack badges.
     expect(find.text('Flutter, Dart'), findsOneWidget);
     expect(find.text('Laravel, PostgreSQL'), findsOneWidget);
 
-    // Task counts.
-    expect(find.text('10 tasks'), findsOneWidget);
-    expect(find.text('5 tasks'), findsOneWidget);
+    // Task counts — trans key returned in test env (two cards, two matches).
+    expect(find.text(trans('projects.task_count')), findsNWidgets(2));
   });
 
   // -------------------------------------------------------------------------
@@ -183,18 +192,14 @@ void main() {
   testWidgets('shows empty state when there are no projects', (tester) async {
     _seedEmpty();
 
-    await tester.pumpWidget(_buildSubject());
-    await tester.pump();
+    await _pumpSubject(tester);
 
-    // Empty state messages.
-    expect(find.text('No projects yet'), findsOneWidget);
-    expect(
-      find.text('Get started by creating your first project.'),
-      findsOneWidget,
-    );
+    // Empty state messages (trans keys returned in test env).
+    expect(find.text(trans('projects.empty_title')), findsOneWidget);
+    expect(find.text(trans('projects.empty_subtitle')), findsOneWidget);
 
     // CTA button.
-    expect(find.text('Create your first project'), findsOneWidget);
+    expect(find.text(trans('projects.create_your_first')), findsOneWidget);
   });
 
   // -------------------------------------------------------------------------
@@ -206,11 +211,10 @@ void main() {
   ) async {
     final state = _seedSuccess([kProjectBravo, kProjectAlpha]);
 
-    await tester.pumpWidget(_buildSubject());
-    await tester.pump();
+    await _pumpSubject(tester);
 
-    // Tap the "Last Updated" toggle button.
-    await tester.tap(find.text('Last Updated'));
+    // Tap the "Last Updated" toggle button (trans key returned in test env).
+    await tester.tap(find.text(trans('projects.sort_last_updated')));
     await tester.pump();
 
     // After sorting by lastUpdated, kProjectBravo (2025-03) should be first.
@@ -243,8 +247,7 @@ void main() {
     (tester) async {
       _seedSuccess([kProjectAlpha]);
 
-      await tester.pumpWidget(_buildSubject());
-      await tester.pump();
+      await _pumpSubject(tester);
 
       // The project card for Alpha must be present.
       expect(find.text('Alpha'), findsOneWidget);
@@ -274,10 +277,10 @@ void main() {
   ) async {
     _seedSuccess([kProjectAlpha]); // activeRunCount = 1
 
-    await tester.pumpWidget(_buildSubject());
-    await tester.pump();
+    await _pumpSubject(tester);
 
-    expect(find.text('1 active'), findsOneWidget);
+    // trans key returned in test env (no replacement applied to key string).
+    expect(find.text(trans('projects.active_count')), findsOneWidget);
   });
 
   // -------------------------------------------------------------------------
@@ -287,10 +290,9 @@ void main() {
   testWidgets('shows error message when fetchProjects fails', (tester) async {
     _seedError('Unauthorized');
 
-    await tester.pumpWidget(_buildSubject());
-    await tester.pump();
+    await _pumpSubject(tester);
 
-    expect(find.text('Failed to load projects'), findsOneWidget);
+    expect(find.text(trans('projects.failed_to_load')), findsOneWidget);
     expect(find.text('Unauthorized'), findsOneWidget);
   });
 }

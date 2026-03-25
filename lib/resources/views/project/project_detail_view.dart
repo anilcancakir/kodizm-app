@@ -148,21 +148,19 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Project?'),
-        content: const Text(
-          'This action cannot be undone. All project data will be permanently deleted.',
-        ),
+        title: Text(trans('projects.delete_confirm_title')),
+        content: Text(trans('projects.delete_confirm_body')),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: Text(trans('common.cancel')),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: TextButton.styleFrom(
               foregroundColor: const Color(0xFFEF4444),
             ),
-            child: const Text('Delete'),
+            child: Text(trans('common.delete')),
           ),
         ],
       ),
@@ -194,18 +192,16 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Generate New SSH Key?'),
-        content: const Text(
-          'This will replace the existing deploy key. You will need to update your repository settings.',
-        ),
+        title: Text(trans('projects.ssh_generate_title')),
+        content: Text(trans('projects.ssh_generate_body')),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: Text(trans('common.cancel')),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Generate'),
+            child: Text(trans('common.generate')),
           ),
         ],
       ),
@@ -265,7 +261,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
           children: [
             // Page header — outside cards.
             PageHeader(
-              title: project.name ?? 'Unnamed Project',
+              title: project.name ?? trans('projects.unnamed_project'),
               subtitle: project.description,
               actions: [_buildHeaderBadges(project)],
             ),
@@ -324,7 +320,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   /// Builds the info section: repo URL, default branch, created date.
   Widget _buildInfoSection(Project project) {
     return SectionCard(
-      title: 'Project Info',
+      title: trans('projects.project_info'),
       children: [
         WDiv(
           className: 'flex flex-col gap-4',
@@ -340,7 +336,8 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                 WDiv(
                   className: 'flex-1 min-w-0',
                   child: WText(
-                    project.repositoryUrl ?? 'No repository configured',
+                    project.repositoryUrl ??
+                        trans('projects.no_repo_configured'),
                     className: 'text-sm text-slate-600 dark:text-slate-400',
                   ),
                 ),
@@ -365,7 +362,9 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                   className: 'text-sm text-slate-400 dark:text-slate-500',
                 ),
                 WText(
-                  'Branch: ${project.defaultBranch}',
+                  trans('projects.branch_label', {
+                    'branch': project.defaultBranch,
+                  }),
                   className: 'text-sm text-slate-600 dark:text-slate-400',
                 ),
               ],
@@ -379,7 +378,9 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                   className: 'text-sm text-slate-400 dark:text-slate-500',
                 ),
                 WText(
-                  'Created: ${project.createdAt ?? 'Unknown'}',
+                  trans('projects.created_label', {
+                    'date': project.createdAt ?? trans('common.unknown'),
+                  }),
                   className: 'text-sm text-slate-600 dark:text-slate-400',
                 ),
               ],
@@ -399,7 +400,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
     final publicKey = project.sshPublicKey;
 
     return SectionCard(
-      title: 'SSH Deploy Key',
+      title: trans('projects.ssh_deploy_key'),
       children: [
         // Inset card with key.
         WDiv(
@@ -437,7 +438,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
               ),
             ] else ...[
               WText(
-                'No SSH key generated yet.',
+                trans('projects.no_ssh_key'),
                 className: 'text-sm text-slate-500 dark:text-slate-400',
               ),
             ],
@@ -463,7 +464,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 ),
               WText(
-                'Generate New Key',
+                trans('projects.generate_new_key'),
                 className:
                     'text-sm font-medium text-slate-600 dark:text-slate-300',
               ),
@@ -474,7 +475,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
 
         // Instructions.
         WText(
-          'Add this public key as a deploy key in your repository settings to allow Kodizm agents read access.',
+          trans('projects.ssh_instruction'),
           className: 'text-xs text-slate-400 dark:text-slate-500',
         ),
       ],
@@ -487,10 +488,11 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
 
   /// Builds the git status section with status indicator dot.
   Widget _buildGitStatusSection(String? repoStatus) {
-    final statusLabel = repoStatus ?? 'not configured';
+    final statusLabel =
+        repoStatus ?? trans('projects.git_status_not_configured');
 
     return SectionCard(
-      title: 'Git Status',
+      title: trans('projects.git_status'),
       children: [
         WDiv(
           className: 'flex flex-row items-center justify-between',
@@ -528,7 +530,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                       child: CircularProgressIndicator(strokeWidth: 2),
                     ),
                   WText(
-                    'Check Status',
+                    trans('projects.check_status'),
                     className:
                         'text-sm font-medium text-slate-600 dark:text-slate-300',
                   ),
@@ -548,7 +550,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   /// Builds the recent tasks placeholder section.
   Widget _buildRecentTasksSection() {
     return SectionCard(
-      title: 'Recent Tasks',
+      title: trans('projects.recent_tasks'),
       children: [
         WDiv(
           className: '''
@@ -563,7 +565,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
             ),
             const WSpacer(className: 'h-2'),
             WText(
-              'Tasks will appear here',
+              trans('projects.tasks_placeholder'),
               className: 'text-sm text-slate-400 dark:text-slate-500',
             ),
           ],
@@ -579,7 +581,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   /// Builds the settings section with edit form and delete button.
   Widget _buildSettingsSection(Project project) {
     return SectionCard(
-      title: 'Settings',
+      title: trans('projects.settings'),
       children: [
         Form(
           key: _formKey,
@@ -587,37 +589,37 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
             className: 'flex flex-col gap-5',
             children: [
               _buildField(
-                label: 'Project Name',
-                hint: 'My Awesome Project',
+                label: trans('projects.project_name'),
+                hint: trans('projects.name_placeholder'),
                 controller: _nameController,
                 required: true,
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'Project name is required.';
+                    return trans('projects.name_required');
                   }
                   return null;
                 },
               ),
               _buildField(
-                label: 'Description',
-                hint: 'A short description of the project',
+                label: trans('projects.description'),
+                hint: trans('projects.description_placeholder'),
                 controller: _descriptionController,
                 maxLines: 3,
               ),
               _buildField(
-                label: 'Repository URL',
-                hint: 'https://github.com/org/repo',
+                label: trans('projects.repo_url'),
+                hint: trans('projects.repo_url_placeholder'),
                 controller: _repositoryUrlController,
                 keyboardType: TextInputType.url,
               ),
               _buildField(
-                label: 'Tech Stack',
-                hint: 'Laravel, Flutter, Docker',
+                label: trans('projects.tech_stack'),
+                hint: trans('projects.tech_stack_placeholder'),
                 controller: _techStackController,
               ),
               _buildField(
-                label: 'Default Branch',
-                hint: 'main',
+                label: trans('projects.default_branch'),
+                hint: trans('projects.default_branch_placeholder'),
                 controller: _defaultBranchController,
               ),
               const WSpacer(className: 'h-1'),
@@ -648,7 +650,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                             ),
                           ),
                         WText(
-                          'Delete Project',
+                          trans('projects.delete_project'),
                           className: 'text-sm font-semibold text-white',
                         ),
                       ],
@@ -677,7 +679,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                             ),
                           ),
                         WText(
-                          'Save Changes',
+                          trans('projects.save_changes'),
                           className: '''
                             text-sm font-semibold
                             text-primary dark:text-primary-900

@@ -58,6 +58,17 @@ lib/
 - **Auth**: Sanctum token via magic_starter — do NOT reimplement auth/team/profile screens
 - **Dart SDK**: ^3.11.3
 - **UI**: Wind UI first — never Flutter native equivalents (see Widget Rules)
+- **i18n**: All user-facing strings via `trans('dot.key')` from `assets/lang/en.json` — never hardcode strings in views
+
+## i18n Rules (STRICT)
+
+All user-facing strings MUST be in `assets/lang/en.json` and accessed via `trans()`.
+
+- **Usage**: `trans('section.key')` — imported from `package:magic/magic.dart`
+- **Params**: `trans('key', {'param': value.toString()})` — placeholder syntax is `:param` in JSON
+- **Key naming**: `{feature}.{context}` — e.g., `dashboard.title`, `projects.empty_title`
+- **Shared strings**: `common.*` (cancel, save, delete), `errors.*`, `validation.*`
+- **DO NOT**: hardcode strings in views, use Flutter `intl`/`arb`, use `{}` or `%s` placeholders
 
 ## Widget Rules (STRICT)
 
@@ -131,6 +142,18 @@ WDiv(
 | `magic-framework` | **Every** code task — framework patterns, conventions, lifecycle | Mandatory |
 | `wind-ui` | **Every** UI task — Wind UI tokens, components, theme system | Mandatory |
 | `frontend-design:frontend-design` | **Every** design/UI task — visual hierarchy, layout, components | Mandatory |
+
+## Agent Context (MUST inject into all subagent prompts)
+
+When spawning agents (Agent tool, ac:execute workers, background tasks), include these non-negotiable rules in their prompt — subagents do NOT auto-inherit CLAUDE.md:
+
+1. **Wind UI only** — WDiv/WText/WIcon/WSpacer/WAnchor with className. Never Row, Column, Container, Expanded, SizedBox (except CircularProgressIndicator wrapper), Icon, Text, TextFormField
+2. **i18n via trans()** — All user-facing strings from `assets/lang/en.json` via `trans('section.key')`. Never hardcode strings in views. Params: `trans('key', {'param': value.toString()})`, placeholder syntax `:param`
+3. **Atomic design** — atoms/ molecules/ organisms/ templates/ in `lib/resources/widgets/`. Views in `lib/resources/views/`
+4. **Layout standard** — Root `WDiv(className: 'p-4 lg:p-6 flex flex-col gap-6')` + PageHeader + SectionCard. No max-w-*, no SingleChildScrollView
+5. **DESIGN.md tokens** — All colors, spacing, typography from `docs/DESIGN.md`. No raw Color(), BoxDecoration, TextStyle
+6. **w-full on centered containers** — WDiv with `flex items-center justify-center` MUST include `w-full`
+7. **Magic framework** — Http facade, MagicRoute, ChangeNotifier+MagicStateMixin, Vault, Config, Log. Never raw Dio, GoRouter, print()
 
 ## Gotchas
 

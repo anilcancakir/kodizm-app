@@ -57,6 +57,26 @@
     "privacy_policy": "Privacy Policy",
     "legal_and": "and"
   },
+  "ai_tokens": {
+    "title": "AI Tokens",
+    "subtitle": "Team AI provider tokens",
+    "empty_title": "No AI Tokens",
+    "empty_subtitle": "AI tokens are managed in the admin panel.",
+    "provider_anthropic": "Anthropic",
+    "provider_openai": "OpenAI",
+    "provider_google": "Google",
+    "provider_openrouter": "OpenRouter",
+    "auth_api_key": "API Key",
+    "auth_subscription": "Subscription",
+    "status_active": "Active",
+    "status_inactive": "Inactive",
+    "status_rate_limited": "Rate Limited",
+    "status_expired": "Expired",
+    "usage_count": ":count uses",
+    "last_used": "Last used :time",
+    "cooldown_until": "Cooldown until :time",
+    "managed_in_admin": "Token management is available in the admin panel."
+  },
   "agent_run": {
     "agent_role": "Agent",
     "back_to_task": "Back to Task",
@@ -99,6 +119,22 @@
     "terminal_output": "Terminal Output",
     "title": "Agent Run",
     "turns": "Turns"
+  },
+  "billing": {
+    "title": "Billing",
+    "subtitle": "Team balance and usage overview",
+    "current_balance": "Current Balance",
+    "add_credits": "Add Credits",
+    "monthly_summary": "Monthly Summary",
+    "total_spent": "Total Spent",
+    "runs_count": "Runs",
+    "avg_cost_per_run": "Avg Cost/Run",
+    "usage_by_role": "Usage by Agent Role",
+    "view_usage_history": "View Full Usage History →",
+    "balance_label": "Balance",
+    "max_concurrent_runs": "Max Concurrent Runs",
+    "empty": "No billing data available",
+    "failed_to_load": "Failed to load billing data"
   },
   "common": {
     "cancel": "Cancel",
@@ -246,7 +282,9 @@
     "tasks": "Tasks",
     "knowledge": "Knowledge",
     "select_project": "Select a Project",
-    "select_project_subtitle": "Choose a project to view :target"
+    "select_project_subtitle": "Choose a project to view :target",
+    "billing": "Billing",
+    "ai_tokens": "AI Tokens"
   },
   "notifications": {
     "empty": "No notifications",
@@ -434,6 +472,26 @@
     "update_failed": "Failed to update team.",
     "updated": "Team updated successfully."
   },
+  "settings": {
+    "title": "App Settings",
+    "subtitle": "Appearance, notifications, and app info",
+    "appearance": "Appearance",
+    "theme_mode": "Theme Mode",
+    "theme_light": "Light",
+    "theme_dark": "Dark",
+    "theme_system": "System",
+    "notifications": "Notifications",
+    "notify_run_completed": "Run completed",
+    "notify_run_failed": "Run failed",
+    "notify_question_pending": "Question pending",
+    "notify_balance_low": "Balance low",
+    "about": "About",
+    "app_version": "App Version",
+    "build_number": "Build Number",
+    "api_server": "API Server",
+    "terms": "Terms of Service",
+    "privacy": "Privacy Policy"
+  },
   "tasks": {
     "status_draft": "Draft",
     "status_analysis": "Analysis",
@@ -533,6 +591,24 @@
     "status_actions": "Status Actions",
     "created_at_label": "Created",
     "updated_at_label": "Updated"
+  },
+  "usage": {
+    "title": "Usage History",
+    "subtitle": "Detailed usage records and costs",
+    "empty_title": "No Usage Records",
+    "empty_subtitle": "Usage data will appear here after agent runs.",
+    "total_cost": "Total Cost",
+    "filter_period": "Period",
+    "filter_project": "Project",
+    "filter_agent_role": "Agent Role",
+    "record_date": "Date",
+    "record_model": "Model",
+    "record_tokens": "Tokens",
+    "record_cost": "Cost",
+    "input_tokens": "Input",
+    "output_tokens": "Output",
+    "load_more": "Load More",
+    "page_info": "Page :current of :total"
   },
   "time": {
     "days_ago": ":days d ago",

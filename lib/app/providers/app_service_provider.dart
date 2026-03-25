@@ -51,6 +51,11 @@ class AppServiceProvider extends ServiceProvider {
           path: '/knowledge',
         ),
         MagicStarterNavItem(
+          icon: Icons.account_balance_wallet_outlined,
+          labelKey: 'nav.billing',
+          path: '/billing',
+        ),
+        MagicStarterNavItem(
           icon: Icons.settings_outlined,
           labelKey: 'nav.settings',
           path: MagicStarterConfig.profileRoute(),
@@ -76,6 +81,11 @@ class AppServiceProvider extends ServiceProvider {
           icon: Icons.library_books_outlined,
           labelKey: 'nav.knowledge',
           path: '/knowledge',
+        ),
+        MagicStarterNavItem(
+          icon: Icons.account_balance_wallet_outlined,
+          labelKey: 'nav.billing',
+          path: '/billing',
         ),
         MagicStarterNavItem(
           icon: Icons.settings_outlined,

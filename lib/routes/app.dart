@@ -12,6 +12,10 @@ import '../resources/views/task/agent_run_view.dart';
 import '../resources/views/task/task_detail_view.dart';
 import '../resources/views/knowledge/knowledge_list_view.dart';
 import '../resources/views/knowledge/knowledge_detail_view.dart';
+import '../resources/views/billing/billing_view.dart';
+import '../resources/views/billing/usage_history_view.dart';
+import '../resources/views/settings/ai_token_list_view.dart';
+import '../resources/views/settings/app_settings_view.dart';
 import '../resources/views/nav/project_scoped_nav_view.dart';
 
 /// Application Route Definitions.
@@ -63,6 +67,14 @@ void registerAppRoutes() {
         '/knowledge',
         () => const ProjectScopedNavView(targetPath: 'knowledge'),
       );
+
+      // Billing routes.
+      MagicRoute.page('/billing', () => const BillingView());
+      MagicRoute.page('/usage', () => const UsageHistoryView());
+
+      // Settings routes.
+      MagicRoute.page('/settings/ai-tokens', () => const AiTokenListView());
+      MagicRoute.page('/settings/app', () => const AppSettingsView());
 
       // Project-scoped knowledge routes.
       MagicRoute.page(

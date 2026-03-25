@@ -36,8 +36,8 @@ dependencies:
   cupertino_icons: ^1.0.8
   magic: ^1.0.0-alpha.3
   magic_starter: ^0.0.1-alpha.1
-  magic_notifications:
-    path: ../magic_notifications
+  magic_notifications: ^0.0.1-alpha.1
+  web_socket_channel: ^3.0.3
 
 dev_dependencies:
   flutter_test:

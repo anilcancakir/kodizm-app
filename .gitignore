@@ -43,3 +43,13 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Secrets
+.env
+
+# Binary assets
+web/sqlite3.wasm
+
+# Claude Code workspace
+.ac/
+.mcp.json

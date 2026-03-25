@@ -2,6 +2,7 @@ import 'package:magic/magic.dart';
 import 'package:flutter/material.dart';
 import 'package:magic_starter/magic_starter.dart';
 import '../models/user.dart';
+import '../services/websocket_service.dart';
 
 /// Application Service Provider.
 ///
@@ -12,9 +13,8 @@ class AppServiceProvider extends ServiceProvider {
 
   @override
   void register() {
-    // Bind your services here (sync only — do not resolve other services).
-    // Example:
-    //   app.singleton('my_service', () => MyService());
+    // WebSocket: Pusher-compatible client for Laravel Reverb real-time events.
+    app.singleton('websocket', () => WebSocketService());
   }
 
   @override

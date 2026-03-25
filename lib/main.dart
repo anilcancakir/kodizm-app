@@ -8,6 +8,7 @@ import 'config/network.dart';
 import 'config/cache.dart';
 import 'config/logging.dart';
 import 'config/magic_starter.dart';
+import 'config/websocket.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,6 +23,7 @@ void main() async {
       () => cacheConfig,
       () => loggingConfig,
       () => magicStarterConfig,
+      () => websocketConfig,
     ],
   );
   final windTheme = WindThemeData(

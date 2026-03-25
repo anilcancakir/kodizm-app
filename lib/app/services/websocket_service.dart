@@ -304,6 +304,12 @@ class WebSocketService {
   void _onError(Object error) {
     Log.error('WebSocket: stream error — $error');
 
+    // Complete pending connection future if handshake never finished.
+    if (_connectionCompleter != null && !_connectionCompleter!.isCompleted) {
+      _connectionCompleter!.completeError(error);
+      _connectionCompleter = null;
+    }
+
     // Guard: if disconnect() was called intentionally, do not reconnect.
     if (!_isConnected) return;
     _isConnected = false;

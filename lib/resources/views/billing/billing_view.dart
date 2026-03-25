@@ -86,7 +86,7 @@ class _ErrorView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return WDiv(
-      className: 'flex flex-col items-center justify-center py-16 gap-3',
+      className: 'w-full flex flex-col items-center justify-center py-16 gap-3',
       children: [
         WIcon(
           Icons.error_outline,
@@ -112,7 +112,7 @@ class _EmptyView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return WDiv(
-      className: 'flex flex-col items-center justify-center py-16 gap-3',
+      className: 'w-full flex flex-col items-center justify-center py-16 gap-3',
       children: [
         WIcon(
           Icons.account_balance_wallet_outlined,

@@ -72,6 +72,35 @@ lib/resources/
 - **Theme**: WindThemeData in main.dart — colors, spacing, typography via Wind UI tokens
 - **WebSocket**: Custom service for Laravel Reverb (not provided by magic)
 - **Dart SDK**: ^3.11.3
+- **UI Widgets**: Always Wind UI first — never Flutter native equivalents
+
+## Widget Rules (STRICT)
+
+**Wind UI widgets MUST be used instead of Flutter native widgets. Zero exceptions.**
+
+| Need | Use (Wind UI) | NEVER Use (Flutter Native) |
+|------|--------------|---------------------------|
+| Container/Box | `WDiv(className: '...')` | `Container`, `DecoratedBox`, `SizedBox` for layout |
+| Text | `WText('...', className: '...')` | `Text()`, `RichText()` |
+| Icon | `WIcon(Icons.x, className: '...')` | `Icon()` |
+| Spacing | `WSpacer(className: 'h-N w-N')` | `SizedBox(height/width:)` for spacing |
+| Tap target | `WAnchor(onTap: ..., child: ...)` | `GestureDetector`, `InkWell` |
+| Text input | `WFormInput(controller:, type:, label:, ...)` | `TextFormField`, `TextField` |
+| Dropdown | `WFormSelect<T>(options:, ...)` | `DropdownButton`, `DropdownButtonFormField` |
+| Checkbox | `WFormCheckbox(value:, ...)` | `Checkbox`, `CheckboxListTile` |
+| Date picker | `WFormDatePicker(...)` | `showDatePicker()` |
+
+**Styling**: All visual properties via Tailwind `className` strings — never `TextStyle()`, `BoxDecoration()`, `EdgeInsets`, or raw `Color()` constants. Use DESIGN.md tokens via className.
+
+**State modifiers in className**: `focus:`, `error:`, `disabled:`, `hover:`, `checked:`, `dark:` prefixes.
+
+**Exceptions** (Flutter native allowed):
+- `Form(key:)` wrapper — Wind UI form widgets integrate with Flutter's `Form`
+- `AlertDialog` / `showDialog` — for confirmation dialogs (until Wind UI provides modal)
+- `CircularProgressIndicator` — for loading spinners (until Wind UI provides loader)
+- `SelectableText` — for copyable text blocks (SSH keys, terminal output)
+- `Scaffold` — only at root layout level, managed by magic_starter
+- `RefreshIndicator` — for pull-to-refresh (native gesture handler)
 
 ## Design System
 

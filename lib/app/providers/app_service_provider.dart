@@ -1,5 +1,5 @@
-import 'package:magic/magic.dart';
 import 'package:flutter/material.dart';
+import 'package:magic/magic.dart';
 import 'package:magic_starter/magic_starter.dart';
 import '../models/user.dart';
 import '../services/websocket_service.dart';
@@ -36,6 +36,11 @@ class AppServiceProvider extends ServiceProvider {
           path: MagicStarterConfig.homeRoute(),
         ),
         MagicStarterNavItem(
+          icon: Icons.folder_outlined,
+          labelKey: 'nav.projects',
+          path: '/projects',
+        ),
+        MagicStarterNavItem(
           icon: Icons.settings_outlined,
           labelKey: 'nav.settings',
           path: MagicStarterConfig.profileRoute(),
@@ -46,6 +51,11 @@ class AppServiceProvider extends ServiceProvider {
           icon: Icons.dashboard_outlined,
           labelKey: 'nav.dashboard',
           path: MagicStarterConfig.homeRoute(),
+        ),
+        MagicStarterNavItem(
+          icon: Icons.folder_outlined,
+          labelKey: 'nav.projects',
+          path: '/projects',
         ),
         MagicStarterNavItem(
           icon: Icons.settings_outlined,

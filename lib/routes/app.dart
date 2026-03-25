@@ -1,8 +1,11 @@
 import 'package:magic/magic.dart';
+import 'package:magic_starter/magic_starter.dart';
 
 // import '../resources/views/welcome_view.dart'; // Replaced by DashboardView
-import 'package:magic_starter/magic_starter.dart';
 import '../resources/views/dashboard_view.dart';
+import '../resources/views/project/project_list_view.dart';
+import '../resources/views/project/project_create_view.dart';
+import '../resources/views/project/project_detail_view.dart';
 
 /// Application Route Definitions.
 ///
@@ -18,6 +21,13 @@ void registerAppRoutes() {
     layoutId: 'app',
     routes: () {
       MagicRoute.page('/', () => const DashboardView());
+      MagicRoute.page('/dashboard', () => const DashboardView());
+      MagicRoute.page('/projects', () => const ProjectListView());
+      MagicRoute.page('/projects/create', () => const ProjectCreateView());
+      MagicRoute.page(
+        '/projects/:id',
+        (String id) => ProjectDetailView(projectId: id),
+      );
     },
   );
 

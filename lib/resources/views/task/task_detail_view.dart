@@ -134,11 +134,11 @@ class _TaskDetailViewState extends State<TaskDetailView> {
         projectId: widget.projectId,
         taskId: widget.taskId,
         teamId: teamId,
-        onRunStarted: () {
+        onRunStarted: (runId) {
           if (context.mounted) {
-            ScaffoldMessenger.of(
-              context,
-            ).showSnackBar(SnackBar(content: Text(trans('tasks.run_started'))));
+            MagicRoute.to(
+              '/projects/${widget.projectId}/tasks/${widget.taskId}/runs/$runId',
+            );
           }
         },
       ),
@@ -151,21 +151,8 @@ class _TaskDetailViewState extends State<TaskDetailView> {
 
   /// Formats a [DateTime] as "Mar 25, 2026".
   String _formatDate(DateTime date) {
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+    final month = trans('common.month_${date.month}');
+    return '$month ${date.day}, ${date.year}';
   }
 
   /// Formats a cost double as `$X.XXXX` or `--` when absent.
@@ -549,7 +536,14 @@ class _TaskDetailViewState extends State<TaskDetailView> {
         else
           WDiv(
             className: 'flex flex-col gap-3',
-            children: [for (final run in runs) _RunRow(run: run)],
+            children: [
+              for (final run in runs)
+                _RunRow(
+                  run: run,
+                  projectId: widget.projectId,
+                  taskId: widget.taskId,
+                ),
+            ],
           ),
       ],
     );
@@ -603,10 +597,20 @@ class _InfoRow extends StatelessWidget {
 /// and started-at date.
 class _RunRow extends StatelessWidget {
   /// Creates a [_RunRow] for the given [run].
-  const _RunRow({required this.run});
+  const _RunRow({
+    required this.run,
+    required this.projectId,
+    required this.taskId,
+  });
 
   /// The run to display.
   final TaskRun run;
+
+  /// The project ID for navigation.
+  final String projectId;
+
+  /// The task ID for navigation.
+  final String taskId;
 
   // -----------------------------------------------------------------------
 
@@ -644,39 +648,43 @@ class _RunRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return WDiv(
-      className: '''
-        flex flex-row items-center gap-3
-        p-3 rounded-lg
-        bg-slate-50 dark:bg-gray-700/50
-      ''',
-      children: [
-        // Agent role name
-        WDiv(
-          className: 'flex-1',
-          child: WText(
-            run.agentRoleName ?? trans('common.unknown'),
-            className: 'text-sm font-semibold text-gray-900 dark:text-white',
+    return WAnchor(
+      onTap: () =>
+          MagicRoute.to('/projects/$projectId/tasks/$taskId/runs/${run.id}'),
+      child: WDiv(
+        className: '''
+          flex flex-row items-center gap-3
+          p-3 rounded-lg
+          bg-slate-50 dark:bg-gray-700/50
+        ''',
+        children: [
+          // Agent role name
+          WDiv(
+            className: 'flex-1',
+            child: WText(
+              run.agentRoleName ?? trans('common.unknown'),
+              className: 'text-sm font-semibold text-gray-900 dark:text-white',
+            ),
           ),
-        ),
-        // Status badge
-        StatusBadge(status: run.status),
-        // Cost
-        WText(
-          _formatCost(run.totalCostUsd),
-          className: 'text-xs text-slate-500 dark:text-slate-400',
-        ),
-        // Duration
-        WText(
-          _formatDuration(run.durationMs),
-          className: 'text-xs text-slate-500 dark:text-slate-400',
-        ),
-        // Started at
-        WText(
-          _formatDate(run.startedAt),
-          className: 'text-xs text-slate-400 dark:text-slate-500',
-        ),
-      ],
+          // Status badge
+          StatusBadge(status: run.status),
+          // Cost
+          WText(
+            _formatCost(run.totalCostUsd),
+            className: 'text-xs text-slate-500 dark:text-slate-400',
+          ),
+          // Duration
+          WText(
+            _formatDuration(run.durationMs),
+            className: 'text-xs text-slate-500 dark:text-slate-400',
+          ),
+          // Started at
+          WText(
+            _formatDate(run.startedAt),
+            className: 'text-xs text-slate-400 dark:text-slate-500',
+          ),
+        ],
+      ),
     );
   }
 }
@@ -707,8 +715,8 @@ class _StartRunDialog extends StatefulWidget {
   /// The team ID used for the API call.
   final String teamId;
 
-  /// Callback invoked when the run is successfully started.
-  final VoidCallback onRunStarted;
+  /// Callback invoked when the run is successfully started, with the new run ID.
+  final void Function(String runId) onRunStarted;
 
   @override
   State<_StartRunDialog> createState() => _StartRunDialogState();
@@ -735,7 +743,7 @@ class _StartRunDialogState extends State<_StartRunDialog> {
     Navigator.of(context).pop();
 
     if (run != null) {
-      widget.onRunStarted();
+      widget.onRunStarted(run.id);
     }
   }
 

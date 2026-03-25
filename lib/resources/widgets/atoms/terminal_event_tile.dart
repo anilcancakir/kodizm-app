@@ -133,13 +133,11 @@ class TerminalEventTile extends StatelessWidget {
         WDiv(
           className:
               'px-6 py-2 mx-2 mb-1 bg-primary-800 rounded-lg overflow-hidden',
-          child: SizedBox(
-            height: 120,
-            child: SingleChildScrollView(
-              child: WText(
-                inputText,
-                className: 'text-xs text-slate-300 font-mono',
-              ),
+          child: WDiv(
+            className: 'h-[120] overflow-y-auto',
+            child: WText(
+              inputText,
+              className: 'text-xs text-slate-300 font-mono',
             ),
           ),
         ),

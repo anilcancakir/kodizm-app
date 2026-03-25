@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_highlighter/flutter_highlighter.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:magic/magic.dart';
 
 import 'package:app/resources/widgets/organisms/markdown_viewer.dart';
 
@@ -22,10 +23,13 @@ Future<void> _pumpViewer(
   addTearDown(() => tester.view.reset());
 
   await tester.pumpWidget(
-    MaterialApp(
-      home: Scaffold(
-        body: SingleChildScrollView(
-          child: MarkdownViewer(data: data, selectable: selectable),
+    WindTheme(
+      data: WindThemeData(),
+      child: MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: MarkdownViewer(data: data, selectable: selectable),
+          ),
         ),
       ),
     ),
@@ -160,6 +164,6 @@ console.log("world");
     await _pumpViewer(tester, md);
 
     expect(find.byType(HighlightView), findsNWidgets(2));
-    expect(find.byIcon(Icons.copy), findsNWidgets(2));
+    expect(find.byType(WIcon), findsNWidgets(2));
   });
 }

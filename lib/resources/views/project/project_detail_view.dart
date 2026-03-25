@@ -159,6 +159,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
             onPressed: () => Navigator.of(context).pop(false),
             child: Text(trans('common.cancel')),
           ),
+          // AlertDialog allowed exception — DESIGN.md danger-500.
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: TextButton.styleFrom(
@@ -421,6 +422,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                 children: [
                   WDiv(
                     className: 'flex-1 min-w-0',
+                    // SelectableText + TextStyle allowed exception (CLAUDE.md).
                     child: SelectableText(
                       publicKey,
                       style: const TextStyle(

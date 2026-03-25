@@ -74,7 +74,7 @@ class _SegmentedControl extends StatelessWidget {
           className: 'text-sm font-medium text-slate-600 dark:text-slate-300',
         ),
         WDiv(
-          className: 'flex flex-row flex-wrap gap-2',
+          className: 'wrap gap-2',
           children: options.map(_buildSegment).toList(),
         ),
       ],

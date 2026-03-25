@@ -513,6 +513,9 @@ class _TasksByStatusCard extends StatelessWidget {
           )
         else ...[
           // Stacked horizontal bar.
+          // Stacked bar chart — Row/Expanded/Container justified exception:
+          // proportional-width fills need dynamic Color + flex ratios which
+          // cannot be expressed via className tokens (CLAUDE.md Gotchas).
           WDiv(
             className: 'rounded-md overflow-hidden h-3',
             child: Row(
@@ -520,7 +523,6 @@ class _TasksByStatusCard extends StatelessWidget {
                 final fraction = entry.value / total;
                 return Expanded(
                   flex: (fraction * 1000).round().clamp(1, 1000),
-                  // Chart fill — dynamic color exception
                   child: Container(color: _statusColor(entry.key)),
                 );
               }).toList(),
@@ -529,7 +531,7 @@ class _TasksByStatusCard extends StatelessWidget {
           const WSpacer(className: 'h-4'),
           // Legend grid.
           WDiv(
-            className: 'flex flex-wrap gap-4',
+            className: 'wrap gap-4',
             children: entries.map((entry) {
               return WDiv(
                 className: 'flex flex-row items-center gap-1.5',
@@ -666,14 +668,18 @@ class _QuickActionsSection extends StatelessWidget {
             separatorBuilder: (_, _) => const WSpacer(className: 'h-1'),
             itemBuilder: (_, index) {
               final project = projects[index];
-              return ListTile(
-                title: Text(project.name ?? ''),
+              return WAnchor(
                 onTap: () {
                   Navigator.of(ctx).pop();
                   MagicRoute.to('/projects/${project.id}/tasks/create');
                 },
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                child: WDiv(
+                  className: 'p-3 rounded-lg bg-slate-50 dark:bg-gray-800',
+                  child: WText(
+                    project.name ?? '',
+                    className:
+                        'text-sm font-medium text-slate-800 dark:text-slate-200',
+                  ),
                 ),
               );
             },
@@ -695,7 +701,7 @@ class _QuickActionsSection extends StatelessWidget {
       title: trans('dashboard.quick_actions'),
       children: [
         WDiv(
-          className: 'flex flex-row gap-3 flex-wrap',
+          className: 'wrap gap-3',
           children: [
             WAnchor(
               onTap: () => _onCreateTask(context),

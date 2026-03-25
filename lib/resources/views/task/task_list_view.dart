@@ -321,7 +321,7 @@ class _FilterChipRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return WDiv(
-      className: 'flex flex-row items-center gap-2 flex-wrap',
+      className: 'wrap items-center gap-2',
       children: [
         WText(
           label,

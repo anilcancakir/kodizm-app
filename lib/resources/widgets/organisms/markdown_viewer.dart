@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:magic/magic.dart';
 
 import 'package:flutter_highlighter/flutter_highlighter.dart';
 import 'package:flutter_highlighter/themes/atom-one-dark.dart';
@@ -192,17 +193,15 @@ class _CodeBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        // DESIGN.md primary-900 — terminal/streaming view background.
-        color: const Color(0xFF1A2332),
-        borderRadius: BorderRadius.circular(8),
-      ),
+    // Code block container — HighlightView requires TextStyle + EdgeInsets
+    // internally (third-party widget exception, similar to MarkdownStyleSheet).
+    return WDiv(
+      className: 'bg-primary-900 rounded-lg',
       child: Stack(
         children: <Widget>[
           // Syntax-highlighted source.
-          Padding(
-            padding: const EdgeInsets.all(16),
+          WDiv(
+            className: 'p-4',
             child: HighlightView(
               code,
               language: language,
@@ -218,18 +217,11 @@ class _CodeBlock extends StatelessWidget {
           Positioned(
             top: 8,
             right: 8,
-            child: IconButton(
-              icon: const Icon(
-                Icons.copy,
-                size: 16,
-                color: Color(0xFF829AB1), // primary-300
-              ),
-              tooltip: 'Copy',
-              onPressed: () => Clipboard.setData(ClipboardData(text: code)),
-              style: IconButton.styleFrom(
-                backgroundColor: const Color(0x1A829AB1),
-                minimumSize: const Size(32, 32),
-                padding: EdgeInsets.zero,
+            child: WAnchor(
+              onTap: () => Clipboard.setData(ClipboardData(text: code)),
+              child: WDiv(
+                className: 'p-1.5 rounded bg-primary-300/10',
+                child: WIcon(Icons.copy, className: 'text-sm text-primary-300'),
               ),
             ),
           ),

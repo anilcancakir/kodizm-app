@@ -273,7 +273,7 @@ class _TaskDetailViewState extends State<TaskDetailView> {
           )
         else
           WDiv(
-            className: 'flex flex-row flex-wrap gap-2',
+            className: 'wrap gap-2',
             children: [
               for (final targetStatus in transitions)
                 WAnchor(
@@ -626,24 +626,11 @@ class _RunRow extends StatelessWidget {
     return '${(ms / 1000).round()}s';
   }
 
-  /// Formats [DateTime] as `Mar 25, 2026`.
+  /// Formats [DateTime] as `Mar 25, 2026` using i18n month names.
   String _formatDate(DateTime? date) {
     if (date == null) return '--';
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+    final month = trans('common.month_${date.month}');
+    return '$month ${date.day}, ${date.year}';
   }
 
   @override
@@ -768,15 +755,30 @@ class _StartRunDialogState extends State<_StartRunDialog> {
                 final role = currentRoles[index];
                 final isSelected = _selectedRole?.id == role.id;
 
-                return ListTile(
-                  title: Text(role.name),
-                  subtitle: role.description != null
-                      ? Text(role.description!)
-                      : null,
-                  selected: isSelected,
+                return WAnchor(
                   onTap: () => setState(() => _selectedRole = role),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+                  child: WDiv(
+                    className:
+                        '''
+                      p-3 rounded-lg
+                      ${isSelected ? 'bg-amber-400/10 border border-amber-400' : 'bg-slate-50 dark:bg-gray-800'}
+                    ''',
+                    children: [
+                      WText(
+                        role.name,
+                        className:
+                            '''
+                          text-sm font-medium
+                          ${isSelected ? 'text-amber-600 dark:text-amber-400' : 'text-slate-800 dark:text-slate-200'}
+                        ''',
+                      ),
+                      if (role.description != null)
+                        WText(
+                          role.description!,
+                          className:
+                              'text-xs text-slate-500 dark:text-slate-400 mt-0.5',
+                        ),
+                    ],
                   ),
                 );
               },

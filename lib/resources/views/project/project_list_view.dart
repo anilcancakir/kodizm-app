@@ -4,6 +4,7 @@ import 'package:magic/magic.dart';
 import '../../../app/models/project.dart';
 import '../../../app/models/user.dart';
 import '../../../app/state/project_state.dart';
+import '../../widgets/molecules/page_header.dart';
 
 /// Project list view — displays all projects for the authenticated user's team.
 ///
@@ -49,81 +50,71 @@ class _ProjectListViewState extends State<ProjectListView> {
   @override
   Widget build(BuildContext context) {
     return WDiv(
-      className: 'w-full max-w-5xl mx-auto p-4 lg:p-8',
-      child: WDiv(
-        className: 'flex flex-col gap-6',
-        children: [
-          // ---------------------------------------------------------------
-          // Header row: title + create button
-          // ---------------------------------------------------------------
-          WDiv(
-            className: 'flex flex-row items-center justify-between',
-            children: [
-              WText(
-                'Projects',
+      className: 'p-4 lg:p-6 flex flex-col gap-6',
+      children: [
+        // ---------------------------------------------------------------
+        // Header row: title + create button
+        // ---------------------------------------------------------------
+        PageHeader(
+          title: 'Projects',
+          subtitle: 'Manage your team\'s projects.',
+          actions: [
+            WAnchor(
+              onTap: () => MagicRoute.to('/projects/create'),
+              child: WDiv(
                 className: '''
-                  text-2xl font-bold
-                  text-gray-900 dark:text-white
-                ''',
-              ),
-              WAnchor(
-                onTap: () => MagicRoute.to('/projects/create'),
-                child: WDiv(
-                  className: '''
                     flex flex-row items-center gap-2
-                    px-4 py-2 rounded-xl
+                    px-4 py-2 rounded-lg
                     bg-amber-400
-                    text-primary font-semibold text-sm
                   ''',
-                  children: [
-                    WIcon(Icons.add, className: 'text-base text-primary'),
-                    WText(
-                      'Create Project',
-                      className: 'text-sm font-semibold text-primary',
-                    ),
-                  ],
-                ),
+                children: [
+                  WIcon(Icons.add, className: 'text-base text-primary'),
+                  WText(
+                    'Create Project',
+                    className: 'text-sm font-semibold text-primary',
+                  ),
+                ],
               ),
-            ],
-          ),
-
-          // ---------------------------------------------------------------
-          // Sort controls
-          // ---------------------------------------------------------------
-          WDiv(
-            className: 'flex flex-row items-center gap-2',
-            children: [
-              WText(
-                'Sort by:',
-                className: 'text-sm text-slate-500 dark:text-slate-400',
-              ),
-              _SortButton(
-                label: 'Name',
-                isActive: _sortField == SortField.name,
-                onTap: () => _onSortChanged(SortField.name),
-              ),
-              _SortButton(
-                label: 'Last Updated',
-                isActive: _sortField == SortField.lastUpdated,
-                onTap: () => _onSortChanged(SortField.lastUpdated),
-              ),
-            ],
-          ),
-
-          // ---------------------------------------------------------------
-          // State-driven content
-          // ---------------------------------------------------------------
-          ProjectState.instance.renderState(
-            (projects) =>
-                _ProjectGrid(projects: projects, onRefresh: _fetchProjects),
-            onLoading: const _LoadingView(),
-            onError: (msg) => _ErrorView(message: msg),
-            onEmpty: _EmptyView(
-              onCreateTap: () => MagicRoute.to('/projects/create'),
             ),
+          ],
+        ),
+
+        // ---------------------------------------------------------------
+        // Sort controls
+        // ---------------------------------------------------------------
+        WDiv(
+          className: 'flex flex-row items-center gap-2',
+          children: [
+            WText(
+              'Sort by:',
+              className: 'text-sm text-slate-500 dark:text-slate-400',
+            ),
+            _SortButton(
+              label: 'Name',
+              isActive: _sortField == SortField.name,
+              onTap: () => _onSortChanged(SortField.name),
+            ),
+            _SortButton(
+              label: 'Last Updated',
+              isActive: _sortField == SortField.lastUpdated,
+              onTap: () => _onSortChanged(SortField.lastUpdated),
+            ),
+          ],
+        ),
+
+        // ---------------------------------------------------------------
+        // State-driven content
+        // ---------------------------------------------------------------
+        ProjectState.instance.renderState(
+          (projects) =>
+              _ProjectGrid(projects: projects, onRefresh: _fetchProjects),
+          onLoading: const _LoadingView(),
+          onError: (msg) => _ErrorView(message: msg),
+          onEmpty: _EmptyView(
+            onCreateTap: () => MagicRoute.to('/projects/create'),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -174,7 +165,7 @@ class _LoadingView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const WDiv(
-      className: 'flex items-center justify-center py-16',
+      className: 'w-full flex items-center justify-center py-16',
       child: CircularProgressIndicator(),
     );
   }
@@ -220,40 +211,35 @@ class _EmptyView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return WDiv(
-      className: 'flex flex-col items-center justify-center py-20 gap-4',
+      className: 'w-full flex flex-col items-center justify-center py-16 gap-5',
       children: [
         WDiv(
-          className: '''
-            w-20 h-20 rounded-2xl
-            flex items-center justify-center
-            bg-slate-100 dark:bg-gray-800
-          ''',
+          className:
+              'w-16 h-16 rounded-2xl flex items-center justify-center bg-slate-100 dark:bg-gray-800',
           child: WIcon(
             Icons.folder_open_outlined,
-            className: 'text-4xl text-slate-400 dark:text-slate-500',
+            className: 'text-3xl text-slate-400 dark:text-slate-500',
           ),
         ),
         WText(
           'No projects yet',
-          className: 'text-xl font-semibold text-gray-900 dark:text-white',
+          className: 'text-lg font-semibold text-slate-800 dark:text-white',
         ),
         WText(
           'Get started by creating your first project.',
-          className: 'text-sm text-slate-500 dark:text-slate-400 text-center',
+          className:
+              'text-sm text-slate-500 dark:text-slate-400 max-w-xs text-center',
         ),
         WAnchor(
           onTap: onCreateTap,
           child: WDiv(
-            className: '''
-              flex flex-row items-center gap-2
-              px-6 py-3 rounded-xl
-              bg-amber-400
-            ''',
+            className:
+                'flex flex-row items-center gap-2 px-4 py-2.5 rounded-lg bg-amber-400 shadow-xs',
             children: [
-              WIcon(Icons.add, className: 'text-base text-primary'),
+              WIcon(Icons.add, className: 'text-sm text-primary-900'),
               WText(
                 'Create your first project',
-                className: 'text-sm font-semibold text-primary',
+                className: 'text-sm font-medium text-primary-900',
               ),
             ],
           ),

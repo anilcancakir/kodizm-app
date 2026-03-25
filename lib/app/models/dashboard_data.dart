@@ -258,25 +258,87 @@ class DashboardData {
 
   // -------
 
-  /// Parses a [DashboardData] from a JSON-decoded map.
+  /// Parses a [DashboardData] from the real API response.
+  ///
+  /// Handles two shapes:
+  /// - **Spec shape**: `active_runs: [...]`, `tasks_summary`, `recent_runs`, `monthly_usage`
+  /// - **Real API shape**: `active_runs: 0`, `tasks_by_status`, `costs_this_month`, `runs_this_month`
   factory DashboardData.fromMap(Map<String, dynamic> map) {
-    final rawActiveRuns = map['active_runs'] as List<dynamic>;
-    final rawRecentRuns = map['recent_runs'] as List<dynamic>;
+    // active_runs — array of run objects OR int count.
+    final rawActiveRuns = map['active_runs'];
+    final activeRuns = rawActiveRuns is List
+        ? rawActiveRuns
+              .map((e) => ActiveRun.fromMap(e as Map<String, dynamic>))
+              .toList()
+        : const <ActiveRun>[];
+
+    // tasks summary — spec uses 'tasks_summary', real API uses 'tasks_by_status'.
+    final TasksSummary tasksSummary;
+    if (map['tasks_summary'] is Map) {
+      tasksSummary = TasksSummary.fromMap(
+        map['tasks_summary'] as Map<String, dynamic>,
+      );
+    } else if (map['tasks_by_status'] is Map) {
+      final byStatus = (map['tasks_by_status'] as Map<String, dynamic>).map(
+        (k, v) => MapEntry(k, (v as num).toInt()),
+      );
+      final total = byStatus.values.fold(0, (sum, count) => sum + count);
+      tasksSummary = TasksSummary(total: total, byStatus: byStatus);
+    } else {
+      tasksSummary = const TasksSummary(total: 0, byStatus: {});
+    }
+
+    // recent_runs — array or absent.
+    final rawRecentRuns = map['recent_runs'];
+    final recentRuns = rawRecentRuns is List
+        ? rawRecentRuns
+              .map((e) => RecentRun.fromMap(e as Map<String, dynamic>))
+              .toList()
+        : const <RecentRun>[];
+
+    // balance — can be num or string.
+    final rawBalance = map['balance'];
+    final balance = rawBalance is num
+        ? rawBalance.toDouble()
+        : double.tryParse(rawBalance?.toString() ?? '') ?? 0.0;
+
+    // monthly usage — spec uses 'monthly_usage', real API uses
+    // 'costs_this_month' + 'runs_this_month'.
+    final MonthlyUsage monthlyUsage;
+    if (map['monthly_usage'] is Map) {
+      monthlyUsage = MonthlyUsage.fromMap(
+        map['monthly_usage'] as Map<String, dynamic>,
+      );
+    } else if (map['costs_this_month'] is Map) {
+      final costs = map['costs_this_month'] as Map<String, dynamic>;
+      final totalUsd = costs['total_usd'];
+      monthlyUsage = MonthlyUsage(
+        totalCostUsd: totalUsd is num
+            ? totalUsd.toDouble()
+            : double.tryParse(totalUsd?.toString() ?? '') ?? 0.0,
+        period: costs['period'] as String? ?? _currentPeriod(),
+        runCount: (map['runs_this_month'] as num?)?.toInt() ?? 0,
+      );
+    } else {
+      monthlyUsage = MonthlyUsage(
+        totalCostUsd: 0.0,
+        period: _currentPeriod(),
+        runCount: (map['runs_this_month'] as num?)?.toInt() ?? 0,
+      );
+    }
 
     return DashboardData(
-      activeRuns: rawActiveRuns
-          .map((e) => ActiveRun.fromMap(e as Map<String, dynamic>))
-          .toList(),
-      tasksSummary: TasksSummary.fromMap(
-        map['tasks_summary'] as Map<String, dynamic>,
-      ),
-      recentRuns: rawRecentRuns
-          .map((e) => RecentRun.fromMap(e as Map<String, dynamic>))
-          .toList(),
-      balance: (map['balance'] as num).toDouble(),
-      monthlyUsage: MonthlyUsage.fromMap(
-        map['monthly_usage'] as Map<String, dynamic>,
-      ),
+      activeRuns: activeRuns,
+      tasksSummary: tasksSummary,
+      recentRuns: recentRuns,
+      balance: balance,
+      monthlyUsage: monthlyUsage,
     );
+  }
+
+  /// Returns the current year-month string (e.g. `'2025-03'`).
+  static String _currentPeriod() {
+    final now = DateTime.now();
+    return '${now.year}-${now.month.toString().padLeft(2, '0')}';
   }
 }

@@ -91,9 +91,12 @@ class DashboardState extends MagicController
     final response = await _http.get('/teams/$teamId/dashboard');
 
     if (response.successful) {
-      final data =
-          (response.data as Map<String, dynamic>)['data']
-              as Map<String, dynamic>;
+      final raw = response.data as Map<String, dynamic>;
+      // Support both `{ "data": { ... } }` (Laravel resource envelope)
+      // and `{ ... }` (direct response) shapes.
+      final data = raw.containsKey('data') && raw['data'] is Map
+          ? raw['data'] as Map<String, dynamic>
+          : raw;
       setSuccess(DashboardData.fromMap(data));
     } else {
       setError(response.errorMessage ?? 'Failed to fetch dashboard');

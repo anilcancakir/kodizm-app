@@ -157,7 +157,7 @@ class ProjectState extends MagicController with MagicStateMixin<List<Project>> {
       final projects = items
           .map((item) => Project.fromMap(item as Map<String, dynamic>))
           .toList();
-      setSuccess(projects);
+      projects.isEmpty ? setEmpty() : setSuccess(projects);
     } else {
       setError(response.errorMessage ?? 'Failed to fetch projects');
     }

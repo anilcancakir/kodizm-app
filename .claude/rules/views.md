@@ -34,7 +34,7 @@ lib/resources/
 
 - Views are full screens registered in `routes/app.dart`
 - Widgets are reusable, composed bottom-up (atoms → molecules → organisms)
-- Name convention: `{purpose}_{level}.dart` — e.g., `status_badge_atom.dart`, `task_card_organism.dart`
+- Name convention: file name matches class name in snake_case — e.g., class `SectionCard` → `section_card.dart`, class `PageHeader` → `page_header.dart`
 - View naming: `{feature}_view.dart` — e.g., `dashboard_view.dart`, `project_list_view.dart`
 
 ## DESIGN.md Compliance (Mandatory)
@@ -51,7 +51,7 @@ Before building ANY UI component, read `docs/DESIGN.md` and apply:
 - **Buttons**: Primary (amber bg, navy text), Secondary (white, border), Ghost, Danger, Icon
 - **Cards**: Surface (white, border, shadow-sm), Inset (slate-50), Elevated (shadow-lg), Terminal (primary-900)
 
-## View Pattern
+## View Pattern (magic_starter standard)
 
 ```dart
 class MyFeatureView extends StatelessWidget {
@@ -60,12 +60,18 @@ class MyFeatureView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return WDiv(
-      className: 'w-full max-w-4xl mx-auto p-4 lg:p-8',
-      child: WDiv(
-        className: 'rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-6',
-        children: [ /* content */ ],
-      ),
+      className: 'p-4 lg:p-6 flex flex-col gap-6',
+      children: [
+        PageHeader(title: 'Page Title', subtitle: 'Description', actions: [...]),
+        SectionCard(title: 'Section', children: [ /* content */ ]),
+        SectionCard(children: [ /* more content */ ]),
+      ],
     );
   }
 }
 ```
+
+- NO `max-w-*` constraints — views are full-width
+- NO `SingleChildScrollView` — layout's `overflow-y-auto` handles scrolling
+- `PageHeader` from `molecules/page_header.dart` — border-b, responsive sm:flex-row, actions list
+- `SectionCard` from `molecules/section_card.dart` — rounded-2xl, p-6, gap-4, noPadding option

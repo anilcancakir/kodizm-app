@@ -5,12 +5,14 @@ import 'package:magic/magic.dart';
 import '../../../app/models/project.dart';
 import '../../../app/models/user.dart';
 import '../../../app/state/project_state.dart';
+import '../../widgets/molecules/page_header.dart';
+import '../../widgets/molecules/section_card.dart';
 
 /// Project detail view — displays a single project's full information.
 ///
 /// Receives [projectId] from the route parameter and fetches the project
-/// via [ProjectState.instance.fetchProject]. Renders header, info, SSH key,
-/// git status, recent tasks placeholder, and settings sections.
+/// via [ProjectState.instance.fetchProject]. Uses the global "page header +
+/// section cards" layout standard matching magic_starter's pattern.
 ///
 /// ## Usage
 ///
@@ -103,20 +105,12 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   bool get _canManageProject =>
       Auth.user<User>()?.currentTeam?.canManageMembers ?? false;
 
-  /// Returns a status dot color based on the repo status string.
-  Color _statusDotColor(String? status) {
-    if (status == null) return const Color(0xFFCBD5E1); // grey — not configured
-    switch (status) {
-      case 'connected':
-      case 'cloned':
-        return const Color(0xFF10B981); // green
-      case 'error':
-      case 'failed':
-        return const Color(0xFFEF4444); // red
-      default:
-        return const Color(0xFFCBD5E1); // grey
-    }
-  }
+  /// Returns a Tailwind className for the status dot based on the repo status string.
+  static String _statusDotClassName(String? status) => switch (status) {
+    'connected' || 'cloned' => 'bg-emerald-500',
+    'error' || 'failed' => 'bg-red-500',
+    _ => 'bg-slate-300',
+  };
 
   // ---------------------------------------------------------------------------
   // Actions
@@ -146,7 +140,6 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
     if (!mounted) return;
     setState(() => _saving = false);
 
-    // Refresh project data after save.
     await ProjectState.instance.fetchProject(teamId, widget.projectId);
   }
 
@@ -229,7 +222,6 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
 
     if (!mounted) return;
 
-    // Refresh project to get the new key.
     await ProjectState.instance.fetchProject(teamId, widget.projectId);
 
     if (!mounted) return;
@@ -268,158 +260,129 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
           );
         }
 
-        return SingleChildScrollView(
-          child: WDiv(
-            className: 'w-full max-w-4xl mx-auto p-4',
-            child: WDiv(
-              className: 'flex flex-col gap-6',
-              children: [
-                _buildHeader(project),
-                _buildInfoSection(project),
-                _buildSshKeySection(project),
-                _buildGitStatusSection(repoStatus),
-                _buildRecentTasksSection(),
-                if (_canManageProject) _buildSettingsSection(project),
-              ],
+        return WDiv(
+          className: 'p-4 lg:p-6 flex flex-col gap-6',
+          children: [
+            // Page header — outside cards.
+            PageHeader(
+              title: project.name ?? 'Unnamed Project',
+              subtitle: project.description,
+              actions: [_buildHeaderBadges(project)],
             ),
-          ),
+
+            // Section cards.
+            _buildInfoSection(project),
+            _buildSshKeySection(project),
+            _buildGitStatusSection(repoStatus),
+            _buildRecentTasksSection(),
+            if (_canManageProject) _buildSettingsSection(project),
+          ],
         );
       },
     );
   }
 
   // ---------------------------------------------------------------------------
-  // 1. Header
+  // Header badges
   // ---------------------------------------------------------------------------
 
-  /// Builds the header section with project name, description, badges.
-  Widget _buildHeader(Project project) {
+  /// Tech stack + execution mode badges shown in the page header trailing.
+  Widget _buildHeaderBadges(Project project) {
     return WDiv(
-      className: '''
-        rounded-2xl bg-white dark:bg-gray-800
-        border border-gray-200 dark:border-gray-700
-        p-6
-      ''',
+      className: 'flex flex-row items-center gap-2',
       children: [
-        WText(
-          project.name ?? 'Unnamed Project',
-          className: '''
-            text-2xl font-bold
-            text-gray-900 dark:text-white
-          ''',
-        ),
-        if (project.description != null &&
-            (project.description as String).isNotEmpty) ...[
-          const WSpacer(className: 'h-2'),
-          WText(
-            project.description!,
-            className: 'text-sm text-slate-500 dark:text-slate-400',
-          ),
-        ],
-        const WSpacer(className: 'h-3'),
-        WDiv(
-          className: 'flex flex-row items-center gap-2',
-          children: [
-            if (project.techStack != null)
-              WDiv(
-                className: '''
-                  px-3 py-1 rounded-full
-                  bg-slate-100 dark:bg-gray-700
-                ''',
-                child: WText(
-                  project.techStack!,
-                  className:
-                      'text-xs font-medium text-slate-700 dark:text-slate-300',
-                ),
-              ),
-            WDiv(
-              className: '''
-                px-3 py-1 rounded-full
-                bg-slate-100 dark:bg-gray-700
-              ''',
-              child: WText(
-                project.executionMode,
-                className:
-                    'text-xs font-medium text-slate-700 dark:text-slate-300',
-              ),
+        if (project.techStack != null)
+          WDiv(
+            className: '''
+              px-3 py-1 rounded-full
+              bg-slate-100 dark:bg-gray-700
+            ''',
+            child: WText(
+              project.techStack!,
+              className:
+                  'text-xs font-medium text-slate-700 dark:text-slate-300',
             ),
-          ],
+          ),
+        WDiv(
+          className: '''
+            px-3 py-1 rounded-full
+            bg-slate-100 dark:bg-gray-700
+          ''',
+          child: WText(
+            project.executionMode,
+            className: 'text-xs font-medium text-slate-700 dark:text-slate-300',
+          ),
         ),
       ],
     );
   }
 
   // ---------------------------------------------------------------------------
-  // 2. Info Section
+  // 1. Info Section
   // ---------------------------------------------------------------------------
 
   /// Builds the info section: repo URL, default branch, created date.
   Widget _buildInfoSection(Project project) {
-    return WDiv(
-      className: '''
-        rounded-2xl bg-white dark:bg-gray-800
-        border border-gray-200 dark:border-gray-700
-        p-6
-      ''',
+    return SectionCard(
+      title: 'Project Info',
       children: [
-        WText(
-          'Project Info',
-          className: 'text-lg font-semibold text-gray-900 dark:text-white',
-        ),
-        const WSpacer(className: 'h-4'),
-        // Repository URL
         WDiv(
-          className: 'flex flex-row items-center gap-2',
+          className: 'flex flex-col gap-4',
           children: [
-            WIcon(
-              Icons.link,
-              className: 'text-sm text-slate-400 dark:text-slate-500',
-            ),
-            Expanded(
-              child: WText(
-                project.repositoryUrl ?? 'No repository configured',
-                className: 'text-sm text-slate-600 dark:text-slate-400',
-              ),
-            ),
-            if (project.repositoryUrl != null)
-              WAnchor(
-                onTap: () => Clipboard.setData(
-                  ClipboardData(text: project.repositoryUrl!),
-                ),
-                child: WIcon(
-                  Icons.copy,
+            // Repository URL.
+            WDiv(
+              className: 'flex flex-row items-center gap-2',
+              children: [
+                WIcon(
+                  Icons.link,
                   className: 'text-sm text-slate-400 dark:text-slate-500',
                 ),
-              ),
-          ],
-        ),
-        const WSpacer(className: 'h-3'),
-        // Default branch
-        WDiv(
-          className: 'flex flex-row items-center gap-2',
-          children: [
-            WIcon(
-              Icons.alt_route,
-              className: 'text-sm text-slate-400 dark:text-slate-500',
+                WDiv(
+                  className: 'flex-1 min-w-0',
+                  child: WText(
+                    project.repositoryUrl ?? 'No repository configured',
+                    className: 'text-sm text-slate-600 dark:text-slate-400',
+                  ),
+                ),
+                if (project.repositoryUrl != null)
+                  WAnchor(
+                    onTap: () => Clipboard.setData(
+                      ClipboardData(text: project.repositoryUrl!),
+                    ),
+                    child: WIcon(
+                      Icons.copy,
+                      className: 'text-sm text-slate-400 dark:text-slate-500',
+                    ),
+                  ),
+              ],
             ),
-            WText(
-              'Branch: ${project.defaultBranch}',
-              className: 'text-sm text-slate-600 dark:text-slate-400',
+            // Default branch.
+            WDiv(
+              className: 'flex flex-row items-center gap-2',
+              children: [
+                WIcon(
+                  Icons.alt_route,
+                  className: 'text-sm text-slate-400 dark:text-slate-500',
+                ),
+                WText(
+                  'Branch: ${project.defaultBranch}',
+                  className: 'text-sm text-slate-600 dark:text-slate-400',
+                ),
+              ],
             ),
-          ],
-        ),
-        const WSpacer(className: 'h-3'),
-        // Created at
-        WDiv(
-          className: 'flex flex-row items-center gap-2',
-          children: [
-            WIcon(
-              Icons.calendar_today,
-              className: 'text-sm text-slate-400 dark:text-slate-500',
-            ),
-            WText(
-              'Created: ${project.createdAt ?? 'Unknown'}',
-              className: 'text-sm text-slate-600 dark:text-slate-400',
+            // Created at.
+            WDiv(
+              className: 'flex flex-row items-center gap-2',
+              children: [
+                WIcon(
+                  Icons.calendar_today,
+                  className: 'text-sm text-slate-400 dark:text-slate-500',
+                ),
+                WText(
+                  'Created: ${project.createdAt ?? 'Unknown'}',
+                  className: 'text-sm text-slate-600 dark:text-slate-400',
+                ),
+              ],
             ),
           ],
         ),
@@ -428,27 +391,17 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   }
 
   // ---------------------------------------------------------------------------
-  // 3. SSH Key Section
+  // 2. SSH Key Section
   // ---------------------------------------------------------------------------
 
   /// Builds the SSH deploy key section with monospace key display.
   Widget _buildSshKeySection(Project project) {
     final publicKey = project.sshPublicKey;
 
-    return WDiv(
-      className: '''
-        rounded-2xl bg-white dark:bg-gray-800
-        border border-gray-200 dark:border-gray-700
-        p-6
-      ''',
+    return SectionCard(
+      title: 'SSH Deploy Key',
       children: [
-        WText(
-          'SSH Deploy Key',
-          className: 'text-lg font-semibold text-gray-900 dark:text-white',
-        ),
-        const WSpacer(className: 'h-4'),
-
-        // Inset card with key
+        // Inset card with key.
         WDiv(
           className: '''
             rounded-xl
@@ -461,13 +414,14 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
               WDiv(
                 className: 'flex flex-row items-start gap-2',
                 children: [
-                  Expanded(
+                  WDiv(
+                    className: 'flex-1 min-w-0',
                     child: SelectableText(
                       publicKey,
                       style: const TextStyle(
                         fontFamily: 'JetBrains Mono',
                         fontSize: 12,
-                        color: Color(0xFF475569), // slate-700
+                        color: Color(0xFF475569),
                       ),
                     ),
                   ),
@@ -491,7 +445,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
         ),
         const WSpacer(className: 'h-4'),
 
-        // Generate button
+        // Generate button.
         WAnchor(
           onTap: _generatingKey ? null : _confirmGenerateKey,
           child: WDiv(
@@ -511,14 +465,14 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
               WText(
                 'Generate New Key',
                 className:
-                    'text-sm font-medium text-gray-700 dark:text-gray-300',
+                    'text-sm font-medium text-slate-600 dark:text-slate-300',
               ),
             ],
           ),
         ),
         const WSpacer(className: 'h-3'),
 
-        // Instructions
+        // Instructions.
         WText(
           'Add this public key as a deploy key in your repository settings to allow Kodizm agents read access.',
           className: 'text-xs text-slate-400 dark:text-slate-500',
@@ -528,40 +482,26 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   }
 
   // ---------------------------------------------------------------------------
-  // 4. Git Status Section
+  // 3. Git Status Section
   // ---------------------------------------------------------------------------
 
   /// Builds the git status section with status indicator dot.
   Widget _buildGitStatusSection(String? repoStatus) {
-    final dotColor = _statusDotColor(repoStatus);
     final statusLabel = repoStatus ?? 'not configured';
 
-    return WDiv(
-      className: '''
-        rounded-2xl bg-white dark:bg-gray-800
-        border border-gray-200 dark:border-gray-700
-        p-6
-      ''',
+    return SectionCard(
+      title: 'Git Status',
       children: [
-        WText(
-          'Git Status',
-          className: 'text-lg font-semibold text-gray-900 dark:text-white',
-        ),
-        const WSpacer(className: 'h-4'),
         WDiv(
           className: 'flex flex-row items-center justify-between',
           children: [
             WDiv(
               className: 'flex flex-row items-center gap-3',
               children: [
-                // Status dot
-                Container(
-                  width: 10,
-                  height: 10,
-                  decoration: BoxDecoration(
-                    color: dotColor,
-                    shape: BoxShape.circle,
-                  ),
+                // Status dot.
+                WDiv(
+                  className:
+                      'w-2.5 h-2.5 rounded-full ${_statusDotClassName(repoStatus)}',
                 ),
                 WText(
                   statusLabel,
@@ -570,7 +510,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                 ),
               ],
             ),
-            // Check Status button
+            // Check Status button.
             WAnchor(
               onTap: _checkingStatus ? null : _checkStatus,
               child: WDiv(
@@ -590,7 +530,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                   WText(
                     'Check Status',
                     className:
-                        'text-sm font-medium text-gray-700 dark:text-gray-300',
+                        'text-sm font-medium text-slate-600 dark:text-slate-300',
                   ),
                 ],
               ),
@@ -602,30 +542,19 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   }
 
   // ---------------------------------------------------------------------------
-  // 5. Recent Tasks Section (placeholder)
+  // 4. Recent Tasks Section (placeholder)
   // ---------------------------------------------------------------------------
 
   /// Builds the recent tasks placeholder section.
   Widget _buildRecentTasksSection() {
-    return WDiv(
-      className: '''
-        rounded-2xl bg-white dark:bg-gray-800
-        border border-gray-200 dark:border-gray-700
-        p-6
-      ''',
+    return SectionCard(
+      title: 'Recent Tasks',
       children: [
-        WText(
-          'Recent Tasks',
-          className: 'text-lg font-semibold text-gray-900 dark:text-white',
-        ),
-        const WSpacer(className: 'h-4'),
         WDiv(
           className: '''
             flex flex-col items-center justify-center
-            py-8
-            rounded-xl
+            py-8 rounded-xl
             bg-slate-50 dark:bg-gray-900
-            border border-slate-200 dark:border-gray-700
           ''',
           children: [
             WIcon(
@@ -644,27 +573,18 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   }
 
   // ---------------------------------------------------------------------------
-  // 6. Settings Section
+  // 5. Settings Section
   // ---------------------------------------------------------------------------
 
   /// Builds the settings section with edit form and delete button.
   Widget _buildSettingsSection(Project project) {
-    return WDiv(
-      className: '''
-        rounded-2xl bg-white dark:bg-gray-800
-        border border-gray-200 dark:border-gray-700
-        p-6
-      ''',
+    return SectionCard(
+      title: 'Settings',
       children: [
-        WText(
-          'Settings',
-          className: 'text-lg font-semibold text-gray-900 dark:text-white',
-        ),
-        const WSpacer(className: 'h-4'),
         Form(
           key: _formKey,
           child: WDiv(
-            className: 'flex flex-col gap-4',
+            className: 'flex flex-col gap-5',
             children: [
               _buildField(
                 label: 'Project Name',
@@ -700,13 +620,13 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                 hint: 'main',
                 controller: _defaultBranchController,
               ),
-              const WSpacer(className: 'h-2'),
+              const WSpacer(className: 'h-1'),
 
-              // Action buttons
+              // Action buttons.
               WDiv(
                 className: 'flex flex-row items-center justify-between',
                 children: [
-                  // Delete button
+                  // Delete button.
                   WAnchor(
                     onTap: _deleting ? null : _confirmDelete,
                     child: WDiv(
@@ -735,7 +655,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                     ),
                   ),
 
-                  // Save button
+                  // Save button.
                   WAnchor(
                     onTap: _saving ? null : _saveChanges,
                     child: WDiv(
@@ -779,7 +699,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   // Field builder
   // ---------------------------------------------------------------------------
 
-  /// Builds a labelled [WFormInput] field.
+  /// Builds a labelled [WFormInput] field with proper label-input spacing.
   Widget _buildField({
     required String label,
     required String hint,
@@ -794,8 +714,8 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
       type: maxLines > 1 ? InputType.multiline : InputType.text,
       label: required ? '$label *' : label,
       labelClassName: '''
-        text-sm font-medium
-        text-gray-700 dark:text-gray-300
+        text-sm font-medium mb-2
+        text-slate-600 dark:text-slate-300
       ''',
       placeholder: hint,
       maxLines: maxLines,
@@ -805,7 +725,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
         p-3 border border-slate-200 dark:border-gray-600
         rounded-lg bg-white dark:bg-gray-900
         text-sm text-slate-800 dark:text-slate-200
-        focus:border-primary focus:ring-2 focus:ring-primary/20
+        focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20
         error:border-red-500 error:ring-2 error:ring-red-200
       ''',
       errorClassName: 'text-red-500 text-xs mt-1',

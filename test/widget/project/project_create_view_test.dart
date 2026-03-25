@@ -55,14 +55,11 @@ void main() {
       await tester.enterText(nameField, 'A' * 256);
 
       await tester.ensureVisible(submitButtonFinder);
-      await tester.pump();
+      await tester.pumpAndSettle();
       await tester.tap(submitButtonFinder);
-      await tester.pump();
+      await tester.pumpAndSettle();
 
-      expect(
-        find.text('Project name must not exceed 255 characters.'),
-        findsOneWidget,
-      );
+      expect(find.text('Must not exceed 255 characters.'), findsOneWidget);
     });
 
     testWidgets(

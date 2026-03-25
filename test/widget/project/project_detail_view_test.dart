@@ -122,7 +122,11 @@ Widget _buildTestWidget({required String projectId}) {
   return WindTheme(
     data: WindThemeData(),
     child: MaterialApp(
-      home: Scaffold(body: ProjectDetailView(projectId: projectId)),
+      home: Scaffold(
+        body: SingleChildScrollView(
+          child: ProjectDetailView(projectId: projectId),
+        ),
+      ),
     ),
   );
 }

@@ -10,6 +10,9 @@ import '../resources/views/task/task_list_view.dart';
 import '../resources/views/task/task_create_view.dart';
 import '../resources/views/task/agent_run_view.dart';
 import '../resources/views/task/task_detail_view.dart';
+import '../resources/views/knowledge/knowledge_list_view.dart';
+import '../resources/views/knowledge/knowledge_detail_view.dart';
+import '../resources/views/nav/project_scoped_nav_view.dart';
 
 /// Application Route Definitions.
 ///
@@ -49,6 +52,27 @@ void registerAppRoutes() {
         '/projects/:projectId/tasks/:taskId/runs/:runId',
         (String projectId, String taskId, String runId) =>
             AgentRunView(projectId: projectId, taskId: taskId, runId: runId),
+      );
+
+      // Top-level nav redirects — check current project and redirect.
+      MagicRoute.page(
+        '/tasks',
+        () => const ProjectScopedNavView(targetPath: 'tasks'),
+      );
+      MagicRoute.page(
+        '/knowledge',
+        () => const ProjectScopedNavView(targetPath: 'knowledge'),
+      );
+
+      // Project-scoped knowledge routes.
+      MagicRoute.page(
+        '/projects/:projectId/knowledge',
+        (String projectId) => KnowledgeListView(projectId: projectId),
+      );
+      MagicRoute.page(
+        '/projects/:projectId/knowledge/:documentId',
+        (String projectId, String documentId) =>
+            KnowledgeDetailView(projectId: projectId, documentId: documentId),
       );
     },
   );

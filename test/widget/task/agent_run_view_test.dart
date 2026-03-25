@@ -251,6 +251,9 @@ void main() {
           statusCode: 200,
         );
       }
+      if (url.contains('/questions')) {
+        return MagicResponse(data: {'data': <dynamic>[]}, statusCode: 200);
+      }
       return MagicResponse(
         data: {
           'data': {
@@ -302,6 +305,9 @@ void main() {
           },
           statusCode: 200,
         );
+      }
+      if (url.contains('/questions')) {
+        return MagicResponse(data: {'data': <dynamic>[]}, statusCode: 200);
       }
       return MagicResponse(
         data: {
@@ -355,6 +361,9 @@ void main() {
           },
           statusCode: 200,
         );
+      }
+      if (url.contains('/questions')) {
+        return MagicResponse(data: {'data': <dynamic>[]}, statusCode: 200);
       }
       return MagicResponse(
         data: {

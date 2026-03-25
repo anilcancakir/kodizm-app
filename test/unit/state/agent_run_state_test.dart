@@ -71,6 +71,28 @@ const Map<String, dynamic> kStreamEventFileChange = {
   'occurred_at': '2025-06-10T08:01:10.000Z',
 };
 
+const Map<String, dynamic> kQuestionPending = {
+  'id': 'question-uuid-001',
+  'task_run_id': 'run-uuid-001',
+  'stream_event_id': null,
+  'question_text': 'Should I continue with the refactor?',
+  'answer_text': null,
+  'answered_by_user_id': null,
+  'answered_at': null,
+  'created_at': '2025-06-10T08:02:00.000Z',
+};
+
+const Map<String, dynamic> kQuestionAnswered = {
+  'id': 'question-uuid-002',
+  'task_run_id': 'run-uuid-001',
+  'stream_event_id': 'evt-uuid-010',
+  'question_text': 'Which database engine?',
+  'answer_text': 'PostgreSQL',
+  'answered_by_user_id': 'user-uuid-001',
+  'answered_at': '2025-06-10T08:03:00.000Z',
+  'created_at': '2025-06-10T08:02:30.000Z',
+};
+
 // ---------------------------------------------------------------------------
 // Fake HTTP client
 // ---------------------------------------------------------------------------
@@ -603,6 +625,176 @@ void main() {
       state.addEvent(wsEvent);
 
       expect(state.events.first.contentText, equals('First part second part'));
+    });
+
+    // -----------------------------------------------------------------------
+    // Question Q&A
+    // -----------------------------------------------------------------------
+
+    group('Question Q&A', () {
+      test('loadQuestions populates questions list', () async {
+        http.alwaysReturn(
+          MagicResponse(
+            data: {
+              'data': [kQuestionPending, kQuestionAnswered],
+            },
+            statusCode: 200,
+          ),
+        );
+
+        await state.loadQuestions(
+          'team-uuid-001',
+          'proj-uuid-001',
+          'task-uuid-001',
+          'run-uuid-001',
+        );
+
+        expect(state.questions.length, equals(2));
+        expect(state.questions[0].id, equals('question-uuid-001'));
+        expect(state.questions[1].id, equals('question-uuid-002'));
+        expect(state.pendingQuestions.length, equals(1));
+      });
+
+      test('loadQuestions sets empty list on error', () async {
+        http.alwaysReturn(
+          MagicResponse(
+            data: {'message': 'Internal Server Error'},
+            statusCode: 500,
+          ),
+        );
+
+        await state.loadQuestions(
+          'team-uuid-001',
+          'proj-uuid-001',
+          'task-uuid-001',
+          'run-uuid-001',
+        );
+
+        expect(state.questions, isEmpty);
+      });
+
+      test('onQuestionEvent appends new question', () {
+        state.onQuestionEvent({
+          'question_id': 'question-uuid-099',
+          'question_text': 'Should I continue?',
+        });
+
+        expect(state.questions.length, equals(1));
+        expect(state.questions.first.id, equals('question-uuid-099'));
+        expect(
+          state.questions.first.questionText,
+          equals('Should I continue?'),
+        );
+      });
+
+      test('onQuestionEvent deduplicates by question_id', () {
+        state.onQuestionEvent({
+          'question_id': 'question-uuid-099',
+          'question_text': 'Should I continue?',
+        });
+        state.onQuestionEvent({
+          'question_id': 'question-uuid-099',
+          'question_text': 'Should I continue?',
+        });
+
+        expect(state.questions.length, equals(1));
+      });
+
+      test('answerQuestion optimistically updates pending question', () async {
+        // Load a pending question first.
+        http.whenAny((url) {
+          if (url.contains('/questions')) {
+            return MagicResponse(
+              data: {
+                'data': [kQuestionPending],
+              },
+              statusCode: 200,
+            );
+          }
+          if (url.contains('/answer')) {
+            return MagicResponse(
+              data: {
+                'data': {'task_run_status': 'running'},
+              },
+              statusCode: 200,
+            );
+          }
+          return MagicResponse(data: {'data': kRunDetail}, statusCode: 200);
+        });
+
+        await state.loadQuestions(
+          'team-uuid-001',
+          'proj-uuid-001',
+          'task-uuid-001',
+          'run-uuid-001',
+        );
+        expect(state.pendingQuestions.length, equals(1));
+
+        final result = await state.answerQuestion(
+          'team-uuid-001',
+          'proj-uuid-001',
+          'task-uuid-001',
+          'run-uuid-001',
+          'Yes, go ahead.',
+        );
+
+        expect(result, isTrue);
+        expect(state.pendingQuestions, isEmpty);
+        expect(state.questions.first.answerText, equals('Yes, go ahead.'));
+        expect(state.questions.first.answeredAt, isNotNull);
+      });
+
+      test('reset clears questions', () async {
+        http.alwaysReturn(
+          MagicResponse(
+            data: {
+              'data': [kQuestionPending],
+            },
+            statusCode: 200,
+          ),
+        );
+
+        await state.loadQuestions(
+          'team-uuid-001',
+          'proj-uuid-001',
+          'task-uuid-001',
+          'run-uuid-001',
+        );
+        expect(state.questions, isNotEmpty);
+
+        state.reset();
+
+        expect(state.questions, isEmpty);
+      });
+
+      test('addEvent with .agent.question calls onQuestionEvent', () async {
+        http.alwaysReturn(
+          MagicResponse(data: {'data': kRunDetail}, statusCode: 200),
+        );
+        await state.loadRunDetail(
+          'team-uuid-001',
+          'proj-uuid-001',
+          'task-uuid-001',
+          'run-uuid-001',
+        );
+
+        final wsEvent = WebSocketEvent(
+          id: 'ws:question:qa1',
+          channel: 'private-task-run.run-uuid-001',
+          eventName: '.agent.question',
+          data: {
+            'question_id': 'question-uuid-ws-001',
+            'question_text': 'What framework?',
+          },
+          receivedAt: DateTime.now(),
+        );
+
+        state.addEvent(wsEvent);
+
+        expect(state.questions.length, equals(1));
+        expect(state.questions.first.id, equals('question-uuid-ws-001'));
+        expect(state.questions.first.questionText, equals('What framework?'));
+      });
     });
   });
 }

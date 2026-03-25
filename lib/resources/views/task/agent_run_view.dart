@@ -11,6 +11,7 @@ import '../../../app/services/websocket_service.dart';
 import '../../../app/state/agent_run_state.dart';
 import '../../widgets/atoms/status_badge.dart';
 import '../../widgets/molecules/section_card.dart';
+import '../../widgets/organisms/question_panel.dart';
 import '../../widgets/organisms/terminal_event_list.dart';
 
 // ---------------------------------------------------------------------------
@@ -64,6 +65,7 @@ class _AgentRunViewState extends State<AgentRunView> {
   int _elapsedSeconds = 0;
   final ScrollController _scrollController = ScrollController();
   bool _autoScroll = true;
+  bool _isAnswering = false;
   String _wsChannel = '';
 
   // -----------------------------------------------------------------------
@@ -85,6 +87,12 @@ class _AgentRunViewState extends State<AgentRunView> {
       widget.runId,
     );
     _state.loadExistingEvents(widget.runId);
+    _state.loadQuestions(
+      _teamId,
+      widget.projectId,
+      widget.taskId,
+      widget.runId,
+    );
 
     // Subscribe to WebSocket — wrapped in try-catch for test safety.
     try {
@@ -211,6 +219,13 @@ class _AgentRunViewState extends State<AgentRunView> {
         else
           _buildMobileBody(runDetail),
 
+        // Q&A panel — appears below terminal when agent asks a question.
+        QuestionPanel(
+          questions: _state.questions,
+          onSubmitAnswer: _handleSubmitAnswer,
+          isSubmitting: _isAnswering,
+        ),
+
         // Footer — cancel button
         if (_isActiveStatus(runDetail.status)) _buildCancelButton(),
       ],
@@ -297,6 +312,7 @@ class _AgentRunViewState extends State<AgentRunView> {
           TerminalEventList(
             events: _state.events,
             scrollController: _scrollController,
+            questions: _state.questions,
           ),
           if (!_autoScroll)
             Positioned(
@@ -494,6 +510,26 @@ class _AgentRunViewState extends State<AgentRunView> {
   // -----------------------------------------------------------------------
   // Helpers
   // -----------------------------------------------------------------------
+
+  /// Submits the user's answer to the current pending question.
+  Future<void> _handleSubmitAnswer(String answerText) async {
+    if (_isAnswering) return;
+    setState(() => _isAnswering = true);
+
+    try {
+      await _state.answerQuestion(
+        _teamId,
+        widget.projectId,
+        widget.taskId,
+        widget.runId,
+        answerText,
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isAnswering = false);
+      }
+    }
+  }
 
   /// Formats elapsed time — uses durationMs for terminal runs, live seconds
   /// for active runs.

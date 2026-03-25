@@ -218,12 +218,35 @@
       }
     }
   },
+  "knowledge": {
+    "title": "Knowledge Base",
+    "subtitle": "Project documents and guidelines",
+    "empty_title": "No Knowledge Documents",
+    "empty_subtitle": "Documents are created by agents during task execution.",
+    "last_updated": "Updated :time",
+    "created_by": "Created by :name",
+    "category_label": "Category",
+    "detail_title": "Document",
+    "back_to_list": "Back to Knowledge",
+    "metadata": "Metadata",
+    "category_architecture": "Architecture",
+    "category_api": "API",
+    "category_guide": "Guide",
+    "category_convention": "Convention",
+    "category_runbook": "Runbook",
+    "category_agent_output": "Agent Output",
+    "category_other": "Other"
+  },
   "nav": {
     "dashboard": "Dashboard",
     "projects": "Projects",
     "profile": "Profile",
     "settings": "Settings",
-    "system": "System"
+    "system": "System",
+    "tasks": "Tasks",
+    "knowledge": "Knowledge",
+    "select_project": "Select a Project",
+    "select_project_subtitle": "Choose a project to view :target"
   },
   "notifications": {
     "empty": "No notifications",
@@ -301,6 +324,18 @@
       "copy_codes": "Copy All Codes",
       "invalid_code": "The provided two-factor authentication code was invalid."
     }
+  },
+  "question": {
+    "panel_title": "Agent Question",
+    "answer_placeholder": "Type your answer...",
+    "send": "Send",
+    "sending": "Sending...",
+    "answered": "Answered",
+    "pending": "Pending",
+    "empty_answer": "Answer cannot be empty",
+    "answer_failed": "Failed to send answer",
+    "answered_by": "Answered by :name",
+    "answer_label": "Your Answer"
   },
   "projects": {
     "active_count": ":count active",

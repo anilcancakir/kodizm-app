@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:magic/magic.dart';
 
-import 'package:app/app/models/stream_event.dart';
-import 'package:app/resources/widgets/atoms/terminal_event_tile.dart';
+import '../../../app/models/agent_question.dart';
+import '../../../app/models/stream_event.dart';
+import '../atoms/terminal_event_tile.dart';
 
 // ---------------------------------------------------------------------------
 // TerminalEventList
@@ -12,7 +13,8 @@ import 'package:app/resources/widgets/atoms/terminal_event_tile.dart';
 /// dark terminal-style container.
 ///
 /// Manages local expansion state for tool_use events via an internal
-/// `Set<String>` of expanded event IDs.
+/// `Set<String>` of expanded event IDs. Threads answer text from [questions]
+/// to matching question events via `event.data['question_id']`.
 ///
 /// ## Usage
 ///
@@ -20,6 +22,7 @@ import 'package:app/resources/widgets/atoms/terminal_event_tile.dart';
 /// TerminalEventList(
 ///   events: taskRunState.events,
 ///   scrollController: _terminalScrollController,
+///   questions: agentRunState.questions,
 /// )
 /// ```
 class TerminalEventList extends StatefulWidget {
@@ -28,6 +31,7 @@ class TerminalEventList extends StatefulWidget {
     super.key,
     required this.events,
     required this.scrollController,
+    this.questions = const [],
   });
 
   /// The ordered list of stream events to display.
@@ -35,6 +39,9 @@ class TerminalEventList extends StatefulWidget {
 
   /// External scroll controller — allows parent to auto-scroll to bottom.
   final ScrollController scrollController;
+
+  /// Questions for the current run — used to thread answer text to question events.
+  final List<AgentQuestion> questions;
 
   @override
   State<TerminalEventList> createState() => _TerminalEventListState();
@@ -58,10 +65,23 @@ class _TerminalEventListState extends State<TerminalEventList> {
         itemBuilder: (context, index) {
           final event = widget.events[index];
 
+          // Match question events to their answers.
+          String? answerText;
+          if (event.type == 'question' || event.isQuestion) {
+            final questionId = event.data['question_id'] as String?;
+            if (questionId != null) {
+              final match = widget.questions
+                  .where((q) => q.id == questionId)
+                  .firstOrNull;
+              answerText = match?.answerText;
+            }
+          }
+
           return TerminalEventTile(
             event: event,
             isExpanded: _expandedToolUseIds.contains(event.id),
             onToggleExpand: _handleToggleExpand,
+            answerText: answerText,
           );
         },
       ),

@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:magic/magic.dart';
 
-import 'package:app/app/models/stream_event.dart';
+import '../../../app/models/stream_event.dart';
 
 // ---------------------------------------------------------------------------
 // TerminalEventTile
@@ -23,6 +23,7 @@ import 'package:app/app/models/stream_event.dart';
 ///   event: streamEvent,
 ///   isExpanded: _expandedIds.contains(streamEvent.id),
 ///   onToggleExpand: (id) => setState(() => _expandedIds.toggle(id)),
+///   answerText: 'Yes, proceed.',
 /// )
 /// ```
 class TerminalEventTile extends StatelessWidget {
@@ -32,6 +33,7 @@ class TerminalEventTile extends StatelessWidget {
     required this.event,
     this.isExpanded = false,
     this.onToggleExpand,
+    this.answerText,
   });
 
   /// The stream event to render.
@@ -42,6 +44,9 @@ class TerminalEventTile extends StatelessWidget {
 
   /// Callback to toggle expansion for a tool_use event.
   final void Function(String eventId)? onToggleExpand;
+
+  /// The answer text for this question event, if answered.
+  final String? answerText;
 
   // -----------------------------------------------------------------------
   // Build
@@ -198,7 +203,7 @@ class TerminalEventTile extends StatelessWidget {
     );
   }
 
-  // Question: amber container with help icon.
+  // Question: amber container with help icon, and optional answer below.
   Widget _buildQuestion() {
     return WDiv(
       className: 'px-4 py-2 bg-amber-500/10 rounded-lg mx-2 my-1',
@@ -213,6 +218,17 @@ class TerminalEventTile extends StatelessWidget {
             ),
           ],
         ),
+        if (answerText != null)
+          WDiv(
+            className: 'flex flex-row items-center gap-2 mt-1',
+            children: [
+              WIcon(Icons.check_circle, className: 'text-sm text-emerald-400'),
+              WText(
+                answerText!,
+                className: 'text-sm text-emerald-300 font-mono',
+              ),
+            ],
+          ),
       ],
     );
   }

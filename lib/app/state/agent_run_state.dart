@@ -1,6 +1,7 @@
 import 'package:magic/magic.dart';
 
 import '../events/websocket_event.dart';
+import '../models/agent_question.dart';
 import '../models/file_change.dart';
 import '../models/stream_event.dart';
 import '../models/task_run_detail.dart';
@@ -117,6 +118,7 @@ class AgentRunState extends MagicController with MagicStateMixin<void> {
   int _turnCount = 0;
   double _currentCost = 0.0;
   List<FileChange> _fileChanges = [];
+  List<AgentQuestion> _questions = [];
 
   // ---------------------------------------------------------------------------
   // Public getters
@@ -136,6 +138,13 @@ class AgentRunState extends MagicController with MagicStateMixin<void> {
 
   /// File changes extracted from streaming events.
   List<FileChange> get fileChanges => List.unmodifiable(_fileChanges);
+
+  /// All questions for the current run.
+  List<AgentQuestion> get questions => List.unmodifiable(_questions);
+
+  /// Questions that have not yet been answered.
+  List<AgentQuestion> get pendingQuestions =>
+      _questions.where((q) => q.answeredAt == null).toList();
 
   // ---------------------------------------------------------------------------
   // loadRunDetail
@@ -259,8 +268,7 @@ class AgentRunState extends MagicController with MagicStateMixin<void> {
       case '.agent.result':
         _handleResultEvent(wsEvent);
       case '.agent.question':
-        // Question events are rendered but have no extra side effects.
-        break;
+        onQuestionEvent(wsEvent.data);
     }
 
     addStreamEvent(streamEvent);
@@ -290,6 +298,113 @@ class AgentRunState extends MagicController with MagicStateMixin<void> {
         FileChange(filePath: event.filePath!, operation: operation),
       ];
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // loadQuestions
+  // ---------------------------------------------------------------------------
+
+  /// Fetch all questions for the current run from the API.
+  ///
+  /// Populates [questions] and [pendingQuestions]. On failure, clears the
+  /// questions list. Calls [refreshUI] after updating.
+  Future<void> loadQuestions(
+    String teamId,
+    String projectId,
+    String taskId,
+    String runId,
+  ) async {
+    final response = await _http.get(
+      '/teams/$teamId/projects/$projectId/tasks/$taskId/runs/$runId/questions',
+    );
+
+    if (response.successful) {
+      final List<dynamic> items =
+          (response.data as Map<String, dynamic>)['data'] as List<dynamic>;
+      _questions = items
+          .map((item) => AgentQuestion.fromMap(item as Map<String, dynamic>))
+          .toList();
+    } else {
+      _questions = [];
+    }
+
+    refreshUI();
+  }
+
+  // ---------------------------------------------------------------------------
+  // onQuestionEvent
+  // ---------------------------------------------------------------------------
+
+  /// Append a question from a live WebSocket event payload.
+  ///
+  /// Expects `data` to contain `question_id` and `question_text`. Silently
+  /// ignores events without a `question_id` or events that duplicate an
+  /// already-known question.
+  void onQuestionEvent(Map<String, dynamic> data) {
+    final questionId = data['question_id'] as String?;
+    if (questionId == null) return;
+
+    // Dedup guard — prevent duplicate if loadQuestions already fetched this.
+    if (_questions.any((q) => q.id == questionId)) return;
+
+    final newQuestion = AgentQuestion(
+      id: questionId,
+      taskRunId: _runDetail?.id ?? '',
+      questionText: data['question_text'] as String? ?? '',
+      createdAt: DateTime.now().toUtc(),
+    );
+
+    _questions = [..._questions, newQuestion];
+    refreshUI();
+  }
+
+  // ---------------------------------------------------------------------------
+  // answerQuestion
+  // ---------------------------------------------------------------------------
+
+  /// Submit an answer to the latest pending question via the API.
+  ///
+  /// On success, applies an optimistic update to the pending question with
+  /// [answerText] and the current timestamp. If the response contains a
+  /// `task_run_status`, the run detail status is also updated.
+  ///
+  /// Returns `true` on success, `false` otherwise.
+  Future<bool> answerQuestion(
+    String teamId,
+    String projectId,
+    String taskId,
+    String runId,
+    String answerText,
+  ) async {
+    final response = await _http.post(
+      '/teams/$teamId/projects/$projectId/tasks/$taskId/runs/$runId/answer',
+      data: {'answer_text': answerText},
+    );
+
+    if (response.successful) {
+      // Optimistic update: mark the latest pending question as answered.
+      final pendingIdx = _questions.lastIndexWhere((q) => q.answeredAt == null);
+      if (pendingIdx != -1) {
+        final updated = _questions[pendingIdx].copyWith(
+          answerText: answerText,
+          answeredAt: DateTime.now().toUtc(),
+        );
+        _questions = List.of(_questions)..[pendingIdx] = updated;
+      }
+
+      // Update run status if present in response.
+      final responseData = response.data as Map<String, dynamic>?;
+      final data = responseData?['data'] as Map<String, dynamic>?;
+      final newStatus = data?['task_run_status'] as String?;
+      if (newStatus != null && _runDetail != null) {
+        _runDetail = _runDetail!.copyWith(status: newStatus);
+      }
+
+      refreshUI();
+      return true;
+    }
+
+    return false;
   }
 
   // ---------------------------------------------------------------------------
@@ -331,6 +446,7 @@ class AgentRunState extends MagicController with MagicStateMixin<void> {
     _turnCount = 0;
     _currentCost = 0.0;
     _fileChanges = [];
+    _questions = [];
     refreshUI();
   }
 

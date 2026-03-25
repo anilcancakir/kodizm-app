@@ -276,6 +276,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
             _buildSshKeySection(project),
             _buildGitStatusSection(repoStatus),
             _buildRecentTasksSection(),
+            _buildKnowledgeSection(),
             if (_canManageProject) _buildSettingsSection(project),
           ],
         );
@@ -629,7 +630,45 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   }
 
   // ---------------------------------------------------------------------------
-  // 5. Settings Section
+  // 5. Knowledge Section
+  // ---------------------------------------------------------------------------
+
+  /// Builds the knowledge base link section.
+  Widget _buildKnowledgeSection() {
+    return SectionCard(
+      title: trans('knowledge.title'),
+      children: [
+        WAnchor(
+          onTap: () => MagicRoute.to('/projects/${widget.projectId}/knowledge'),
+          child: WDiv(
+            className: '''
+              flex flex-row items-center gap-3
+              p-3 rounded-xl
+              bg-white dark:bg-gray-800
+              border border-slate-200 dark:border-slate-700
+            ''',
+            children: [
+              WIcon(
+                Icons.library_books_outlined,
+                className: 'text-base text-slate-400 dark:text-slate-500',
+              ),
+              WDiv(
+                className: 'flex-1',
+                child: WText(
+                  trans('knowledge.subtitle'),
+                  className: 'text-sm text-slate-600 dark:text-slate-400',
+                ),
+              ),
+              WIcon(Icons.chevron_right, className: 'text-base text-slate-400'),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // 6. Settings Section
   // ---------------------------------------------------------------------------
 
   /// Builds the settings section with edit form and delete button.

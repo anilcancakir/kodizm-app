@@ -41,6 +41,16 @@ class AppServiceProvider extends ServiceProvider {
           path: '/projects',
         ),
         MagicStarterNavItem(
+          icon: Icons.task_alt_outlined,
+          labelKey: 'nav.tasks',
+          path: '/tasks',
+        ),
+        MagicStarterNavItem(
+          icon: Icons.library_books_outlined,
+          labelKey: 'nav.knowledge',
+          path: '/knowledge',
+        ),
+        MagicStarterNavItem(
           icon: Icons.settings_outlined,
           labelKey: 'nav.settings',
           path: MagicStarterConfig.profileRoute(),
@@ -56,6 +66,16 @@ class AppServiceProvider extends ServiceProvider {
           icon: Icons.folder_outlined,
           labelKey: 'nav.projects',
           path: '/projects',
+        ),
+        MagicStarterNavItem(
+          icon: Icons.task_alt_outlined,
+          labelKey: 'nav.tasks',
+          path: '/tasks',
+        ),
+        MagicStarterNavItem(
+          icon: Icons.library_books_outlined,
+          labelKey: 'nav.knowledge',
+          path: '/knowledge',
         ),
         MagicStarterNavItem(
           icon: Icons.settings_outlined,

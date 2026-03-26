@@ -101,6 +101,13 @@ class AppServiceProvider extends ServiceProvider {
       MagicRoute.to(MagicStarterConfig.loginRoute());
     });
 
+    // Connect WebSocket on boot so it's ready before any view subscribes.
+    try {
+      await Magic.make<WebSocketService>('websocket').connect();
+    } catch (e) {
+      Log.error('WebSocket: initial connect failed — $e');
+    }
+
     // Magic Starter: Supported locale options for profile settings.
     MagicStarter.useLocaleOptions({'en': 'English'});
 

@@ -66,6 +66,7 @@ class _ConversationChatViewState extends State<ConversationChatView> {
   late ConversationChatState _state;
   String _teamId = '';
   final TextEditingController _inputController = TextEditingController();
+  final TextEditingController _answerController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _autoScroll = true;
   bool _rawEventsExpanded = false;
@@ -98,6 +99,7 @@ class _ConversationChatViewState extends State<ConversationChatView> {
   @override
   void dispose() {
     _inputController.dispose();
+    _answerController.dispose();
     _scrollController.removeListener(_onScrollChanged);
     _scrollController.dispose();
     _state.reset();
@@ -263,6 +265,10 @@ class _ConversationChatViewState extends State<ConversationChatView> {
           _buildDesktopBody(conversation)
         else
           _buildMobileBody(conversation),
+
+        // Question / permission cards (below message list, always visible)
+        if (_state.pendingQuestion != null) _buildQuestionCard(),
+        if (_state.pendingPermission != null) _buildPermissionCard(),
 
         // Input area
         if (conversation.status != 'completed') _buildInputArea(),
@@ -441,6 +447,200 @@ class _ConversationChatViewState extends State<ConversationChatView> {
   }
 
   // -----------------------------------------------------------------------
+  // Question card
+  // -----------------------------------------------------------------------
+
+  Widget _buildQuestionCard() {
+    final question = _state.pendingQuestion!;
+    final questionId = question['questionId'] as String? ?? '';
+    final message = question['message'] as String? ?? '';
+    final header = question['header'] as String?;
+    final options = question['options'] as List<Map<String, dynamic>>?;
+    final isDisabled = _state.isAnswering;
+
+    return WDiv(
+      className: '''
+        p-4 rounded-xl border-2 border-amber-400
+        bg-amber-50 dark:bg-amber-900/10
+      ''',
+      children: [
+        // Header
+        WDiv(
+          className: 'flex flex-row items-center gap-2 mb-3',
+          children: [
+            WIcon(Icons.help_outline, className: 'text-amber-600 text-lg'),
+            WText(
+              trans('conversation_chat.question_title'),
+              className: 'text-sm font-semibold text-amber-700',
+            ),
+          ],
+        ),
+
+        // Optional header text
+        if (header != null)
+          WText(header, className: 'text-base font-medium mb-2'),
+
+        // Question message
+        WText(
+          message,
+          className: 'text-sm text-slate-700 dark:text-slate-300 mb-3',
+        ),
+
+        // Clickable option cards
+        if (options != null)
+          for (final option in options)
+            WAnchor(
+              onTap: isDisabled
+                  ? null
+                  : () => _state.answerQuestion(
+                      questionId,
+                      option['label'] as String? ?? '',
+                    ),
+              child: WDiv(
+                className: '''
+                  p-3 rounded-lg border border-slate-200
+                  hover:border-amber-400 mb-2
+                ''',
+                children: [
+                  WText(
+                    option['label'] as String? ?? '',
+                    className: 'text-sm font-medium',
+                  ),
+                  if (option['description'] != null)
+                    WText(
+                      option['description'] as String,
+                      className: 'text-xs text-slate-500',
+                    ),
+                ],
+              ),
+            ),
+
+        // Free-form fallback input
+        WDiv(
+          className: 'flex flex-row gap-2 mt-2',
+          children: [
+            WDiv(
+              className: 'flex-1',
+              child: WFormInput(
+                controller: _answerController,
+                label: trans('conversation_chat.answer_placeholder'),
+              ),
+            ),
+            WAnchor(
+              onTap: isDisabled
+                  ? null
+                  : () {
+                      final text = _answerController.text.trim();
+                      if (text.isEmpty) return;
+                      _answerController.clear();
+                      _state.answerQuestion(questionId, text);
+                    },
+              child: WDiv(
+                className:
+                    '''
+                  px-4 py-2 rounded-lg
+                  ${isDisabled ? 'bg-slate-300 dark:bg-slate-600' : 'bg-amber-400'}
+                ''',
+                child: WText(
+                  isDisabled
+                      ? trans('conversation_chat.question_submitting')
+                      : trans('conversation_chat.question_submit'),
+                  className: 'text-sm font-medium text-slate-900',
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // -----------------------------------------------------------------------
+  // Permission card
+  // -----------------------------------------------------------------------
+
+  Widget _buildPermissionCard() {
+    final permission = _state.pendingPermission!;
+    final questionId = permission['questionId'] as String? ?? '';
+    final toolName = permission['toolName'] as String? ?? '';
+    final input = permission['input'];
+    final isDisabled = _state.isAnswering;
+
+    return WDiv(
+      className: '''
+        p-4 rounded-xl border-2 border-blue-400
+        bg-blue-50 dark:bg-blue-900/10
+      ''',
+      children: [
+        // Header
+        WDiv(
+          className: 'flex flex-row items-center gap-2 mb-3',
+          children: [
+            WIcon(Icons.shield_outlined, className: 'text-blue-600 text-lg'),
+            WText(
+              trans('conversation_chat.permission_title'),
+              className: 'text-sm font-semibold text-blue-700',
+            ),
+          ],
+        ),
+
+        // Tool name
+        WText(
+          trans('conversation_chat.permission_tool', {'tool': toolName}),
+          className: 'font-mono text-sm',
+        ),
+
+        // Input display
+        if (input != null)
+          WDiv(
+            className: '''
+              bg-slate-100 dark:bg-slate-800
+              p-3 rounded-lg overflow-hidden mt-2
+            ''',
+            child: SelectableText(
+              jsonEncode(input),
+              style: const TextStyle(
+                fontSize: 13,
+                fontFamily: 'JetBrains Mono',
+              ),
+            ),
+          ),
+
+        // Approve / Deny buttons
+        WDiv(
+          className: 'flex flex-row gap-3 mt-3',
+          children: [
+            WAnchor(
+              onTap: isDisabled
+                  ? null
+                  : () => _state.answerQuestion(questionId, 'approve'),
+              child: WDiv(
+                className: 'px-4 py-2 bg-emerald-500 rounded-lg',
+                child: WText(
+                  trans('conversation_chat.permission_approve'),
+                  className: 'text-white text-sm font-medium',
+                ),
+              ),
+            ),
+            WAnchor(
+              onTap: isDisabled
+                  ? null
+                  : () => _state.answerQuestion(questionId, 'deny'),
+              child: WDiv(
+                className: 'px-4 py-2 bg-red-500 rounded-lg',
+                child: WText(
+                  trans('conversation_chat.permission_deny'),
+                  className: 'text-white text-sm font-medium',
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // -----------------------------------------------------------------------
   // Metadata card
   // -----------------------------------------------------------------------
 
@@ -475,6 +675,16 @@ class _ConversationChatViewState extends State<ConversationChatView> {
         // Status
         _InfoRow(label: trans('agent_run.status'), value: conversation.status),
 
+        // Paused badge
+        if (conversation.status == 'paused')
+          WDiv(
+            className: 'px-2 py-1 rounded-lg bg-amber-400/15',
+            child: WText(
+              trans('conversation_chat.status_paused'),
+              className: 'text-xs font-semibold text-amber-500',
+            ),
+          ),
+
         // Agent role
         if (conversation.agentRoleName != null)
           _InfoRow(
@@ -500,13 +710,13 @@ class _ConversationChatViewState extends State<ConversationChatView> {
         // Input tokens
         _InfoRow(
           label: trans('conversation_chat.input_tokens'),
-          value: conversation.totalInputTokens.toString(),
+          value: (conversation.totalInputTokens ?? 0).toString(),
         ),
 
         // Output tokens
         _InfoRow(
           label: trans('conversation_chat.output_tokens'),
-          value: conversation.totalOutputTokens.toString(),
+          value: (conversation.totalOutputTokens ?? 0).toString(),
         ),
 
         // Warm Until

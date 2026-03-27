@@ -19,9 +19,9 @@ class Conversation {
     required this.userId,
     required this.agentRoleId,
     required this.status,
-    required this.totalInputTokens,
-    required this.totalOutputTokens,
-    required this.messagesCount,
+    this.totalInputTokens,
+    this.totalOutputTokens,
+    this.messagesCount,
     required this.createdAt,
     required this.updatedAt,
     this.userName,
@@ -77,14 +77,14 @@ class Conversation {
   /// Parsed from the API string representation.
   final double? totalCostUsd;
 
-  /// Total number of input tokens consumed across all messages.
-  final int totalInputTokens;
+  /// Total number of input tokens consumed across all messages. Null on fresh conversations.
+  final int? totalInputTokens;
 
-  /// Total number of output tokens generated across all messages.
-  final int totalOutputTokens;
+  /// Total number of output tokens generated across all messages. Null on fresh conversations.
+  final int? totalOutputTokens;
 
-  /// Total number of messages in this conversation.
-  final int messagesCount;
+  /// Total number of messages in this conversation. Null on fresh conversations.
+  final int? messagesCount;
 
   /// UTC timestamp of the most recent message activity. Null if no messages yet.
   final DateTime? lastActivityAt;
@@ -125,9 +125,9 @@ class Conversation {
       status: map['status'] as String,
       model: map['model'] as String?,
       totalCostUsd: costString != null ? double.parse(costString) : null,
-      totalInputTokens: map['total_input_tokens'] as int,
-      totalOutputTokens: map['total_output_tokens'] as int,
-      messagesCount: map['messages_count'] as int,
+      totalInputTokens: map['total_input_tokens'] as int?,
+      totalOutputTokens: map['total_output_tokens'] as int?,
+      messagesCount: map['messages_count'] as int?,
       lastActivityAt: map['last_activity_at'] != null
           ? DateTime.parse(map['last_activity_at'] as String)
           : null,

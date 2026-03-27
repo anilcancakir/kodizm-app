@@ -134,6 +134,12 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   String _projectId = '';
   String? _subscribedChannel;
 
+  // Question/permission state
+  Map<String, dynamic>? _pendingQuestion;
+  Map<String, dynamic>? _pendingPermission;
+  List<Map<String, dynamic>>? _pendingOptions;
+  bool _isAnswering = false;
+
   // ---------------------------------------------------------------------------
   // Public getters
   // ---------------------------------------------------------------------------
@@ -155,6 +161,19 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
 
   /// The `warm_until` timestamp from the latest status event.
   String? get warmUntil => _warmUntil;
+
+  /// The pending question awaiting a user answer, or `null`.
+  ///
+  /// Shape: `{questionId, message, header?, options?}`.
+  Map<String, dynamic>? get pendingQuestion => _pendingQuestion;
+
+  /// The pending permission request awaiting approval, or `null`.
+  ///
+  /// Shape: `{questionId, toolName, input}`.
+  Map<String, dynamic>? get pendingPermission => _pendingPermission;
+
+  /// Whether an answer submission is currently in progress.
+  bool get isAnswering => _isAnswering;
 
   // ---------------------------------------------------------------------------
   // createConversation
@@ -285,6 +304,37 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   }
 
   // ---------------------------------------------------------------------------
+  // answerQuestion
+  // ---------------------------------------------------------------------------
+
+  /// Submit an answer to a pending question or permission request.
+  ///
+  /// POSTs to the answer endpoint and clears pending state on success.
+  /// Guards against missing conversation or concurrent answer submissions.
+  Future<void> answerQuestion(String questionId, String answerText) async {
+    if (_conversation == null || _isAnswering) return;
+
+    _isAnswering = true;
+    refreshUI();
+
+    final response = await _http.post(
+      '/teams/$_teamId/projects/$_projectId/conversations/${_conversation!.id}/answer',
+      data: {'question_id': questionId, 'answer_text': answerText},
+    );
+
+    if (response.successful) {
+      _pendingQuestion = null;
+      _pendingPermission = null;
+      _pendingOptions = null;
+    } else {
+      _error = response.errorMessage ?? 'Failed to submit answer';
+    }
+
+    _isAnswering = false;
+    refreshUI();
+  }
+
+  // ---------------------------------------------------------------------------
   // loadMessages
   // ---------------------------------------------------------------------------
 
@@ -332,6 +382,10 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
     _warmUntil = null;
     _teamId = '';
     _projectId = '';
+    _pendingQuestion = null;
+    _pendingPermission = null;
+    _pendingOptions = null;
+    _isAnswering = false;
 
     refreshUI();
   }
@@ -364,9 +418,53 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
     return first['id'] as String;
   }
 
-  /// Handle `.conversation.message` — create a [ConversationMessage] and
-  /// append to [_messages] if content is non-null.
+  /// Handle `.conversation.message` — route by event type.
+  ///
+  /// Detects `tool_use` (AskUserQuestion options), `question` (answerable),
+  /// and `permission` events before falling through to text message handling.
   void _handleMessageEvent(WebSocketEvent wsEvent) {
+    final eventType = wsEvent.data['type'] as String?;
+    final metadata = wsEvent.data['metadata'] as Map<String, dynamic>?;
+    final metaData = metadata?['data'] as Map<String, dynamic>?;
+
+    // -- AskUserQuestion tool_use: store options for later correlation --
+    if (eventType == 'tool_use' && metaData != null) {
+      final toolName = metaData['toolName'] as String?;
+      if (toolName == 'AskUserQuestion') {
+        final input = metaData['input'] as Map<String, dynamic>?;
+        final questions = input?['questions'] as List<dynamic>?;
+        if (questions != null && questions.isNotEmpty) {
+          final first = questions.first as Map<String, dynamic>;
+          _pendingOptions = (first['options'] as List<dynamic>?)
+              ?.map((o) => Map<String, dynamic>.from(o as Map))
+              .toList();
+        }
+        return;
+      }
+    }
+
+    // -- Question event: store pending question with correlated options --
+    if (eventType == 'question' && metaData != null) {
+      _pendingQuestion = {
+        'questionId': metaData['questionId'] as String?,
+        'message': metaData['message'] as String?,
+        'options': _pendingOptions,
+      };
+      _pendingOptions = null;
+      return;
+    }
+
+    // -- Permission event: store pending permission --
+    if (eventType == 'permission' && metaData != null) {
+      _pendingPermission = {
+        'questionId': metaData['questionId'] as String?,
+        'toolName': metaData['toolName'] as String?,
+        'input': metaData['input'],
+      };
+      return;
+    }
+
+    // -- Text messages: append to message list --
     final content = wsEvent.data['content'];
     if (content == null) return;
 

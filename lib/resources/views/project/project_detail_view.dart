@@ -277,6 +277,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
             _buildGitStatusSection(repoStatus),
             _buildRecentTasksSection(),
             _buildKnowledgeSection(),
+            _buildDebugChatSection(),
             if (_canManageProject) _buildSettingsSection(project),
           ],
         );
@@ -668,7 +669,45 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   }
 
   // ---------------------------------------------------------------------------
-  // 6. Settings Section
+  // 6. Debug Chat Section
+  // ---------------------------------------------------------------------------
+
+  /// Builds the debug chat link section for real-time conversation testing.
+  Widget _buildDebugChatSection() {
+    return SectionCard(
+      title: trans('conversation_chat.title'),
+      children: [
+        WAnchor(
+          onTap: () => MagicRoute.to('/projects/${widget.projectId}/chat'),
+          child: WDiv(
+            className: '''
+              flex flex-row items-center gap-3
+              p-3 rounded-xl
+              bg-white dark:bg-gray-800
+              border border-slate-200 dark:border-slate-700
+            ''',
+            children: [
+              WIcon(
+                Icons.chat_outlined,
+                className: 'text-base text-slate-400 dark:text-slate-500',
+              ),
+              WDiv(
+                className: 'flex-1',
+                child: WText(
+                  trans('conversation_chat.title'),
+                  className: 'text-sm text-slate-600 dark:text-slate-400',
+                ),
+              ),
+              WIcon(Icons.chevron_right, className: 'text-base text-slate-400'),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // 7. Settings Section
   // ---------------------------------------------------------------------------
 
   /// Builds the settings section with edit form and delete button.

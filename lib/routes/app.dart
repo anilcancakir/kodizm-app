@@ -16,6 +16,7 @@ import '../resources/views/billing/billing_view.dart';
 import '../resources/views/billing/usage_history_view.dart';
 import '../resources/views/settings/ai_token_list_view.dart';
 import '../resources/views/settings/app_settings_view.dart';
+import '../resources/views/conversation/conversation_chat_view.dart';
 import '../resources/views/nav/project_scoped_nav_view.dart';
 
 /// Application Route Definitions.
@@ -56,6 +57,10 @@ void registerAppRoutes() {
         '/projects/:projectId/tasks/:taskId/runs/:runId',
         (String projectId, String taskId, String runId) =>
             AgentRunView(projectId: projectId, taskId: taskId, runId: runId),
+      );
+      MagicRoute.page(
+        '/projects/:projectId/chat',
+        (String projectId) => ConversationChatView(projectId: projectId),
       );
 
       // Top-level nav redirects — check current project and redirect.

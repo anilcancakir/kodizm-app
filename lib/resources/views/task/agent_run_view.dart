@@ -13,7 +13,7 @@ import '../../../app/services/websocket_service.dart';
 import '../../../app/state/agent_run_state.dart';
 import '../../widgets/atoms/status_badge.dart';
 import '../../widgets/molecules/model_cost_breakdown.dart';
-import '../../widgets/molecules/section_card.dart';
+import 'package:magic_starter/magic_starter.dart';
 import '../../widgets/organisms/question_panel.dart';
 import '../../widgets/organisms/terminal_event_list.dart';
 
@@ -401,79 +401,84 @@ class _AgentRunViewState extends State<AgentRunView> {
   // -----------------------------------------------------------------------
 
   Widget _buildRunInfoCard(TaskRunDetail runDetail) {
-    return SectionCard(
+    return MagicStarterCard(
       title: trans('agent_run.run_info'),
-      children: [
-        // Agent
-        _InfoRow(
-          label: trans('agent_run.agent_role'),
-          value: runDetail.agentRoleName ?? trans('common.unknown'),
-        ),
+      child: WDiv(
+        className: 'flex flex-col gap-4',
+        children: [
+          // Agent
+          _InfoRow(
+            label: trans('agent_run.agent_role'),
+            value: runDetail.agentRoleName ?? trans('common.unknown'),
+          ),
 
-        // Model
-        _InfoRow(
-          label: trans('agent_run.model'),
-          value: runDetail.model ?? trans('common.unknown'),
-        ),
+          // Model
+          _InfoRow(
+            label: trans('agent_run.model'),
+            value: runDetail.model ?? trans('common.unknown'),
+          ),
 
-        // Status
-        WDiv(
-          className: 'flex flex-col gap-0.5',
-          children: [
-            WText(
-              trans('agent_run.status'),
-              className:
-                  'text-xs font-semibold text-slate-500 dark:text-slate-400',
-            ),
-            StatusBadge(status: runDetail.status),
-          ],
-        ),
-
-        // Elapsed
-        _InfoRow(
-          label: trans('agent_run.elapsed_time'),
-          value: _formatElapsed(runDetail),
-        ),
-
-        // Cost
-        _InfoRow(
-          label: trans('agent_run.cost'),
-          value: trans('agent_run.cost_format', {
-            'amount': _state.currentCost.toStringAsFixed(2),
-          }),
-        ),
-
-        // Turns
-        _InfoRow(
-          label: trans('agent_run.turns'),
-          value: _state.turnCount.toString(),
-        ),
-
-        // Session ID
-        if (runDetail.sessionId != null)
+          // Status
           WDiv(
             className: 'flex flex-col gap-0.5',
             children: [
               WText(
-                trans('agent_run.session_id'),
+                trans('agent_run.status'),
                 className:
                     'text-xs font-semibold text-slate-500 dark:text-slate-400',
               ),
-              WAnchor(
-                onTap: () {
-                  Clipboard.setData(ClipboardData(text: runDetail.sessionId!));
-                },
-                child: WText(
-                  runDetail.sessionId!,
-                  className: '''
+              StatusBadge(status: runDetail.status),
+            ],
+          ),
+
+          // Elapsed
+          _InfoRow(
+            label: trans('agent_run.elapsed_time'),
+            value: _formatElapsed(runDetail),
+          ),
+
+          // Cost
+          _InfoRow(
+            label: trans('agent_run.cost'),
+            value: trans('agent_run.cost_format', {
+              'amount': _state.currentCost.toStringAsFixed(2),
+            }),
+          ),
+
+          // Turns
+          _InfoRow(
+            label: trans('agent_run.turns'),
+            value: _state.turnCount.toString(),
+          ),
+
+          // Session ID
+          if (runDetail.sessionId != null)
+            WDiv(
+              className: 'flex flex-col gap-0.5',
+              children: [
+                WText(
+                  trans('agent_run.session_id'),
+                  className:
+                      'text-xs font-semibold text-slate-500 dark:text-slate-400',
+                ),
+                WAnchor(
+                  onTap: () {
+                    Clipboard.setData(
+                      ClipboardData(text: runDetail.sessionId!),
+                    );
+                  },
+                  child: WText(
+                    runDetail.sessionId!,
+                    className: '''
                     text-sm text-gray-800 dark:text-gray-200
                     underline decoration-dotted
                   ''',
+                  ),
                 ),
-              ),
-            ],
-          ),
-      ],
+              ],
+            ),
+        ],
+      ),
     );
   }
 
@@ -482,42 +487,45 @@ class _AgentRunViewState extends State<AgentRunView> {
   // -----------------------------------------------------------------------
 
   Widget _buildSessionInfoCard(Session session) {
-    return SectionCard(
+    return MagicStarterCard(
       title: trans('agent_run.cost_breakdown'),
-      children: [
-        // Phase badge
-        WDiv(
-          className: 'flex flex-col gap-0.5',
-          children: [
-            WText(
-              trans('agent_run.session_phase'),
-              className:
-                  'text-xs font-semibold text-slate-500 dark:text-slate-400',
-            ),
-            WDiv(
-              className:
-                  'self-start px-2 py-0.5 rounded-full ${_phaseBadgeClassName(session.phase)}',
-              child: WText(
-                trans('sessions.phase_${session.phase}'),
-                className: 'text-xs font-medium',
+      child: WDiv(
+        className: 'flex flex-col gap-4',
+        children: [
+          // Phase badge
+          WDiv(
+            className: 'flex flex-col gap-0.5',
+            children: [
+              WText(
+                trans('agent_run.session_phase'),
+                className:
+                    'text-xs font-semibold text-slate-500 dark:text-slate-400',
               ),
-            ),
-          ],
-        ),
-
-        // Warm until
-        if (session.warmUntil != null)
-          _InfoRow(
-            label: trans('sessions.warm_until', {
-              'time': _formatWarmUntil(session.warmUntil!),
-            }),
-            value: '',
+              WDiv(
+                className:
+                    'self-start px-2 py-0.5 rounded-full ${_phaseBadgeClassName(session.phase)}',
+                child: WText(
+                  trans('sessions.phase_${session.phase}'),
+                  className: 'text-xs font-medium',
+                ),
+              ),
+            ],
           ),
 
-        // Model cost breakdown — rendered only when records exist.
-        if (session.usageRecords.isNotEmpty)
-          ModelCostBreakdown(usageRecords: session.usageRecords),
-      ],
+          // Warm until
+          if (session.warmUntil != null)
+            _InfoRow(
+              label: trans('sessions.warm_until', {
+                'time': _formatWarmUntil(session.warmUntil!),
+              }),
+              value: '',
+            ),
+
+          // Model cost breakdown — rendered only when records exist.
+          if (session.usageRecords.isNotEmpty)
+            ModelCostBreakdown(usageRecords: session.usageRecords),
+        ],
+      ),
     );
   }
 
@@ -547,40 +555,43 @@ class _AgentRunViewState extends State<AgentRunView> {
   Widget _buildFileChangesCard() {
     final changes = _sortedFileChanges();
 
-    return SectionCard(
+    return MagicStarterCard(
       title: trans('agent_run.file_changes_count', {
         'count': _state.fileChanges.length.toString(),
       }),
-      children: [
-        if (changes.isEmpty)
-          WText(
-            trans('agent_run.no_events'),
-            className: 'text-sm text-slate-400 dark:text-slate-500',
-          )
-        else
-          for (final change in changes)
-            WDiv(
-              className: 'flex flex-row items-center gap-2',
-              children: [
-                WDiv(
-                  className:
-                      'px-1.5 py-0.5 rounded ${_operationBadgeClassName(change.operation)}',
-                  child: WText(
-                    change.operation,
-                    className: 'text-[11px] font-bold font-mono',
-                  ),
-                ),
-                WDiv(
-                  className: 'flex-1',
-                  child: WText(
-                    change.filePath,
+      child: WDiv(
+        className: 'flex flex-col gap-4',
+        children: [
+          if (changes.isEmpty)
+            WText(
+              trans('agent_run.no_events'),
+              className: 'text-sm text-slate-400 dark:text-slate-500',
+            )
+          else
+            for (final change in changes)
+              WDiv(
+                className: 'flex flex-row items-center gap-2',
+                children: [
+                  WDiv(
                     className:
-                        'text-sm text-gray-800 dark:text-gray-200 font-mono',
+                        'px-1.5 py-0.5 rounded ${_operationBadgeClassName(change.operation)}',
+                    child: WText(
+                      change.operation,
+                      className: 'text-[11px] font-bold font-mono',
+                    ),
                   ),
-                ),
-              ],
-            ),
-      ],
+                  WDiv(
+                    className: 'flex-1',
+                    child: WText(
+                      change.filePath,
+                      className:
+                          'text-sm text-gray-800 dark:text-gray-200 font-mono',
+                    ),
+                  ),
+                ],
+              ),
+        ],
+      ),
     );
   }
 

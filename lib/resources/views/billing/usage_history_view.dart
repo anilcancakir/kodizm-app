@@ -4,8 +4,7 @@ import 'package:magic/magic.dart';
 import '../../../app/models/usage_record.dart';
 import '../../../app/models/user.dart';
 import '../../../app/state/usage_state.dart';
-import '../../widgets/molecules/page_header.dart';
-import '../../widgets/molecules/section_card.dart';
+import 'package:magic_starter/magic_starter.dart';
 
 /// Usage history view — paginated list of AI token usage records.
 ///
@@ -146,18 +145,21 @@ class _UsageContent extends StatelessWidget {
     return WDiv(
       className: 'p-4 lg:p-6 flex flex-col gap-6',
       children: [
-        PageHeader(
+        MagicStarterPageHeader(
           title: trans('usage.title'),
           subtitle: trans('usage.subtitle'),
         ),
         _SummaryRow(state: state),
-        SectionCard(
+        MagicStarterCard(
           title: trans('usage.record_date'),
           noPadding: true,
-          children: [
-            ...records.map((record) => _RecordRow(record: record)),
-            if (state.hasMore) _LoadMoreButton(state: state),
-          ],
+          child: WDiv(
+            className: 'flex flex-col',
+            children: [
+              ...records.map((record) => _RecordRow(record: record)),
+              if (state.hasMore) _LoadMoreButton(state: state),
+            ],
+          ),
         ),
       ],
     );

@@ -234,6 +234,32 @@ class ProjectState extends MagicController with MagicStateMixin<List<Project>> {
   }
 
   // ---------------------------------------------------------------------------
+  // SSH key
+  // ---------------------------------------------------------------------------
+
+  /// Regenerate the SSH deploy key for the given project.
+  ///
+  /// POSTs to `/teams/[teamId]/projects/[projectId]/ssh-key` and returns the
+  /// new public key string on success, or `null` on failure. On success,
+  /// [fetchProject] is called to refresh the project data.
+  Future<String?> regenerateSshKey(String teamId, String projectId) async {
+    final response = await _http.post(
+      '/teams/$teamId/projects/$projectId/ssh-key',
+    );
+
+    if (response.successful) {
+      final Map<String, dynamic> data =
+          (response.data as Map<String, dynamic>)['data']
+              as Map<String, dynamic>;
+      final key = data['ssh_public_key'] as String?;
+      await fetchProject(teamId, projectId);
+      return key;
+    }
+
+    return null;
+  }
+
+  // ---------------------------------------------------------------------------
   // Sorting
   // ---------------------------------------------------------------------------
 

@@ -9,8 +9,7 @@ import 'package:app/app/events/websocket_event.dart';
 import 'package:app/app/state/session_state.dart';
 import 'package:app/resources/views/session/session_detail_view.dart';
 import 'package:app/resources/widgets/molecules/model_cost_breakdown.dart';
-import 'package:app/resources/widgets/molecules/page_header.dart';
-import 'package:app/resources/widgets/molecules/section_card.dart';
+import 'package:magic_starter/magic_starter.dart';
 import 'package:app/resources/widgets/organisms/terminal_event_list.dart';
 
 // ---------------------------------------------------------------------------
@@ -321,13 +320,15 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // 2. Renders PageHeader with session detail title
+  // 2. Renders MagicStarterPageHeader with session detail title
   // -------------------------------------------------------------------------
 
-  testWidgets('renders PageHeader with detail title', (tester) async {
+  testWidgets('renders MagicStarterPageHeader with detail title', (
+    tester,
+  ) async {
     await _pumpView(tester);
 
-    expect(find.byType(PageHeader), findsOneWidget);
+    expect(find.byType(MagicStarterPageHeader), findsOneWidget);
     // trans('sessions.detail_title') = 'Session Detail'
     expect(find.text('Session Detail'), findsOneWidget);
   });
@@ -356,10 +357,10 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // 5. Renders events SectionCard
+  // 5. Renders events MagicStarterCard
   // -------------------------------------------------------------------------
 
-  testWidgets('renders events SectionCard with title', (tester) async {
+  testWidgets('renders events MagicStarterCard with title', (tester) async {
     await _pumpView(tester);
 
     // trans('sessions.events') = 'Events'
@@ -377,7 +378,7 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // 7. Renders cost breakdown SectionCard
+  // 7. Renders cost breakdown MagicStarterCard
   // -------------------------------------------------------------------------
 
   testWidgets('renders cost breakdown section', (tester) async {
@@ -400,7 +401,7 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // 9. Renders usage records SectionCard
+  // 9. Renders usage records MagicStarterCard
   // -------------------------------------------------------------------------
 
   testWidgets('renders usage records section', (tester) async {
@@ -436,7 +437,7 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // 12. Renders shares SectionCard
+  // 12. Renders shares MagicStarterCard
   // -------------------------------------------------------------------------
 
   testWidgets('renders shares section', (tester) async {
@@ -524,8 +525,8 @@ void main() {
   testWidgets('desktop layout uses side-by-side flex-row', (tester) async {
     await _pumpView(tester);
 
-    // Multiple SectionCards: events, cost breakdown, usage records, shares
-    expect(find.byType(SectionCard), findsAtLeast(3));
+    // Multiple MagicStarterCards: events, cost breakdown, usage records, shares
+    expect(find.byType(MagicStarterCard), findsAtLeast(3));
   });
 
   // -------------------------------------------------------------------------
@@ -536,8 +537,8 @@ void main() {
     await _pumpMobileView(tester);
 
     // Still renders all sections
-    expect(find.byType(SectionCard), findsAtLeast(3));
-    expect(find.byType(PageHeader), findsOneWidget);
+    expect(find.byType(MagicStarterCard), findsAtLeast(3));
+    expect(find.byType(MagicStarterPageHeader), findsOneWidget);
   });
 
   // -------------------------------------------------------------------------

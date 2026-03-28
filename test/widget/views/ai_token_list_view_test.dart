@@ -7,7 +7,7 @@ import 'package:magic/magic.dart';
 
 import 'package:app/app/state/ai_token_state.dart';
 import 'package:app/resources/views/settings/ai_token_list_view.dart';
-import 'package:app/resources/widgets/molecules/page_header.dart';
+import 'package:magic_starter/magic_starter.dart';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -220,10 +220,10 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // 4. Renders PageHeader with title
+  // 4. Renders MagicStarterPageHeader with title
   // -------------------------------------------------------------------------
 
-  testWidgets('renders PageHeader with title', (tester) async {
+  testWidgets('renders MagicStarterPageHeader with title', (tester) async {
     http.alwaysReturn(
       MagicResponse(data: {'data': <dynamic>[]}, statusCode: 200),
     );
@@ -233,8 +233,8 @@ void main() {
 
     await _pumpView(tester);
 
-    expect(find.byType(PageHeader), findsOneWidget);
-    // trans('ai_tokens.title') = 'AI Tokens' — PageHeader title text
+    expect(find.byType(MagicStarterPageHeader), findsOneWidget);
+    // trans('ai_tokens.title') = 'AI Tokens' — MagicStarterPageHeader title text
     expect(find.text('AI Tokens'), findsOneWidget);
   });
 

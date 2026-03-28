@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
 
+import 'package:app/app/events/websocket_event.dart';
 import 'package:app/app/models/user.dart';
 import 'package:app/app/state/project_repository_state.dart';
 import 'package:app/app/state/project_state.dart';
@@ -19,17 +20,49 @@ const Map<String, dynamic> kProject = {
   'id': 'proj-uuid-001',
   'team_id': 'team-uuid-001',
   'name': 'Alpha',
+  'short_name': 'ALP',
   'slug': 'alpha',
   'description': 'First project description.',
   'repository_url': 'git@github.com:acme/alpha.git',
   'default_branch': 'main',
   'tech_stack': 'Flutter, Dart',
   'ssh_public_key': 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFakeKey',
+  'has_ssh_key': true,
   'execution_mode': 'manual',
   'created_at': '2024-01-15T10:30:00.000Z',
   'updated_at': '2024-06-20T14:00:00.000Z',
   'task_count': 10,
   'active_run_count': 1,
+};
+
+/// Repo fixtures no longer carry ssh_public_key or has_ssh_key — those
+/// fields were moved to the project level in Step 5 of the SSH key refactor.
+const Map<String, dynamic> kRepoApiRepo = {
+  'id': 'repo-uuid-001',
+  'project_id': 'proj-uuid-001',
+  'name': 'API Repo',
+  'repository_url': 'git@github.com:acme/api.git',
+  'default_branch': 'main',
+  'repo_status': 'cloned',
+  'repo_error': null,
+  'last_synced_at': null,
+  'mount_path': '/workspace',
+  'created_at': null,
+  'updated_at': null,
+};
+
+const Map<String, dynamic> kRepoFrontendRepo = {
+  'id': 'repo-uuid-002',
+  'project_id': 'proj-uuid-001',
+  'name': 'Frontend Repo',
+  'repository_url': null,
+  'default_branch': 'develop',
+  'repo_status': null,
+  'repo_error': null,
+  'last_synced_at': null,
+  'mount_path': '/frontend',
+  'created_at': null,
+  'updated_at': null,
 };
 
 // ---------------------------------------------------------------------------
@@ -142,13 +175,36 @@ class _FakeTaskHttpClient implements TaskHttpClient {
 // ---------------------------------------------------------------------------
 
 class _FakeRepoHttpClient implements ProjectRepositoryHttpClient {
-  MagicResponse _response = MagicResponse(
+  MagicResponse _getResponse = MagicResponse(
     data: {'data': <dynamic>[]},
     statusCode: 200,
   );
+  MagicResponse _mutationResponse = MagicResponse(
+    data: {'data': <dynamic>{}},
+    statusCode: 200,
+  );
+
+  /// Response returned for `/repo/status` GET calls.
+  MagicResponse _statusResponse = MagicResponse(
+    data: {
+      'data': <String, dynamic>{'status': 'cloned'},
+    },
+    statusCode: 200,
+  );
+
+  final List<_HttpCall> calls = [];
 
   void alwaysReturn(MagicResponse response) {
-    _response = response;
+    _getResponse = response;
+  }
+
+  void alwaysReturnOnMutation(MagicResponse response) {
+    _mutationResponse = response;
+  }
+
+  /// Override the response returned for status-poll requests.
+  void alwaysReturnOnStatus(MagicResponse response) {
+    _statusResponse = response;
   }
 
   @override
@@ -156,27 +212,60 @@ class _FakeRepoHttpClient implements ProjectRepositoryHttpClient {
     String url, {
     Map<String, dynamic>? query,
     Map<String, String>? headers,
-  }) async => _response;
+  }) async {
+    calls.add(_HttpCall('GET', url));
+    // Route status-poll calls to a dedicated response.
+    if (url.endsWith('/repo/status')) return _statusResponse;
+    return _getResponse;
+  }
 
   @override
   Future<MagicResponse> post(
     String url, {
     dynamic data,
     Map<String, String>? headers,
-  }) async => _response;
+  }) async {
+    calls.add(_HttpCall('POST', url, data: data));
+    return _mutationResponse;
+  }
 
   @override
   Future<MagicResponse> put(
     String url, {
     dynamic data,
     Map<String, String>? headers,
-  }) async => _response;
+  }) async {
+    calls.add(_HttpCall('PUT', url, data: data));
+    return _mutationResponse;
+  }
 
   @override
   Future<MagicResponse> delete(
     String url, {
     Map<String, String>? headers,
-  }) async => _response;
+  }) async {
+    calls.add(_HttpCall('DELETE', url));
+    return _mutationResponse;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Fake RepoWebSocket
+// ---------------------------------------------------------------------------
+
+class _FakeRepoWebSocket implements RepoWebSocket {
+  final List<String> subscribedChannels = [];
+  final List<String> unsubscribedChannels = [];
+
+  @override
+  void subscribe(String channel, void Function(WebSocketEvent) onEvent) {
+    subscribedChannels.add(channel);
+  }
+
+  @override
+  void unsubscribe(String channel) {
+    unsubscribedChannels.add(channel);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -245,16 +334,26 @@ Widget _buildTestWidget({required String projectId}) {
 
 /// Pumps [ProjectDetailView] with a wide viewport (1440x900) to prevent
 /// Wind UI flex-row overflow in tests.
+///
+/// Use [settle] = `false` when the widget contains an infinitely animating
+/// [CircularProgressIndicator] (cloning status) to avoid pumpAndSettle timeout.
 Future<void> _pumpTestWidget(
   WidgetTester tester, {
   required String projectId,
+  bool settle = true,
 }) async {
   tester.view.physicalSize = const Size(1440, 900);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(() => tester.view.reset());
 
   await tester.pumpWidget(_buildTestWidget(projectId: projectId));
-  await tester.pumpAndSettle();
+  if (settle) {
+    await tester.pumpAndSettle();
+  } else {
+    // Pump a few frames to let the widget build without waiting for animations.
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -279,7 +378,10 @@ void main() {
     state = ProjectState(httpClient: http);
     taskState = TaskState(httpClient: _FakeTaskHttpClient());
     repoHttp = _FakeRepoHttpClient();
-    repoState = ProjectRepositoryState(httpClient: repoHttp);
+    repoState = ProjectRepositoryState(
+      httpClient: repoHttp,
+      ws: _FakeRepoWebSocket(),
+    );
 
     // Pre-register fake states so .instance returns them.
     Magic.put<ProjectState>(state);
@@ -486,50 +588,114 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // 9. Repositories section — renders repo cards
+  // 9. Repositories section — renders repo cards without SSH key buttons
   // -------------------------------------------------------------------------
 
-  testWidgets('renders repository cards when repositories are loaded', (
+  testWidgets(
+    'renders repository cards and repo cards do NOT show SSH key buttons',
+    (tester) async {
+      _configureResponder(http);
+      await _preloadState(state);
+
+      // Pre-load two repositories — fixtures no longer carry SSH fields.
+      repoHttp.alwaysReturn(
+        MagicResponse(
+          data: {
+            'data': [kRepoApiRepo, kRepoFrontendRepo],
+          },
+          statusCode: 200,
+        ),
+      );
+      await repoState.fetchRepositories('team-uuid-001', 'proj-uuid-001');
+
+      await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
+
+      // Both repo names should appear.
+      expect(find.text('API Repo'), findsOneWidget);
+      expect(find.text('Frontend Repo'), findsOneWidget);
+
+      // Branch badges.
+      expect(find.text('main'), findsOneWidget);
+      expect(find.text('develop'), findsOneWidget);
+
+      // Mount paths.
+      expect(find.text('/workspace'), findsOneWidget);
+      expect(find.text('/frontend'), findsOneWidget);
+
+      // Clone button: kRepoApiRepo is 'cloned' (hidden), kRepoFrontendRepo is
+      // null status (shown) — so only one clone button is present.
+      expect(find.text(trans('projects.clone_repo')), findsOneWidget);
+      // Delete buttons are always present for both repos.
+      expect(find.text(trans('projects.delete_repo')), findsNWidgets(2));
+
+      // SSH key buttons are NO LONGER rendered per-repo — they moved to project level.
+      expect(find.text(trans('projects.ssh_deploy_key')), findsNothing);
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // 10. Project-level SSH key section is rendered
+  // -------------------------------------------------------------------------
+
+  testWidgets('renders project-level SSH public key', (tester) async {
+    _configureResponder(http);
+    await _preloadState(state);
+
+    await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
+
+    // The project's SSH public key value should be visible somewhere on the page.
+    expect(
+      find.text('ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFakeKey'),
+      findsOneWidget,
+    );
+  });
+
+  // -------------------------------------------------------------------------
+  // 11. Project-level "Regenerate SSH Key" button is rendered
+  // -------------------------------------------------------------------------
+
+  testWidgets('renders Regenerate SSH Key button at project level', (
     tester,
   ) async {
     _configureResponder(http);
     await _preloadState(state);
 
-    // Pre-load two repositories into repoState.
+    await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
+
+    expect(find.text(trans('projects.regenerate_ssh_key')), findsOneWidget);
+  });
+
+  // -------------------------------------------------------------------------
+  // 12. Project short_name is shown in the header area
+  // -------------------------------------------------------------------------
+
+  testWidgets('renders project short_name in header area', (tester) async {
+    _configureResponder(http);
+    await _preloadState(state);
+
+    await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
+
+    // The short_name "ALP" from kProject fixture should be visible in the header.
+    expect(find.text('ALP'), findsAtLeastNWidgets(1));
+  });
+
+  // -------------------------------------------------------------------------
+  // 13. Main repo card shows filled star; non-main shows outline star
+  // -------------------------------------------------------------------------
+
+  testWidgets('main repo card shows filled star; non-main shows outline star', (
+    tester,
+  ) async {
+    _configureResponder(http);
+    await _preloadState(state);
+
+    // API Repo is the main repo; Frontend Repo is not.
     repoHttp.alwaysReturn(
       MagicResponse(
         data: {
           'data': [
-            {
-              'id': 'repo-uuid-001',
-              'project_id': 'proj-uuid-001',
-              'name': 'API Repo',
-              'repository_url': 'git@github.com:acme/api.git',
-              'default_branch': 'main',
-              'ssh_public_key': null,
-              'repo_status': 'cloned',
-              'repo_error': null,
-              'last_synced_at': null,
-              'mount_path': '/workspace',
-              'has_ssh_key': false,
-              'created_at': null,
-              'updated_at': null,
-            },
-            {
-              'id': 'repo-uuid-002',
-              'project_id': 'proj-uuid-001',
-              'name': 'Frontend Repo',
-              'repository_url': null,
-              'default_branch': 'develop',
-              'ssh_public_key': null,
-              'repo_status': null,
-              'repo_error': null,
-              'last_synced_at': null,
-              'mount_path': '/frontend',
-              'has_ssh_key': false,
-              'created_at': null,
-              'updated_at': null,
-            },
+            {...kRepoApiRepo, 'is_main': true},
+            {...kRepoFrontendRepo, 'is_main': false},
           ],
         },
         statusCode: 200,
@@ -539,21 +705,249 @@ void main() {
 
     await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
 
-    // Both repo names should appear.
-    expect(find.text('API Repo'), findsOneWidget);
-    expect(find.text('Frontend Repo'), findsOneWidget);
+    // Filled star for main repo.
+    expect(find.byIcon(Icons.star), findsOneWidget);
+    // Outline star for non-main repo.
+    expect(find.byIcon(Icons.star_outline), findsOneWidget);
+  });
 
-    // Branch badges.
-    expect(find.text('main'), findsOneWidget);
-    expect(find.text('develop'), findsOneWidget);
+  // -------------------------------------------------------------------------
+  // 14. Tapping outline star calls setMainRepository
+  // -------------------------------------------------------------------------
 
-    // Mount paths.
-    expect(find.text('/workspace'), findsOneWidget);
-    expect(find.text('/frontend'), findsOneWidget);
+  testWidgets(
+    'tapping outline star on non-main repo triggers setMainRepository',
+    (tester) async {
+      _configureResponder(http);
+      await _preloadState(state);
 
-    // Per-repo action buttons — SSH key toggle, clone, delete.
-    expect(find.text(trans('projects.ssh_deploy_key')), findsNWidgets(2));
-    expect(find.text(trans('projects.clone_repo')), findsNWidgets(2));
-    expect(find.text(trans('projects.delete_repo')), findsNWidgets(2));
+      // Only Frontend Repo is non-main; API Repo is main.
+      repoHttp.alwaysReturn(
+        MagicResponse(
+          data: {
+            'data': [
+              {...kRepoApiRepo, 'is_main': true},
+              {...kRepoFrontendRepo, 'is_main': false},
+            ],
+          },
+          statusCode: 200,
+        ),
+      );
+      // PUT (updateRepository) returns a single updated repo map.
+      repoHttp.alwaysReturnOnMutation(
+        MagicResponse(
+          data: {
+            'data': {...kRepoFrontendRepo, 'is_main': true},
+          },
+          statusCode: 200,
+        ),
+      );
+      await repoState.fetchRepositories('team-uuid-001', 'proj-uuid-001');
+
+      await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
+
+      // Tap the outline star (non-main repo).
+      await tester.tap(find.byIcon(Icons.star_outline));
+      await tester.pumpAndSettle();
+
+      // A PUT call should have been made to set is_main.
+      final putCall = repoHttp.calls.where((c) => c.method == 'PUT').toList();
+      expect(putCall, isNotEmpty);
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // 15. Tapping filled star (main repo) does nothing
+  // -------------------------------------------------------------------------
+
+  testWidgets('tapping filled star on main repo does not trigger extra calls', (
+    tester,
+  ) async {
+    _configureResponder(http);
+    await _preloadState(state);
+
+    repoHttp.alwaysReturn(
+      MagicResponse(
+        data: {
+          'data': [
+            {...kRepoApiRepo, 'is_main': true},
+          ],
+        },
+        statusCode: 200,
+      ),
+    );
+    await repoState.fetchRepositories('team-uuid-001', 'proj-uuid-001');
+
+    await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
+
+    final callsBefore = List.from(repoHttp.calls);
+
+    // Tap the filled star.
+    await tester.tap(find.byIcon(Icons.star));
+    await tester.pumpAndSettle();
+
+    // No new HTTP calls should have been made.
+    expect(repoHttp.calls.length, equals(callsBefore.length));
+  });
+
+  // -------------------------------------------------------------------------
+  // 16. Cloning status shows spinner and in-progress text
+  // -------------------------------------------------------------------------
+
+  testWidgets(
+    'repo card shows spinner and clone-in-progress text when status is cloning',
+    (tester) async {
+      _configureResponder(http);
+      await _preloadState(state);
+
+      repoHttp.alwaysReturn(
+        MagicResponse(
+          data: {
+            'data': [
+              {...kRepoFrontendRepo, 'repo_status': 'cloning'},
+            ],
+          },
+          statusCode: 200,
+        ),
+      );
+      await repoState.fetchRepositories('team-uuid-001', 'proj-uuid-001');
+
+      // settle: false — CircularProgressIndicator animates forever.
+      await _pumpTestWidget(tester, projectId: 'proj-uuid-001', settle: false);
+
+      // A spinner should be present for the cloning repo.
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+      // The clone-in-progress i18n string should appear.
+      expect(find.text(trans('projects.clone_in_progress')), findsOneWidget);
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // 17. Cloned status shows checkmark icon and complete text
+  // -------------------------------------------------------------------------
+
+  testWidgets(
+    'repo card shows check_circle icon and clone-complete text when status is cloned',
+    (tester) async {
+      _configureResponder(http);
+      await _preloadState(state);
+
+      repoHttp.alwaysReturn(
+        MagicResponse(
+          data: {
+            'data': [
+              {...kRepoApiRepo, 'repo_status': 'cloned'},
+            ],
+          },
+          statusCode: 200,
+        ),
+      );
+      await repoState.fetchRepositories('team-uuid-001', 'proj-uuid-001');
+
+      await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
+
+      // Checkmark icon for cloned repos.
+      expect(find.byIcon(Icons.check_circle), findsOneWidget);
+
+      // Clone complete text.
+      expect(find.text(trans('projects.clone_complete')), findsOneWidget);
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // 18. Error status shows error icon and failed text
+  // -------------------------------------------------------------------------
+
+  testWidgets(
+    'repo card shows error_outline icon and clone-failed text when status is error',
+    (tester) async {
+      _configureResponder(http);
+      await _preloadState(state);
+
+      repoHttp.alwaysReturn(
+        MagicResponse(
+          data: {
+            'data': [
+              {...kRepoFrontendRepo, 'repo_status': 'error'},
+            ],
+          },
+          statusCode: 200,
+        ),
+      );
+      await repoState.fetchRepositories('team-uuid-001', 'proj-uuid-001');
+
+      await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
+
+      // Error icon for failed clone.
+      expect(find.byIcon(Icons.error_outline), findsOneWidget);
+
+      // Clone failed text.
+      expect(find.text(trans('projects.clone_failed')), findsOneWidget);
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // 19. Clone button hidden when repo is cloned or cloning
+  // -------------------------------------------------------------------------
+
+  testWidgets('clone button is hidden when repo status is cloned or cloning', (
+    tester,
+  ) async {
+    _configureResponder(http);
+    await _preloadState(state);
+
+    repoHttp.alwaysReturn(
+      MagicResponse(
+        data: {
+          'data': [
+            {...kRepoApiRepo, 'repo_status': 'cloned'},
+            {...kRepoFrontendRepo, 'repo_status': 'cloning'},
+          ],
+        },
+        statusCode: 200,
+      ),
+    );
+    await repoState.fetchRepositories('team-uuid-001', 'proj-uuid-001');
+
+    // settle: false — cloning repo has an animating CircularProgressIndicator.
+    await _pumpTestWidget(tester, projectId: 'proj-uuid-001', settle: false);
+
+    // Neither repo should show the manual clone button.
+    expect(find.text(trans('projects.clone_repo')), findsNothing);
+  });
+
+  // -------------------------------------------------------------------------
+  // 20. startStatusPolling stores status in per-repo map
+  // -------------------------------------------------------------------------
+
+  testWidgets('repoStatuses map tracks per-repo clone status independently', (
+    tester,
+  ) async {
+    _configureResponder(http);
+    await _preloadState(state);
+
+    // Pre-load two repos, one cloning, one cloned.
+    repoHttp.alwaysReturn(
+      MagicResponse(
+        data: {
+          'data': [
+            {...kRepoApiRepo, 'repo_status': 'cloned'},
+            {...kRepoFrontendRepo, 'repo_status': 'cloning'},
+          ],
+        },
+        statusCode: 200,
+      ),
+    );
+    await repoState.fetchRepositories('team-uuid-001', 'proj-uuid-001');
+
+    // settle: false — cloning repo has an animating CircularProgressIndicator.
+    await _pumpTestWidget(tester, projectId: 'proj-uuid-001', settle: false);
+
+    // The API repo (cloned) should show checkmark.
+    expect(find.byIcon(Icons.check_circle), findsOneWidget);
+
+    // The Frontend repo (cloning) should show spinner.
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
   });
 }

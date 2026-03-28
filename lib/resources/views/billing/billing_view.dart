@@ -4,8 +4,7 @@ import 'package:magic/magic.dart';
 import '../../../app/models/team_balance.dart';
 import '../../../app/models/user.dart';
 import '../../../app/state/billing_state.dart';
-import '../../widgets/molecules/page_header.dart';
-import '../../widgets/molecules/section_card.dart';
+import 'package:magic_starter/magic_starter.dart';
 
 /// Team billing view — balance card, monthly summary, and agent role breakdown.
 ///
@@ -141,7 +140,7 @@ class _BillingContent extends StatelessWidget {
     return WDiv(
       className: 'p-4 lg:p-6 flex flex-col gap-6',
       children: [
-        PageHeader(
+        MagicStarterPageHeader(
           title: trans('billing.title'),
           subtitle: trans('billing.subtitle'),
         ),
@@ -180,60 +179,58 @@ class _BalanceCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorCn = _balanceColorClassName(balance.balance);
 
-    return SectionCard(
+    return MagicStarterCard(
       title: trans('billing.current_balance'),
-      children: [
-        WDiv(
-          className: 'flex flex-col gap-4',
-          children: [
-            WDiv(
-              className: 'flex flex-row items-end gap-2',
-              children: [
-                WText(
-                  '\$${balance.balance.toStringAsFixed(2)}',
-                  className: 'text-4xl font-extrabold $colorCn',
-                ),
-                WText(
-                  balance.currency,
-                  className:
-                      'text-sm font-medium text-slate-400 dark:text-slate-500 pb-1',
-                ),
-              ],
-            ),
-            WDiv(
-              className: 'flex flex-row items-center gap-2',
-              children: [
-                WIcon(
-                  Icons.speed,
-                  className: 'text-base text-slate-400 dark:text-slate-500',
-                ),
-                WText(
-                  '${trans('billing.max_concurrent_runs')}: ${balance.maxConcurrentRuns}',
-                  className: 'text-sm text-slate-500 dark:text-slate-400',
-                ),
-              ],
-            ),
-            WAnchor(
-              onTap: () => Launch.url(env('BILLING_PORTAL_URL', '')),
-              child: WDiv(
-                className: '''
-                  flex flex-row items-center gap-2
-                  px-4 py-2 rounded-lg
-                  bg-amber-400
-                  self-start
-                ''',
-                children: [
-                  WIcon(Icons.add, className: 'text-base text-primary-900'),
-                  WText(
-                    trans('billing.add_credits'),
-                    className: 'text-sm font-semibold text-primary-900',
-                  ),
-                ],
+      child: WDiv(
+        className: 'flex flex-col gap-4',
+        children: [
+          WDiv(
+            className: 'flex flex-row items-end gap-2',
+            children: [
+              WText(
+                '\$${balance.balance.toStringAsFixed(2)}',
+                className: 'text-4xl font-extrabold $colorCn',
               ),
+              WText(
+                balance.currency,
+                className:
+                    'text-sm font-medium text-slate-400 dark:text-slate-500 pb-1',
+              ),
+            ],
+          ),
+          WDiv(
+            className: 'flex flex-row items-center gap-2',
+            children: [
+              WIcon(
+                Icons.speed,
+                className: 'text-base text-slate-400 dark:text-slate-500',
+              ),
+              WText(
+                '${trans('billing.max_concurrent_runs')}: ${balance.maxConcurrentRuns}',
+                className: 'text-sm text-slate-500 dark:text-slate-400',
+              ),
+            ],
+          ),
+          WAnchor(
+            onTap: () => Launch.url(env('BILLING_PORTAL_URL', '')),
+            child: WDiv(
+              className: '''
+                flex flex-row items-center gap-2
+                px-4 py-2 rounded-lg
+                bg-amber-400
+                self-start
+              ''',
+              children: [
+                WIcon(Icons.add, className: 'text-base text-primary-900'),
+                WText(
+                  trans('billing.add_credits'),
+                  className: 'text-sm font-semibold text-primary-900',
+                ),
+              ],
             ),
-          ],
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -249,36 +246,34 @@ class _MonthlySummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final billing = BillingState.instance;
 
-    return SectionCard(
+    return MagicStarterCard(
       title: trans('billing.monthly_summary'),
-      children: [
-        WDiv(
-          className: 'w-full flex flex-row gap-4 axis-max',
-          children: [
-            WDiv(
-              className: 'flex-1',
-              child: _SummaryStatItem(
-                label: trans('billing.total_spent'),
-                value: '\$${billing.totalCostUsd.toStringAsFixed(2)}',
-              ),
+      child: WDiv(
+        className: 'w-full flex flex-row gap-4 axis-max',
+        children: [
+          WDiv(
+            className: 'flex-1',
+            child: _SummaryStatItem(
+              label: trans('billing.total_spent'),
+              value: '\$${billing.totalCostUsd.toStringAsFixed(2)}',
             ),
-            WDiv(
-              className: 'flex-1',
-              child: _SummaryStatItem(
-                label: trans('billing.runs_count'),
-                value: billing.runCount.toString(),
-              ),
+          ),
+          WDiv(
+            className: 'flex-1',
+            child: _SummaryStatItem(
+              label: trans('billing.runs_count'),
+              value: billing.runCount.toString(),
             ),
-            WDiv(
-              className: 'flex-1',
-              child: _SummaryStatItem(
-                label: trans('billing.avg_cost_per_run'),
-                value: '\$${billing.avgCostPerRun.toStringAsFixed(4)}',
-              ),
+          ),
+          WDiv(
+            className: 'flex-1',
+            child: _SummaryStatItem(
+              label: trans('billing.avg_cost_per_run'),
+              value: '\$${billing.avgCostPerRun.toStringAsFixed(4)}',
             ),
-          ],
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -362,50 +357,53 @@ class _UsageByRoleCard extends StatelessWidget {
     final sortedEntries = roles.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
-    return SectionCard(
+    return MagicStarterCard(
       title: trans('billing.usage_by_role'),
-      children: [
-        // Stacked horizontal bar.
-        // Row/Expanded/Container justified exception: proportional-width fills
-        // need dynamic Color + flex ratios (CLAUDE.md Gotchas).
-        if (totalCost > 0)
-          WDiv(
-            className: 'rounded-md overflow-hidden h-3',
-            child: Row(
-              children: sortedEntries.where((e) => e.value > 0).map((entry) {
-                final fraction = entry.value / totalCost;
-                return Expanded(
-                  flex: (fraction * 1000).round().clamp(1, 1000),
-                  child: Container(color: _agentRoleColor(entry.key)),
-                );
-              }).toList(),
+      child: WDiv(
+        className: 'flex flex-col gap-4',
+        children: [
+          // Stacked horizontal bar.
+          // Row/Expanded/Container justified exception: proportional-width fills
+          // need dynamic Color + flex ratios (CLAUDE.md Gotchas).
+          if (totalCost > 0)
+            WDiv(
+              className: 'rounded-md overflow-hidden h-3',
+              child: Row(
+                children: sortedEntries.where((e) => e.value > 0).map((entry) {
+                  final fraction = entry.value / totalCost;
+                  return Expanded(
+                    flex: (fraction * 1000).round().clamp(1, 1000),
+                    child: Container(color: _agentRoleColor(entry.key)),
+                  );
+                }).toList(),
+              ),
             ),
-          ),
-        const WSpacer(className: 'h-2'),
-        // Role rows.
-        WDiv(
-          className: 'flex flex-col gap-3',
-          children: sortedEntries.map((entry) {
-            final cn = _agentRoleClassName(entry.key);
-            return WDiv(
-              className: 'flex flex-row items-center gap-3',
-              children: [
-                WDiv(
-                  className: 'px-2 py-1 rounded-md $cn',
-                  child: WText(entry.key, className: 'text-xs font-semibold'),
-                ),
-                WDiv(
-                  className: 'flex-1',
-                  child: WText(
-                    '\$${entry.value.toStringAsFixed(4)}',
-                    className: 'text-sm text-slate-700 dark:text-slate-300',
+          const WSpacer(className: 'h-2'),
+          // Role rows.
+          WDiv(
+            className: 'flex flex-col gap-3',
+            children: sortedEntries.map((entry) {
+              final cn = _agentRoleClassName(entry.key);
+              return WDiv(
+                className: 'flex flex-row items-center gap-3',
+                children: [
+                  WDiv(
+                    className: 'px-2 py-1 rounded-md $cn',
+                    child: WText(entry.key, className: 'text-xs font-semibold'),
                   ),
-                ),
-              ],
-            );
-          }).toList(),
-        ),
-      ],
+                  WDiv(
+                    className: 'flex-1',
+                    child: WText(
+                      '\$${entry.value.toStringAsFixed(4)}',
+                      className: 'text-sm text-slate-700 dark:text-slate-300',
+                    ),
+                  ),
+                ],
+              );
+            }).toList(),
+          ),
+        ],
+      ),
     );
   }
 }

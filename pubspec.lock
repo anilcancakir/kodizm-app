@@ -528,10 +528,9 @@ packages:
   magic:
     dependency: "direct main"
     description:
-      name: magic
-      sha256: "5f0f79c92dd9262fe113630774130e430fe13ec467e1cebf4f64ff275ad1999e"
-      url: "https://pub.dev"
-    source: hosted
+      path: "/Users/anilcan/Code/fluttersdk/magic"
+      relative: false
+    source: path
     version: "1.0.0-alpha.3"
   magic_cli:
     dependency: transitive
@@ -1084,4 +1083,4 @@ packages:
     version: "2.2.4"
 sdks:
   dart: ">=3.11.3 <4.0.0"
-  flutter: ">=3.41.0"
+  flutter: ">=3.38.4"

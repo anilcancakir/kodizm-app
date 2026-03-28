@@ -6,8 +6,7 @@ import '../../../app/models/session_share.dart';
 import '../../../app/models/session_usage_record.dart';
 import '../../../app/state/session_state.dart';
 import '../../widgets/molecules/model_cost_breakdown.dart';
-import '../../widgets/molecules/page_header.dart';
-import '../../widgets/molecules/section_card.dart';
+import 'package:magic_starter/magic_starter.dart';
 import '../../widgets/organisms/terminal_event_list.dart';
 
 // ---------------------------------------------------------------------------
@@ -121,7 +120,7 @@ class _SessionDetailViewState extends State<SessionDetailView> {
   // -----------------------------------------------------------------------
 
   Widget _buildHeader(Session session) {
-    return PageHeader(
+    return MagicStarterPageHeader(
       title: trans('sessions.detail_title'),
       subtitle: '${session.type} session',
       leading: WAnchor(
@@ -193,18 +192,16 @@ class _SessionDetailViewState extends State<SessionDetailView> {
   // -----------------------------------------------------------------------
 
   Widget _buildEventsCard() {
-    return SectionCard(
+    return MagicStarterCard(
       title: trans('sessions.events'),
       noPadding: true,
-      children: [
-        WDiv(
-          className: 'h-[500]',
-          child: TerminalEventList(
-            events: _state.events,
-            scrollController: _scrollController,
-          ),
+      child: WDiv(
+        className: 'h-[500]',
+        child: TerminalEventList(
+          events: _state.events,
+          scrollController: _scrollController,
         ),
-      ],
+      ),
     );
   }
 
@@ -213,9 +210,9 @@ class _SessionDetailViewState extends State<SessionDetailView> {
   // -----------------------------------------------------------------------
 
   Widget _buildCostBreakdownCard(Session session) {
-    return SectionCard(
+    return MagicStarterCard(
       title: trans('sessions.cost_breakdown'),
-      children: [ModelCostBreakdown(usageRecords: session.usageRecords)],
+      child: ModelCostBreakdown(usageRecords: session.usageRecords),
     );
   }
 
@@ -224,21 +221,24 @@ class _SessionDetailViewState extends State<SessionDetailView> {
   // -----------------------------------------------------------------------
 
   Widget _buildUsageRecordsCard(Session session) {
-    return SectionCard(
+    return MagicStarterCard(
       title: trans('sessions.usage_records'),
-      children: [
-        if (session.usageRecords.isEmpty)
-          WDiv(
-            className: 'w-full flex items-center justify-center py-6',
-            child: WText(
-              trans('sessions.no_usage'),
-              className: 'text-sm text-gray-400 dark:text-gray-500',
-            ),
-          )
-        else
-          for (final record in session.usageRecords)
-            _buildUsageRecordRow(record),
-      ],
+      child: WDiv(
+        className: 'flex flex-col gap-4',
+        children: [
+          if (session.usageRecords.isEmpty)
+            WDiv(
+              className: 'w-full flex items-center justify-center py-6',
+              child: WText(
+                trans('sessions.no_usage'),
+                className: 'text-sm text-gray-400 dark:text-gray-500',
+              ),
+            )
+          else
+            for (final record in session.usageRecords)
+              _buildUsageRecordRow(record),
+        ],
+      ),
     );
   }
 
@@ -292,20 +292,23 @@ class _SessionDetailViewState extends State<SessionDetailView> {
   // -----------------------------------------------------------------------
 
   Widget _buildSharesCard(Session session) {
-    return SectionCard(
+    return MagicStarterCard(
       title: trans('sessions.shares'),
-      children: [
-        if (session.shares.isEmpty)
-          WDiv(
-            className: 'w-full flex items-center justify-center py-6',
-            child: WText(
-              trans('sessions.no_usage'),
-              className: 'text-sm text-gray-400 dark:text-gray-500',
-            ),
-          )
-        else
-          for (final share in session.shares) _buildShareRow(share),
-      ],
+      child: WDiv(
+        className: 'flex flex-col gap-4',
+        children: [
+          if (session.shares.isEmpty)
+            WDiv(
+              className: 'w-full flex items-center justify-center py-6',
+              child: WText(
+                trans('sessions.no_usage'),
+                className: 'text-sm text-gray-400 dark:text-gray-500',
+              ),
+            )
+          else
+            for (final share in session.shares) _buildShareRow(share),
+        ],
+      ),
     );
   }
 

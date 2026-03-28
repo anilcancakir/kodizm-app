@@ -4,8 +4,7 @@ import 'package:magic/magic.dart';
 import '../../../app/models/project_document.dart';
 import '../../../app/models/user.dart';
 import '../../../app/state/document_state.dart';
-import '../../widgets/molecules/page_header.dart';
-import '../../widgets/molecules/section_card.dart';
+import 'package:magic_starter/magic_starter.dart';
 
 /// Knowledge base list view — displays project knowledge documents.
 ///
@@ -73,7 +72,7 @@ class _KnowledgeListViewState extends State<KnowledgeListView> {
         // -------------------------------------------------------------------
         // Header
         // -------------------------------------------------------------------
-        PageHeader(
+        MagicStarterPageHeader(
           title: trans('knowledge.title'),
           subtitle: trans('knowledge.subtitle'),
         ),
@@ -118,27 +117,25 @@ class _KnowledgeListViewState extends State<KnowledgeListView> {
 
   /// Centered empty state shown when no documents exist.
   Widget _buildEmpty() {
-    return SectionCard(
-      children: [
-        WDiv(
-          className:
-              'w-full flex flex-col items-center justify-center py-16 gap-4',
-          children: [
-            WIcon(
-              Icons.library_books_outlined,
-              className: 'text-4xl text-slate-300',
-            ),
-            WText(
-              trans('knowledge.empty_title'),
-              className: 'text-lg font-semibold text-slate-500',
-            ),
-            WText(
-              trans('knowledge.empty_subtitle'),
-              className: 'text-sm text-slate-400',
-            ),
-          ],
-        ),
-      ],
+    return MagicStarterCard(
+      child: WDiv(
+        className:
+            'w-full flex flex-col items-center justify-center py-16 gap-4',
+        children: [
+          WIcon(
+            Icons.library_books_outlined,
+            className: 'text-4xl text-slate-300',
+          ),
+          WText(
+            trans('knowledge.empty_title'),
+            className: 'text-lg font-semibold text-slate-500',
+          ),
+          WText(
+            trans('knowledge.empty_subtitle'),
+            className: 'text-sm text-slate-400',
+          ),
+        ],
+      ),
     );
   }
 
@@ -148,8 +145,11 @@ class _KnowledgeListViewState extends State<KnowledgeListView> {
 
   /// Document card list shown when documents are loaded.
   Widget _buildContent(List<ProjectDocument> documents) {
-    return SectionCard(
-      children: [for (final doc in documents) _buildDocumentCard(doc)],
+    return MagicStarterCard(
+      child: WDiv(
+        className: 'flex flex-col gap-4',
+        children: [for (final doc in documents) _buildDocumentCard(doc)],
+      ),
     );
   }
 

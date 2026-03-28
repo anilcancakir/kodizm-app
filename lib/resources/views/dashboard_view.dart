@@ -6,8 +6,7 @@ import '../../app/models/user.dart';
 import '../../app/state/dashboard_state.dart';
 import '../../app/state/project_state.dart';
 import '../widgets/atoms/status_badge.dart';
-import '../widgets/molecules/page_header.dart';
-import '../widgets/molecules/section_card.dart';
+import 'package:magic_starter/magic_starter.dart';
 
 /// Team dashboard view — the default landing page after authentication.
 ///
@@ -176,7 +175,7 @@ class _DashboardHeader extends StatelessWidget {
     final user = Auth.user<User>();
     final teamName = user?.currentTeam?.name ?? 'Team';
 
-    return PageHeader(
+    return MagicStarterPageHeader(
       title: trans('nav.dashboard'),
       subtitle: teamName,
       actions: [_BalanceBadge(balance: data.balance)],
@@ -380,22 +379,25 @@ class _ActiveRunsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SectionCard(
+    return MagicStarterCard(
       title: trans('dashboard.active_runs'),
-      children: [
-        if (activeRuns.isEmpty)
-          _EmptySection(
-            icon: Icons.play_circle_outline,
-            message: trans('dashboard.no_active_runs'),
-          )
-        else
-          WDiv(
-            className: 'flex flex-col gap-3',
-            children: activeRuns
-                .map((run) => _ActiveRunItem(run: run))
-                .toList(),
-          ),
-      ],
+      child: WDiv(
+        className: 'flex flex-col gap-4',
+        children: [
+          if (activeRuns.isEmpty)
+            _EmptySection(
+              icon: Icons.play_circle_outline,
+              message: trans('dashboard.no_active_runs'),
+            )
+          else
+            WDiv(
+              className: 'flex flex-col gap-3',
+              children: activeRuns
+                  .map((run) => _ActiveRunItem(run: run))
+                  .toList(),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -503,53 +505,56 @@ class _TasksByStatusCard extends StatelessWidget {
     final entries = summary.byStatus.entries.toList();
     final total = summary.total;
 
-    return SectionCard(
+    return MagicStarterCard(
       title: trans('dashboard.tasks_by_status'),
-      children: [
-        if (total == 0)
-          _EmptySection(
-            icon: Icons.task_alt,
-            message: trans('dashboard.no_tasks_yet'),
-          )
-        else ...[
-          // Stacked horizontal bar.
-          // Stacked bar chart — Row/Expanded/Container justified exception:
-          // proportional-width fills need dynamic Color + flex ratios which
-          // cannot be expressed via className tokens (CLAUDE.md Gotchas).
-          WDiv(
-            className: 'rounded-md overflow-hidden h-3',
-            child: Row(
-              children: entries.where((e) => e.value > 0).map((entry) {
-                final fraction = entry.value / total;
-                return Expanded(
-                  flex: (fraction * 1000).round().clamp(1, 1000),
-                  child: Container(color: _statusColor(entry.key)),
+      child: WDiv(
+        className: 'flex flex-col gap-4',
+        children: [
+          if (total == 0)
+            _EmptySection(
+              icon: Icons.task_alt,
+              message: trans('dashboard.no_tasks_yet'),
+            )
+          else ...[
+            // Stacked horizontal bar.
+            // Stacked bar chart — Row/Expanded/Container justified exception:
+            // proportional-width fills need dynamic Color + flex ratios which
+            // cannot be expressed via className tokens (CLAUDE.md Gotchas).
+            WDiv(
+              className: 'rounded-md overflow-hidden h-3',
+              child: Row(
+                children: entries.where((e) => e.value > 0).map((entry) {
+                  final fraction = entry.value / total;
+                  return Expanded(
+                    flex: (fraction * 1000).round().clamp(1, 1000),
+                    child: Container(color: _statusColor(entry.key)),
+                  );
+                }).toList(),
+              ),
+            ),
+            const WSpacer(className: 'h-4'),
+            // Legend grid.
+            WDiv(
+              className: 'wrap gap-4',
+              children: entries.map((entry) {
+                return WDiv(
+                  className: 'flex flex-row items-center gap-1.5',
+                  children: [
+                    WDiv(
+                      className:
+                          'w-2 h-2 rounded-sm ${statusDotClassName(entry.key)}',
+                    ),
+                    WText(
+                      '${statusLabel(entry.key)}  ${entry.value}',
+                      className: 'text-xs text-slate-500 dark:text-slate-400',
+                    ),
+                  ],
                 );
               }).toList(),
             ),
-          ),
-          const WSpacer(className: 'h-4'),
-          // Legend grid.
-          WDiv(
-            className: 'wrap gap-4',
-            children: entries.map((entry) {
-              return WDiv(
-                className: 'flex flex-row items-center gap-1.5',
-                children: [
-                  WDiv(
-                    className:
-                        'w-2 h-2 rounded-sm ${statusDotClassName(entry.key)}',
-                  ),
-                  WText(
-                    '${statusLabel(entry.key)}  ${entry.value}',
-                    className: 'text-xs text-slate-500 dark:text-slate-400',
-                  ),
-                ],
-              );
-            }).toList(),
-          ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
@@ -565,22 +570,25 @@ class _RecentRunsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SectionCard(
+    return MagicStarterCard(
       title: trans('dashboard.recent_runs'),
-      children: [
-        if (recentRuns.isEmpty)
-          _EmptySection(
-            icon: Icons.history,
-            message: trans('dashboard.no_recent_runs'),
-          )
-        else
-          WDiv(
-            className: 'flex flex-col gap-3',
-            children: recentRuns
-                .map((run) => _RecentRunItem(run: run))
-                .toList(),
-          ),
-      ],
+      child: WDiv(
+        className: 'flex flex-col gap-4',
+        children: [
+          if (recentRuns.isEmpty)
+            _EmptySection(
+              icon: Icons.history,
+              message: trans('dashboard.no_recent_runs'),
+            )
+          else
+            WDiv(
+              className: 'flex flex-col gap-3',
+              children: recentRuns
+                  .map((run) => _RecentRunItem(run: run))
+                  .toList(),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -697,40 +705,35 @@ class _QuickActionsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SectionCard(
+    return MagicStarterCard(
       title: trans('dashboard.quick_actions'),
-      children: [
-        WDiv(
-          className: 'wrap gap-3',
-          children: [
-            WAnchor(
-              onTap: () => _onCreateTask(context),
-              child: WDiv(
-                className: '''
-                  flex flex-row items-center gap-2
-                  px-4 py-2 rounded-lg
-                  bg-amber-400
-                ''',
-                children: [
-                  WIcon(
-                    Icons.add_task,
-                    className: 'text-base text-primary-900',
-                  ),
-                  WText(
-                    trans('dashboard.create_task'),
-                    className: 'text-sm font-semibold text-primary-900',
-                  ),
-                ],
-              ),
+      child: WDiv(
+        className: 'wrap gap-3',
+        children: [
+          WAnchor(
+            onTap: () => _onCreateTask(context),
+            child: WDiv(
+              className: '''
+                flex flex-row items-center gap-2
+                px-4 py-2 rounded-lg
+                bg-amber-400
+              ''',
+              children: [
+                WIcon(Icons.add_task, className: 'text-base text-primary-900'),
+                WText(
+                  trans('dashboard.create_task'),
+                  className: 'text-sm font-semibold text-primary-900',
+                ),
+              ],
             ),
-            _DisabledActionButton(
-              label: trans('dashboard.ba_chat'),
-              icon: Icons.chat_outlined,
-              tooltip: trans('dashboard.coming_in_wave', {'wave': '5'}),
-            ),
-          ],
-        ),
-      ],
+          ),
+          _DisabledActionButton(
+            label: trans('dashboard.ba_chat'),
+            icon: Icons.chat_outlined,
+            tooltip: trans('dashboard.coming_in_wave', {'wave': '5'}),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -3,8 +3,7 @@ import 'package:magic/magic.dart';
 
 import '../../../app/models/user.dart';
 import '../../../app/state/project_state.dart';
-import '../../widgets/molecules/page_header.dart';
-import '../../widgets/molecules/section_card.dart';
+import 'package:magic_starter/magic_starter.dart';
 
 /// View for creating a new project.
 ///
@@ -33,18 +32,52 @@ class _ProjectCreateViewState extends State<ProjectCreateView> {
   // ---------------------------------------------------------------------------
 
   final _nameController = TextEditingController();
+  final _shortNameController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _techStackController = TextEditingController();
 
   bool _submitting = false;
   String? _submitError;
 
+  /// Whether the user has manually edited the short_name field.
+  bool _shortNameManuallyEdited = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController.addListener(_onNameChanged);
+  }
+
   @override
   void dispose() {
+    _nameController.removeListener(_onNameChanged);
     _nameController.dispose();
+    _shortNameController.dispose();
     _descriptionController.dispose();
     _techStackController.dispose();
     super.dispose();
+  }
+
+  /// Computes a short name suggestion from the project name.
+  ///
+  /// Takes the first letter of each word, uppercases, max 5 chars.
+  void _onNameChanged() {
+    if (_shortNameManuallyEdited) return;
+
+    final name = _nameController.text.trim();
+    if (name.isEmpty) {
+      _shortNameController.text = '';
+      return;
+    }
+
+    final initials = name
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .map((w) => w[0].toUpperCase())
+        .take(5)
+        .join();
+
+    _shortNameController.text = initials;
   }
 
   // ---------------------------------------------------------------------------
@@ -68,6 +101,7 @@ class _ProjectCreateViewState extends State<ProjectCreateView> {
 
     final data = <String, dynamic>{
       'name': _nameController.text.trim(),
+      'short_name': _shortNameController.text.trim(),
       if (_descriptionController.text.trim().isNotEmpty)
         'description': _descriptionController.text.trim(),
       if (_techStackController.text.trim().isNotEmpty)
@@ -98,76 +132,116 @@ class _ProjectCreateViewState extends State<ProjectCreateView> {
       className: 'p-4 lg:p-6 flex flex-col gap-6',
       children: [
         // Page header — outside card.
-        PageHeader(
+        MagicStarterPageHeader(
           title: trans('projects.create_project'),
           subtitle: trans('projects.create_subtitle'),
         ),
 
         // Form section card.
-        SectionCard(
+        MagicStarterCard(
           title: trans('projects.details'),
-          children: [
-            Form(
-              key: _formKey,
-              child: WDiv(
-                className: 'flex flex-col gap-5',
-                children: [
-                  _buildField(
-                    label: trans('projects.project_name'),
-                    hint: trans('projects.name_placeholder'),
-                    controller: _nameController,
-                    required: true,
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return trans('projects.name_required');
-                      }
-                      if (value.trim().length > 255) {
-                        return trans('projects.name_max');
-                      }
-                      return null;
-                    },
-                  ),
-                  _buildField(
-                    label: trans('projects.description'),
-                    hint: trans('projects.description_placeholder_optional'),
-                    controller: _descriptionController,
-                    maxLines: 3,
-                  ),
-                  _buildField(
-                    label: trans('projects.tech_stack'),
-                    hint: trans('projects.tech_stack_placeholder_optional'),
-                    controller: _techStackController,
-                  ),
+          child: Form(
+            key: _formKey,
+            child: WDiv(
+              className: 'flex flex-col gap-5',
+              children: [
+                _buildField(
+                  label: trans('projects.project_name'),
+                  hint: trans('projects.name_placeholder'),
+                  controller: _nameController,
+                  required: true,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return trans('projects.name_required');
+                    }
+                    if (value.trim().length > 255) {
+                      return trans('projects.name_max');
+                    }
+                    return null;
+                  },
+                ),
+                _buildShortNameField(),
+                _buildField(
+                  label: trans('projects.description'),
+                  hint: trans('projects.description_placeholder_optional'),
+                  controller: _descriptionController,
+                  maxLines: 3,
+                ),
+                _buildField(
+                  label: trans('projects.tech_stack'),
+                  hint: trans('projects.tech_stack_placeholder_optional'),
+                  controller: _techStackController,
+                ),
 
-                  // Inline error.
-                  if (_submitError != null)
-                    WDiv(
-                      className: '''
-                            p-3 rounded-lg
-                            bg-red-50 dark:bg-red-900/20
-                            border border-red-200 dark:border-red-800
-                          ''',
-                      child: WText(
-                        _submitError!,
-                        className: '''
-                              text-sm text-red-600 dark:text-red-400
-                            ''',
-                      ),
-                    ),
-
-                  const WSpacer(className: 'h-1'),
-
-                  // Action buttons.
+                // Inline error.
+                if (_submitError != null)
                   WDiv(
-                    className: 'flex flex-row gap-3 justify-end',
-                    children: [_buildSecondaryButton(), _buildPrimaryButton()],
+                    className: '''
+                          p-3 rounded-lg
+                          bg-red-50 dark:bg-red-900/20
+                          border border-red-200 dark:border-red-800
+                        ''',
+                    child: WText(
+                      _submitError!,
+                      className: '''
+                            text-sm text-red-600 dark:text-red-400
+                          ''',
+                    ),
                   ),
-                ],
-              ),
+
+                const WSpacer(className: 'h-1'),
+
+                // Action buttons.
+                WDiv(
+                  className: 'flex flex-row gap-3 justify-end',
+                  children: [_buildSecondaryButton(), _buildPrimaryButton()],
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Short name field
+  // ---------------------------------------------------------------------------
+
+  /// Builds the short name [WFormInput] with uppercase enforcement and validation.
+  Widget _buildShortNameField() {
+    return WFormInput(
+      controller: _shortNameController,
+      label: '${trans('projects.short_name')} *',
+      labelClassName: '''
+        text-sm font-medium mb-2
+        text-slate-600 dark:text-slate-300
+      ''',
+      placeholder: trans('projects.short_name_placeholder'),
+      textCapitalization: TextCapitalization.characters,
+      onChanged: (value) {
+        _shortNameManuallyEdited = true;
+      },
+      validator: (value) {
+        final trimmed = value?.trim() ?? '';
+        if (trimmed.isEmpty) {
+          return trans('projects.short_name_invalid');
+        }
+        if (trimmed.length < 2 ||
+            trimmed.length > 5 ||
+            !RegExp(r'^[A-Z]+$').hasMatch(trimmed)) {
+          return trans('projects.short_name_invalid');
+        }
+        return null;
+      },
+      className: '''
+        p-3 border border-slate-200 dark:border-gray-600
+        rounded-lg bg-white dark:bg-gray-900
+        text-sm text-slate-800 dark:text-slate-200
+        focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20
+        error:border-red-500 error:ring-2 error:ring-red-200
+      ''',
+      errorClassName: 'text-red-500 text-xs mt-1',
     );
   }
 

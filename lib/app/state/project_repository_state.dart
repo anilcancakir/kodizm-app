@@ -1,5 +1,6 @@
 import 'package:magic/magic.dart';
 
+import '../events/websocket_event.dart';
 import '../models/project_repository.dart';
 
 // ---------------------------------------------------------------------------
@@ -67,6 +68,38 @@ class _MagicHttpClient implements ProjectRepositoryHttpClient {
 }
 
 // ---------------------------------------------------------------------------
+// WebSocket abstraction for testability
+// ---------------------------------------------------------------------------
+
+/// Thin interface over WebSocket subscribe/unsubscribe for testability.
+///
+/// In production the default [_MagicRepoWebSocket] resolves the real
+/// [WebSocketService] singleton. Tests inject a fake.
+abstract class RepoWebSocket {
+  /// Subscribe to [channel] with an event callback.
+  void subscribe(String channel, void Function(WebSocketEvent) onEvent);
+
+  /// Unsubscribe from [channel].
+  void unsubscribe(String channel);
+}
+
+/// Default production [RepoWebSocket] backed by the [WebSocketService]
+/// singleton registered in the Magic IoC container.
+class _MagicRepoWebSocket implements RepoWebSocket {
+  const _MagicRepoWebSocket();
+
+  @override
+  void subscribe(String channel, void Function(WebSocketEvent) onEvent) {
+    Magic.make('websocket').subscribe(channel, onEvent);
+  }
+
+  @override
+  void unsubscribe(String channel) {
+    Magic.make('websocket').unsubscribe(channel);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // ProjectRepositoryState controller
 // ---------------------------------------------------------------------------
 
@@ -76,8 +109,8 @@ class _MagicHttpClient implements ProjectRepositoryHttpClient {
 /// repository clone operations, and status polling.
 ///
 /// The primary state (`rxState`) holds the `List<ProjectRepository>` for
-/// the currently viewed project. Secondary state fields ([repoStatus]) are
-/// managed independently with manual [refreshUI] calls.
+/// the currently viewed project. Secondary state ([repoStatuses]) tracks
+/// per-repo clone status keyed by repository ID, updated via polling timers.
 ///
 /// ## Usage
 ///
@@ -89,21 +122,21 @@ class _MagicHttpClient implements ProjectRepositoryHttpClient {
 /// await repoState.fetchRepositories('team-uuid', 'proj-uuid');
 /// final repos = repoState.repositories;
 ///
-/// // Generate an SSH key for a specific repository.
-/// final pubKey = await repoState.generateSshKey('team-uuid', 'proj-uuid', 'repo-uuid');
-///
-/// // Check clone status.
-/// await repoState.fetchRepoStatus('team-uuid', 'proj-uuid', 'repo-uuid');
-/// final status = repoState.repoStatus;
+/// // Start polling a repo's clone status.
+/// repoState.startStatusPolling('team-uuid', 'proj-uuid', 'repo-uuid');
+/// final status = repoState.repoStatuses['repo-uuid'];
 /// ```
 class ProjectRepositoryState extends MagicController
     with MagicStateMixin<List<ProjectRepository>> {
-  /// Creates a [ProjectRepositoryState] with an optional [httpClient] for testing.
+  /// Creates a [ProjectRepositoryState] with optional [httpClient] and [ws] for testing.
   ///
   /// When [httpClient] is `null` (production), the Magic [Http] facade is
-  /// used via [_MagicHttpClient].
-  ProjectRepositoryState({ProjectRepositoryHttpClient? httpClient})
-    : _http = httpClient ?? const _MagicHttpClient();
+  /// used via [_MagicHttpClient]. Same for [ws] → [_MagicRepoWebSocket].
+  ProjectRepositoryState({
+    ProjectRepositoryHttpClient? httpClient,
+    RepoWebSocket? ws,
+  }) : _http = httpClient ?? const _MagicHttpClient(),
+       _ws = ws ?? const _MagicRepoWebSocket();
 
   /// Lazy singleton accessor.
   ///
@@ -113,15 +146,28 @@ class ProjectRepositoryState extends MagicController
       Magic.findOrPut(ProjectRepositoryState.new);
 
   final ProjectRepositoryHttpClient _http;
+  final RepoWebSocket _ws;
+
+  /// The currently subscribed team channel, or `null` if not listening.
+  String? _activeChannel;
 
   // ---------------------------------------------------------------------------
   // Secondary state
   // ---------------------------------------------------------------------------
 
-  String? _repoStatus;
+  /// Per-repository clone/sync status, keyed by repository ID.
+  ///
+  /// Values: `not_cloned`, `cloning`, `cloned`, `error`, or `null` if unknown.
+  final Map<String, String?> _repoStatuses = {};
 
-  /// The repository clone/sync status for the last polled repository.
-  String? get repoStatus => _repoStatus;
+  /// Per-repository error messages, keyed by repository ID.
+  final Map<String, String?> _repoErrors = {};
+
+  /// Per-repository clone/sync status map (read-only view).
+  Map<String, String?> get repoStatuses => Map.unmodifiable(_repoStatuses);
+
+  /// Per-repository error messages (read-only view).
+  Map<String, String?> get repoErrors => Map.unmodifiable(_repoErrors);
 
   /// The currently loaded repository list (empty list when not yet fetched).
   List<ProjectRepository> get repositories => rxState ?? [];
@@ -206,6 +252,24 @@ class ProjectRepositoryState extends MagicController
     return null;
   }
 
+  /// Designate a repository as the primary (main) repository for the project.
+  ///
+  /// Calls [updateRepository] with `{'is_main': true}` then refreshes the
+  /// repository list via [fetchRepositories] on success.
+  Future<void> setMainRepository(
+    String teamId,
+    String projectId,
+    String repoId,
+  ) async {
+    final updated = await updateRepository(teamId, projectId, repoId, {
+      'is_main': true,
+    });
+
+    if (updated != null) {
+      await fetchRepositories(teamId, projectId);
+    }
+  }
+
   /// Delete a repository link.
   ///
   /// Returns `true` on success, `false` on failure.
@@ -219,32 +283,6 @@ class ProjectRepositoryState extends MagicController
     );
 
     return response.successful;
-  }
-
-  // ---------------------------------------------------------------------------
-  // SSH key
-  // ---------------------------------------------------------------------------
-
-  /// Generate (or regenerate) an SSH deploy key for the given repository.
-  ///
-  /// Returns the public key string on success, or `null` on failure.
-  Future<String?> generateSshKey(
-    String teamId,
-    String projectId,
-    String repoId,
-  ) async {
-    final response = await _http.post(
-      '/teams/$teamId/projects/$projectId/repositories/$repoId/ssh-key',
-    );
-
-    if (response.successful) {
-      final Map<String, dynamic> data =
-          (response.data as Map<String, dynamic>)['data']
-              as Map<String, dynamic>;
-      return data['public_key'] as String?;
-    }
-
-    return null;
   }
 
   // ---------------------------------------------------------------------------
@@ -269,7 +307,7 @@ class ProjectRepositoryState extends MagicController
 
   /// Fetch the repository clone/sync status for the given repository.
   ///
-  /// Stores the result in [repoStatus] and calls [refreshUI].
+  /// Stores the result in [repoStatuses] keyed by [repoId] and calls [refreshUI].
   Future<void> fetchRepoStatus(
     String teamId,
     String projectId,
@@ -283,11 +321,84 @@ class ProjectRepositoryState extends MagicController
       final Map<String, dynamic> data =
           (response.data as Map<String, dynamic>)['data']
               as Map<String, dynamic>;
-      _repoStatus = data['status'] as String?;
+      _repoStatuses[repoId] = data['status'] as String?;
     } else {
-      _repoStatus = null;
+      _repoStatuses[repoId] = null;
     }
 
     refreshUI();
   }
+
+  // ---------------------------------------------------------------------------
+  // WebSocket subscription
+  // ---------------------------------------------------------------------------
+
+  /// Subscribe to the team channel for real-time repo status updates.
+  ///
+  /// Listens for `.repo.status` events and updates [repoStatuses] accordingly.
+  /// On terminal status (`cloned` or `error`), re-fetches the full repository
+  /// list so the model picks up `repo_error` and other updated fields.
+  void subscribeToTeam(String teamId, String projectId) {
+    if (_activeChannel != null) unsubscribeFromTeam();
+
+    final channel = 'private-team.$teamId';
+    _activeChannel = channel;
+    _activeProjectId = projectId;
+    _activeTeamId = teamId;
+
+    _ws.subscribe(channel, _handleWebSocketEvent);
+  }
+
+  /// Unsubscribe from the currently active team channel.
+  ///
+  /// No-op when not subscribed. Called from the view's `dispose()`.
+  void unsubscribeFromTeam() {
+    if (_activeChannel == null) return;
+
+    _ws.unsubscribe(_activeChannel!);
+    _activeChannel = null;
+    _activeProjectId = null;
+    _activeTeamId = null;
+  }
+
+  /// Mark a repository as cloning immediately (before the server event arrives).
+  ///
+  /// Called after [createRepository] with a URL so the UI shows a spinner
+  /// without waiting for the first WebSocket event.
+  void markAsCloning(String repoId) {
+    _repoStatuses[repoId] = 'cloning';
+    _repoErrors[repoId] = null;
+    refreshUI();
+  }
+
+  /// Handle a WebSocket event from the team channel.
+  void _handleWebSocketEvent(WebSocketEvent wsEvent) {
+    if (wsEvent.eventName != '.repo.status') return;
+
+    final data = wsEvent.data;
+
+    // Only handle events for the currently viewed project.
+    final projectId = data['project_id'] as String?;
+    if (projectId != _activeProjectId) return;
+
+    final repoId = data['repository_id'] as String?;
+    final status = data['status'] as String?;
+    final error = data['error'] as String?;
+
+    if (repoId == null || status == null) return;
+
+    _repoStatuses[repoId] = status;
+    _repoErrors[repoId] = error;
+    refreshUI();
+
+    // On terminal status, re-fetch full list for complete model data.
+    if (status == 'cloned' || status == 'error') {
+      if (_activeTeamId != null && _activeProjectId != null) {
+        fetchRepositories(_activeTeamId!, _activeProjectId!);
+      }
+    }
+  }
+
+  String? _activeProjectId;
+  String? _activeTeamId;
 }

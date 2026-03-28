@@ -7,7 +7,7 @@ import '../../../app/state/task_state.dart';
 import '../../widgets/atoms/priority_badge.dart';
 import '../../widgets/atoms/status_badge.dart';
 import '../../widgets/atoms/task_type_icon.dart';
-import '../../widgets/molecules/page_header.dart';
+import 'package:magic_starter/magic_starter.dart';
 
 /// Task list view — displays all tasks for a given project.
 ///
@@ -147,7 +147,7 @@ class _TaskListViewState extends State<TaskListView> {
         // -----------------------------------------------------------------
         // Header
         // -----------------------------------------------------------------
-        PageHeader(
+        MagicStarterPageHeader(
           title: trans('tasks.title'),
           subtitle: trans('tasks.list_subtitle'),
           leading: WAnchor(

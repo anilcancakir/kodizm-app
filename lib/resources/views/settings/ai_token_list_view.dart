@@ -4,8 +4,7 @@ import 'package:magic/magic.dart';
 import '../../../app/models/ai_token.dart';
 import '../../../app/models/user.dart';
 import '../../../app/state/ai_token_state.dart';
-import '../../widgets/molecules/page_header.dart';
-import '../../widgets/molecules/section_card.dart';
+import 'package:magic_starter/magic_starter.dart';
 
 /// Read-only list of AI provider tokens configured for the team.
 ///
@@ -106,7 +105,7 @@ class _EmptyView extends StatelessWidget {
     return WDiv(
       className: 'p-4 lg:p-6 flex flex-col gap-6',
       children: [
-        PageHeader(
+        MagicStarterPageHeader(
           title: trans('ai_tokens.title'),
           subtitle: trans('ai_tokens.subtitle'),
         ),
@@ -148,7 +147,7 @@ class _TokenContent extends StatelessWidget {
     return WDiv(
       className: 'p-4 lg:p-6 flex flex-col gap-6',
       children: [
-        PageHeader(
+        MagicStarterPageHeader(
           title: trans('ai_tokens.title'),
           subtitle: trans('ai_tokens.subtitle'),
         ),
@@ -173,77 +172,80 @@ class _TokenCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SectionCard(
-      children: [
-        // Header row: provider badge + label + status dot
-        WDiv(
-          className: 'flex flex-row items-center gap-3',
-          children: [
-            // Provider badge
-            WDiv(
-              className:
-                  'px-2.5 py-1 rounded-md ${AiTokenState.providerBadgeClassName(token.provider)}',
-              child: WText(
-                _providerLabel(token.provider),
-                className: 'text-xs font-semibold',
-              ),
-            ),
-            // Label
-            WDiv(
-              className: 'flex-1 min-w-0',
-              child: WText(
-                token.label,
+    return MagicStarterCard(
+      child: WDiv(
+        className: 'flex flex-col gap-4',
+        children: [
+          // Header row: provider badge + label + status dot
+          WDiv(
+            className: 'flex flex-row items-center gap-3',
+            children: [
+              // Provider badge
+              WDiv(
                 className:
-                    'text-sm font-medium text-slate-800 dark:text-white truncate',
+                    'px-2.5 py-1 rounded-md ${AiTokenState.providerBadgeClassName(token.provider)}',
+                child: WText(
+                  _providerLabel(token.provider),
+                  className: 'text-xs font-semibold',
+                ),
               ),
-            ),
-            // Status dot + label
-            WDiv(
-              className: 'flex flex-row items-center gap-1.5',
-              children: [
-                WDiv(
+              // Label
+              WDiv(
+                className: 'flex-1 min-w-0',
+                child: WText(
+                  token.label,
                   className:
-                      'w-2 h-2 rounded-full ${AiTokenState.statusDotClassName(token.status)}',
+                      'text-sm font-medium text-slate-800 dark:text-white truncate',
                 ),
-                WText(
-                  _statusLabel(token.status),
-                  className: 'text-xs text-slate-500 dark:text-slate-400',
-                ),
-              ],
-            ),
-          ],
-        ),
-        // Details row: auth type, usage count, last used, cooldown
-        WDiv(
-          className: 'flex flex-row items-center gap-4 mt-2',
-          children: [
-            WText(
-              _authTypeLabel(token.authType),
-              className: 'text-xs text-slate-400',
-            ),
-            WText(
-              trans('ai_tokens.usage_count', {
-                'count': token.usageCount.toString(),
-              }),
-              className: 'text-xs text-slate-400',
-            ),
-            if (token.lastUsedAt != null)
+              ),
+              // Status dot + label
+              WDiv(
+                className: 'flex flex-row items-center gap-1.5',
+                children: [
+                  WDiv(
+                    className:
+                        'w-2 h-2 rounded-full ${AiTokenState.statusDotClassName(token.status)}',
+                  ),
+                  WText(
+                    _statusLabel(token.status),
+                    className: 'text-xs text-slate-500 dark:text-slate-400',
+                  ),
+                ],
+              ),
+            ],
+          ),
+          // Details row: auth type, usage count, last used, cooldown
+          WDiv(
+            className: 'flex flex-row items-center gap-4 mt-2',
+            children: [
               WText(
-                trans('ai_tokens.last_used', {
-                  'time': _formatDate(token.lastUsedAt!),
+                _authTypeLabel(token.authType),
+                className: 'text-xs text-slate-400',
+              ),
+              WText(
+                trans('ai_tokens.usage_count', {
+                  'count': token.usageCount.toString(),
                 }),
                 className: 'text-xs text-slate-400',
               ),
-            if (token.cooldownUntil != null)
-              WText(
-                trans('ai_tokens.cooldown_until', {
-                  'time': _formatDate(token.cooldownUntil!),
-                }),
-                className: 'text-xs text-amber-500',
-              ),
-          ],
-        ),
-      ],
+              if (token.lastUsedAt != null)
+                WText(
+                  trans('ai_tokens.last_used', {
+                    'time': _formatDate(token.lastUsedAt!),
+                  }),
+                  className: 'text-xs text-slate-400',
+                ),
+              if (token.cooldownUntil != null)
+                WText(
+                  trans('ai_tokens.cooldown_until', {
+                    'time': _formatDate(token.cooldownUntil!),
+                  }),
+                  className: 'text-xs text-amber-500',
+                ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

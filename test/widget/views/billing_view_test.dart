@@ -7,8 +7,7 @@ import 'package:magic/magic.dart';
 
 import 'package:app/app/state/billing_state.dart';
 import 'package:app/resources/views/billing/billing_view.dart';
-import 'package:app/resources/widgets/molecules/page_header.dart';
-import 'package:app/resources/widgets/molecules/section_card.dart';
+import 'package:magic_starter/magic_starter.dart';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -177,10 +176,10 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // 1. Renders PageHeader with billing.title text
+  // 1. Renders MagicStarterPageHeader with billing.title text
   // -------------------------------------------------------------------------
 
-  testWidgets('renders PageHeader with title', (tester) async {
+  testWidgets('renders MagicStarterPageHeader with title', (tester) async {
     http.whenAny((url, query) {
       if (url.contains('/balance')) {
         return MagicResponse(data: kBalanceResponse, statusCode: 200);
@@ -201,7 +200,7 @@ void main() {
 
     await _pumpView(tester);
 
-    expect(find.byType(PageHeader), findsOneWidget);
+    expect(find.byType(MagicStarterPageHeader), findsOneWidget);
     expect(find.textContaining('Billing'), findsWidgets);
   });
 

@@ -11,12 +11,13 @@ const Map<String, dynamic> kProjectA = {
   'id': 'proj-uuid-001',
   'team_id': 'team-uuid-001',
   'name': 'Alpha',
+  'short_name': 'alpha',
   'slug': 'alpha',
   'description': 'First project.',
-  'repository_url': 'git@github.com:acme/alpha.git',
-  'default_branch': 'main',
   'tech_stack': 'Flutter, Dart',
   'execution_mode': 'manual',
+  'ssh_public_key': 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAlphaKey',
+  'has_ssh_key': true,
   'created_at': '2024-01-15T10:30:00.000Z',
   'updated_at': '2024-06-20T14:00:00.000Z',
   'task_count': 10,
@@ -27,12 +28,13 @@ const Map<String, dynamic> kProjectB = {
   'id': 'proj-uuid-002',
   'team_id': 'team-uuid-001',
   'name': 'Bravo',
+  'short_name': 'bravo',
   'slug': 'bravo',
   'description': 'Second project.',
-  'repository_url': 'git@github.com:acme/bravo.git',
-  'default_branch': 'develop',
   'tech_stack': 'Laravel, PostgreSQL',
   'execution_mode': 'auto',
+  'ssh_public_key': null,
+  'has_ssh_key': false,
   'created_at': '2025-03-01T08:00:00.000Z',
   'updated_at': '2025-03-20T12:00:00.000Z',
   'task_count': 5,
@@ -220,6 +222,12 @@ void main() {
 
       expect(project, isNotNull);
       expect(project!.id, equals('proj-uuid-001'));
+      expect(project.shortName, equals('alpha'));
+      expect(
+        project.sshPublicKey,
+        equals('ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAlphaKey'),
+      );
+      expect(project.hasSshKey, isTrue);
 
       expect(http.calls.first.method, equals('POST'));
       expect(http.calls.first.url, equals('/teams/team-uuid-001/projects'));
@@ -355,6 +363,56 @@ void main() {
       );
 
       expect(result, isFalse);
+    });
+
+    // -----------------------------------------------------------------------
+    // 11. regenerateSshKey — success returns public key string
+    // -----------------------------------------------------------------------
+
+    test(
+      'regenerateSshKey posts to project ssh-key endpoint and returns public key',
+      () async {
+        http.alwaysReturn(
+          MagicResponse(
+            data: {
+              'data': {
+                'ssh_public_key': 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINewKey',
+              },
+            },
+            statusCode: 200,
+          ),
+        );
+
+        final key = await state.regenerateSshKey(
+          'team-uuid-001',
+          'proj-uuid-001',
+        );
+
+        expect(key, equals('ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINewKey'));
+
+        expect(http.calls.first.method, equals('POST'));
+        expect(
+          http.calls.first.url,
+          equals('/teams/team-uuid-001/projects/proj-uuid-001/ssh-key'),
+        );
+      },
+    );
+
+    // -----------------------------------------------------------------------
+    // 12. regenerateSshKey — failure returns null
+    // -----------------------------------------------------------------------
+
+    test('regenerateSshKey returns null on failure', () async {
+      http.alwaysReturn(
+        MagicResponse(data: {'message': 'Not Found'}, statusCode: 404),
+      );
+
+      final key = await state.regenerateSshKey(
+        'team-uuid-001',
+        'proj-uuid-001',
+      );
+
+      expect(key, isNull);
     });
   });
 }

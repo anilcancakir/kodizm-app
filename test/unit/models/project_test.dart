@@ -16,11 +16,14 @@ void main() {
       'id': 'proj-uuid-001',
       'team_id': 'team-uuid-001',
       'name': 'Kodizm Backend',
+      'short_name': 'kodizm',
       'slug': 'kodizm-backend',
       'description': 'Laravel API powering the Kodizm platform.',
       'tech_stack': 'Laravel, PostgreSQL, Redis',
       'execution_mode': 'auto',
       'settings': {'timeout': 300, 'retries': 3},
+      'ssh_public_key': 'ssh-ed25519 AAAAC3... agent@kodizm',
+      'has_ssh_key': true,
       'repositories': [
         {
           'id': 'repo-uuid-001',
@@ -28,12 +31,10 @@ void main() {
           'name': 'kodizm-api',
           'repository_url': 'git@github.com:acme/kodizm-api.git',
           'default_branch': 'main',
-          'ssh_public_key': 'ssh-ed25519 AAAAC3... agent@kodizm',
           'repo_status': 'synced',
           'repo_error': null,
           'last_synced_at': '2024-06-20T12:00:00.000Z',
           'mount_path': '/workspace',
-          'has_ssh_key': true,
           'created_at': '2024-01-15T10:30:00.000Z',
           'updated_at': '2024-06-20T14:00:00.000Z',
         },
@@ -85,7 +86,43 @@ void main() {
         equals('git@github.com:acme/kodizm-api.git'),
       );
       expect(project.repositories.first.defaultBranch, equals('main'));
-      expect(project.repositories.first.hasSshKey, isTrue);
+    });
+
+    test('fromMap parses shortName field', () {
+      final project = Project.fromMap(kApiPayload);
+
+      expect(project.shortName, equals('kodizm'));
+    });
+
+    test('fromMap parses sshPublicKey field', () {
+      final project = Project.fromMap(kApiPayload);
+
+      expect(
+        project.sshPublicKey,
+        equals('ssh-ed25519 AAAAC3... agent@kodizm'),
+      );
+    });
+
+    test('fromMap parses hasSshKey field', () {
+      final project = Project.fromMap(kApiPayload);
+
+      expect(project.hasSshKey, isTrue);
+    });
+
+    test('hasSshKey defaults to false when absent', () {
+      final minimal = {
+        'id': 'proj-uuid-002',
+        'team_id': 'team-uuid-001',
+        'name': 'Minimal Project',
+        'slug': 'minimal-project',
+        'execution_mode': 'manual',
+        'created_at': '2024-01-01T00:00:00.000Z',
+        'updated_at': '2024-01-01T00:00:00.000Z',
+      };
+
+      final project = Project.fromMap(minimal);
+
+      expect(project.hasSshKey, isFalse);
     });
 
     test('repositoriesCount returns API-provided count', () {
@@ -159,6 +196,8 @@ void main() {
       expect(project.settings, isNull);
       expect(project.taskCount, isNull);
       expect(project.activeRunCount, isNull);
+      expect(project.shortName, isNull);
+      expect(project.sshPublicKey, isNull);
     });
 
     test('repositories returns empty list when not loaded', () {

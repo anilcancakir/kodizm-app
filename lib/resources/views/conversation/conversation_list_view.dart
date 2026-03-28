@@ -4,8 +4,7 @@ import 'package:magic/magic.dart';
 import '../../../app/models/conversation.dart';
 import '../../../app/models/user.dart';
 import '../../../app/state/conversation_list_state.dart';
-import '../../widgets/molecules/page_header.dart';
-import '../../widgets/molecules/section_card.dart';
+import 'package:magic_starter/magic_starter.dart';
 
 /// Conversation list view — displays all conversations for a given project.
 ///
@@ -113,7 +112,7 @@ class _ConversationListViewState extends State<ConversationListView> {
         // -------------------------------------------------------------------
         // Header
         // -------------------------------------------------------------------
-        PageHeader(
+        MagicStarterPageHeader(
           title: trans('conversations.title'),
           subtitle: trans('conversations.subtitle'),
           actions: [
@@ -177,27 +176,25 @@ class _ConversationListViewState extends State<ConversationListView> {
 
   /// Centered empty state shown when no conversations exist.
   Widget _buildEmpty() {
-    return SectionCard(
-      children: [
-        WDiv(
-          className:
-              'w-full flex flex-col items-center justify-center py-16 gap-4',
-          children: [
-            WIcon(
-              Icons.chat_bubble_outline,
-              className: 'text-4xl text-slate-300',
-            ),
-            WText(
-              trans('conversations.empty_title'),
-              className: 'text-lg font-semibold text-slate-500',
-            ),
-            WText(
-              trans('conversations.empty_subtitle'),
-              className: 'text-sm text-slate-400',
-            ),
-          ],
-        ),
-      ],
+    return MagicStarterCard(
+      child: WDiv(
+        className:
+            'w-full flex flex-col items-center justify-center py-16 gap-4',
+        children: [
+          WIcon(
+            Icons.chat_bubble_outline,
+            className: 'text-4xl text-slate-300',
+          ),
+          WText(
+            trans('conversations.empty_title'),
+            className: 'text-lg font-semibold text-slate-500',
+          ),
+          WText(
+            trans('conversations.empty_subtitle'),
+            className: 'text-sm text-slate-400',
+          ),
+        ],
+      ),
     );
   }
 
@@ -207,20 +204,18 @@ class _ConversationListViewState extends State<ConversationListView> {
 
   /// Scrollable, pull-to-refresh list of conversation rows.
   Widget _buildContent(List<Conversation> conversations) {
-    return SectionCard(
+    return MagicStarterCard(
       noPadding: true,
-      children: [
-        RefreshIndicator(
-          onRefresh: _loadConversations,
-          child: ListView.builder(
-            shrinkWrap: true,
-            physics: const AlwaysScrollableScrollPhysics(),
-            itemCount: conversations.length,
-            itemBuilder: (context, index) =>
-                _buildConversationRow(conversations[index]),
-          ),
+      child: RefreshIndicator(
+        onRefresh: _loadConversations,
+        child: ListView.builder(
+          shrinkWrap: true,
+          physics: const AlwaysScrollableScrollPhysics(),
+          itemCount: conversations.length,
+          itemBuilder: (context, index) =>
+              _buildConversationRow(conversations[index]),
         ),
-      ],
+      ),
     );
   }
 

@@ -5,8 +5,7 @@ import '../../../app/models/project.dart';
 import '../../../app/models/session.dart';
 import '../../../app/state/project_state.dart';
 import '../../../app/state/session_state.dart';
-import '../../widgets/molecules/page_header.dart';
-import '../../widgets/molecules/section_card.dart';
+import 'package:magic_starter/magic_starter.dart';
 
 /// Session list view — displays all sessions globally with filters.
 ///
@@ -187,7 +186,7 @@ class _SessionListViewState extends State<SessionListView> {
         // -----------------------------------------------------------------
         // Header
         // -----------------------------------------------------------------
-        PageHeader(
+        MagicStarterPageHeader(
           title: trans('sessions.title'),
           subtitle: trans('sessions.subtitle'),
         ),
@@ -201,15 +200,18 @@ class _SessionListViewState extends State<SessionListView> {
             if (_state.isLoading) {
               return _buildLoading();
             }
-            return SectionCard(
+            return MagicStarterCard(
               noPadding: true,
-              children: [
-                _buildFilterRow(),
-                if (_state.sessions.isEmpty)
-                  _buildEmpty()
-                else
-                  _buildSessionList(_state.sessions),
-              ],
+              child: WDiv(
+                className: 'flex flex-col',
+                children: [
+                  _buildFilterRow(),
+                  if (_state.sessions.isEmpty)
+                    _buildEmpty()
+                  else
+                    _buildSessionList(_state.sessions),
+                ],
+              ),
             );
           },
         ),

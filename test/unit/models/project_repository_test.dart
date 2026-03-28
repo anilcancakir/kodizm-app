@@ -14,12 +14,10 @@ void main() {
       'name': 'kodizm-api',
       'repository_url': 'git@github.com:acme/kodizm-api.git',
       'default_branch': 'main',
-      'ssh_public_key': 'ssh-ed25519 AAAAC3... agent@kodizm',
       'repo_status': 'synced',
       'repo_error': null,
       'last_synced_at': '2024-06-20T12:00:00.000Z',
       'mount_path': '/workspace',
-      'has_ssh_key': true,
       'created_at': '2024-01-15T10:30:00.000Z',
       'updated_at': '2024-06-20T14:00:00.000Z',
     };
@@ -36,14 +34,12 @@ void main() {
       expect(repo.name, equals('kodizm-api'));
       expect(repo.defaultBranch, equals('main'));
       expect(repo.mountPath, equals('/workspace'));
-      expect(repo.hasSshKey, isTrue);
     });
 
     test('fromMap hydrates optional fields', () {
       final repo = ProjectRepository.fromMap(kApiPayload);
 
       expect(repo.repositoryUrl, equals('git@github.com:acme/kodizm-api.git'));
-      expect(repo.sshPublicKey, equals('ssh-ed25519 AAAAC3... agent@kodizm'));
       expect(repo.repoStatus, equals('synced'));
       expect(repo.repoError, isNull);
       expect(repo.lastSyncedAt, equals('2024-06-20T12:00:00.000Z'));
@@ -51,26 +47,29 @@ void main() {
       expect(repo.updatedAt, equals('2024-06-20T14:00:00.000Z'));
     });
 
-    test('fromMap applies default values when fields are absent', () {
-      const minimal = {
-        'id': 'repo-uuid-002',
-        'project_id': 'proj-uuid-001',
-        'name': 'minimal-repo',
-      };
+    test(
+      'fromMap does not expose sshPublicKey or hasSshKey — moved to Project',
+      () {
+        const minimal = {
+          'id': 'repo-uuid-002',
+          'project_id': 'proj-uuid-001',
+          'name': 'minimal-repo',
+        };
 
-      final repo = ProjectRepository.fromMap(minimal);
+        final repo = ProjectRepository.fromMap(minimal);
 
-      expect(repo.defaultBranch, equals('main'));
-      expect(repo.mountPath, equals('/workspace'));
-      expect(repo.hasSshKey, isFalse);
-      expect(repo.repositoryUrl, isNull);
-      expect(repo.sshPublicKey, isNull);
-      expect(repo.repoStatus, isNull);
-      expect(repo.repoError, isNull);
-      expect(repo.lastSyncedAt, isNull);
-      expect(repo.createdAt, isNull);
-      expect(repo.updatedAt, isNull);
-    });
+        // sshPublicKey and hasSshKey have been moved to the Project level.
+        // These properties must NOT exist on ProjectRepository.
+        expect(repo.defaultBranch, equals('main'));
+        expect(repo.mountPath, equals('/workspace'));
+        expect(repo.repositoryUrl, isNull);
+        expect(repo.repoStatus, isNull);
+        expect(repo.repoError, isNull);
+        expect(repo.lastSyncedAt, isNull);
+        expect(repo.createdAt, isNull);
+        expect(repo.updatedAt, isNull);
+      },
+    );
 
     // ---------------------------------------------------------------------------
     // copyWith
@@ -86,7 +85,6 @@ void main() {
       expect(copy.repositoryUrl, equals(repo.repositoryUrl));
       expect(copy.defaultBranch, equals(repo.defaultBranch));
       expect(copy.mountPath, equals(repo.mountPath));
-      expect(copy.hasSshKey, equals(repo.hasSshKey));
     });
 
     test('copyWith replaces specified fields', () {
@@ -95,13 +93,11 @@ void main() {
         name: 'new-name',
         defaultBranch: 'develop',
         mountPath: '/app',
-        hasSshKey: false,
       );
 
       expect(updated.name, equals('new-name'));
       expect(updated.defaultBranch, equals('develop'));
       expect(updated.mountPath, equals('/app'));
-      expect(updated.hasSshKey, isFalse);
       // Unchanged fields preserved.
       expect(updated.id, equals(repo.id));
       expect(updated.repositoryUrl, equals(repo.repositoryUrl));
@@ -111,17 +107,62 @@ void main() {
       final repo = ProjectRepository.fromMap(kApiPayload);
       final cleared = repo.copyWith(
         clearRepositoryUrl: true,
-        clearSshPublicKey: true,
         clearRepoStatus: true,
         clearRepoError: true,
         clearLastSyncedAt: true,
       );
 
       expect(cleared.repositoryUrl, isNull);
-      expect(cleared.sshPublicKey, isNull);
       expect(cleared.repoStatus, isNull);
       expect(cleared.repoError, isNull);
       expect(cleared.lastSyncedAt, isNull);
+    });
+
+    // ---------------------------------------------------------------------------
+    // isMain field
+    // ---------------------------------------------------------------------------
+
+    test('fromMap sets isMain to true when is_main is true', () {
+      final repo = ProjectRepository.fromMap({...kApiPayload, 'is_main': true});
+
+      expect(repo.isMain, isTrue);
+    });
+
+    test('fromMap sets isMain to false when is_main is false', () {
+      final repo = ProjectRepository.fromMap({
+        ...kApiPayload,
+        'is_main': false,
+      });
+
+      expect(repo.isMain, isFalse);
+    });
+
+    test('fromMap defaults isMain to false when is_main is absent', () {
+      final repo = ProjectRepository.fromMap(kApiPayload);
+
+      expect(repo.isMain, isFalse);
+    });
+
+    test('copyWith can set isMain to true', () {
+      final repo = ProjectRepository.fromMap(kApiPayload);
+      final updated = repo.copyWith(isMain: true);
+
+      expect(updated.isMain, isTrue);
+      expect(updated.id, equals(repo.id));
+    });
+
+    test('copyWith can set isMain to false', () {
+      final repo = ProjectRepository.fromMap({...kApiPayload, 'is_main': true});
+      final updated = repo.copyWith(isMain: false);
+
+      expect(updated.isMain, isFalse);
+    });
+
+    test('copyWith preserves isMain when not provided', () {
+      final repo = ProjectRepository.fromMap({...kApiPayload, 'is_main': true});
+      final copy = repo.copyWith(name: 'new-name');
+
+      expect(copy.isMain, isTrue);
     });
 
     // ---------------------------------------------------------------------------
@@ -135,7 +176,6 @@ void main() {
         name: 'const-repo',
         defaultBranch: 'main',
         mountPath: '/workspace',
-        hasSshKey: false,
       );
 
       expect(repo.id, equals('repo-uuid-003'));

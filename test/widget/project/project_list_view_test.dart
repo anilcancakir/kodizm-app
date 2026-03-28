@@ -14,6 +14,7 @@ const Map<String, dynamic> kProjectAlpha = {
   'id': 'proj-uuid-001',
   'team_id': 'team-uuid-001',
   'name': 'Alpha',
+  'short_name': 'ALP',
   'slug': 'alpha',
   'description': 'First project.',
   'repository_url': 'git@github.com:acme/alpha.git',
@@ -31,6 +32,7 @@ const Map<String, dynamic> kProjectBravo = {
   'id': 'proj-uuid-002',
   'team_id': 'team-uuid-001',
   'name': 'Bravo',
+  'short_name': 'BRV',
   'slug': 'bravo',
   'description': 'Second project.',
   'repository_url': null,
@@ -348,5 +350,20 @@ void main() {
 
     // Bravo: no_repositories label.
     expect(find.text(trans('projects.no_repositories')), findsOneWidget);
+  });
+
+  // -------------------------------------------------------------------------
+  // 10. short_name badge — shown on each project card
+  // -------------------------------------------------------------------------
+
+  testWidgets('shows short_name badge on each project card', (tester) async {
+    // Both fixtures carry short_name: Alpha=ALP, Bravo=BRV.
+    _seedSuccess([kProjectAlpha, kProjectBravo]);
+
+    await _pumpSubject(tester);
+
+    // Each project card should display its short_name badge.
+    expect(find.text('ALP'), findsOneWidget);
+    expect(find.text('BRV'), findsOneWidget);
   });
 }

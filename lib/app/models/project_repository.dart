@@ -20,14 +20,13 @@ class ProjectRepository {
     required this.name,
     required this.defaultBranch,
     required this.mountPath,
-    required this.hasSshKey,
     this.repositoryUrl,
-    this.sshPublicKey,
     this.repoStatus,
     this.repoError,
     this.lastSyncedAt,
     this.createdAt,
     this.updatedAt,
+    this.isMain = false,
   });
 
   // -------
@@ -47,10 +46,6 @@ class ProjectRepository {
   /// The default Git branch to check out (e.g. `'main'`, `'master'`).
   final String defaultBranch;
 
-  /// The SSH public key provisioned for agent access to this repository.
-  /// Null when no key has been generated.
-  final String? sshPublicKey;
-
   /// The current sync status of the repository (e.g. `'synced'`, `'error'`).
   /// Null when status has not been determined.
   final String? repoStatus;
@@ -64,21 +59,21 @@ class ProjectRepository {
   /// The container-local mount path for this repository clone.
   final String mountPath;
 
-  /// Whether an SSH key pair has been generated for this repository.
-  final bool hasSshKey;
-
   /// ISO-8601 timestamp when this record was created. Null when not provided.
   final String? createdAt;
 
   /// ISO-8601 timestamp of the last update. Null when not provided.
   final String? updatedAt;
 
+  /// Whether this is the primary (main) repository for the project.
+  final bool isMain;
+
   // -------
 
   /// Parses a [ProjectRepository] from a JSON-decoded map.
   ///
-  /// Applies sensible defaults for [defaultBranch] (`'main'`),
-  /// [mountPath] (`'/workspace'`), and [hasSshKey] (`false`).
+  /// Applies sensible defaults for [defaultBranch] (`'main'`) and
+  /// [mountPath] (`'/workspace'`).
   factory ProjectRepository.fromMap(Map<String, dynamic> map) {
     return ProjectRepository(
       id: map['id'] as String,
@@ -86,14 +81,13 @@ class ProjectRepository {
       name: map['name'] as String,
       repositoryUrl: map['repository_url'] as String?,
       defaultBranch: map['default_branch'] as String? ?? 'main',
-      sshPublicKey: map['ssh_public_key'] as String?,
       repoStatus: map['repo_status'] as String?,
       repoError: map['repo_error'] as String?,
       lastSyncedAt: map['last_synced_at'] as String?,
       mountPath: map['mount_path'] as String? ?? '/workspace',
-      hasSshKey: map['has_ssh_key'] as bool? ?? false,
       createdAt: map['created_at'] as String?,
       updatedAt: map['updated_at'] as String?,
+      isMain: map['is_main'] as bool? ?? false,
     );
   }
 
@@ -110,8 +104,6 @@ class ProjectRepository {
     String? repositoryUrl,
     bool clearRepositoryUrl = false,
     String? defaultBranch,
-    String? sshPublicKey,
-    bool clearSshPublicKey = false,
     String? repoStatus,
     bool clearRepoStatus = false,
     String? repoError,
@@ -119,9 +111,9 @@ class ProjectRepository {
     String? lastSyncedAt,
     bool clearLastSyncedAt = false,
     String? mountPath,
-    bool? hasSshKey,
     String? createdAt,
     String? updatedAt,
+    bool? isMain,
   }) {
     return ProjectRepository(
       id: id ?? this.id,
@@ -131,18 +123,15 @@ class ProjectRepository {
           ? null
           : (repositoryUrl ?? this.repositoryUrl),
       defaultBranch: defaultBranch ?? this.defaultBranch,
-      sshPublicKey: clearSshPublicKey
-          ? null
-          : (sshPublicKey ?? this.sshPublicKey),
       repoStatus: clearRepoStatus ? null : (repoStatus ?? this.repoStatus),
       repoError: clearRepoError ? null : (repoError ?? this.repoError),
       lastSyncedAt: clearLastSyncedAt
           ? null
           : (lastSyncedAt ?? this.lastSyncedAt),
       mountPath: mountPath ?? this.mountPath,
-      hasSshKey: hasSshKey ?? this.hasSshKey,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      isMain: isMain ?? this.isMain,
     );
   }
 }

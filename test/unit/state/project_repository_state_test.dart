@@ -13,12 +13,10 @@ const Map<String, dynamic> kRepoA = {
   'name': 'API Repo',
   'repository_url': 'git@github.com:acme/api.git',
   'default_branch': 'main',
-  'ssh_public_key': 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFakeKey',
   'repo_status': 'cloned',
   'repo_error': null,
   'last_synced_at': '2025-01-01T12:00:00.000Z',
   'mount_path': '/workspace',
-  'has_ssh_key': true,
   'created_at': '2024-12-01T10:00:00.000Z',
   'updated_at': '2025-01-01T12:00:00.000Z',
 };
@@ -29,12 +27,10 @@ const Map<String, dynamic> kRepoB = {
   'name': 'Frontend Repo',
   'repository_url': null,
   'default_branch': 'develop',
-  'ssh_public_key': null,
   'repo_status': null,
   'repo_error': null,
   'last_synced_at': null,
   'mount_path': '/frontend',
-  'has_ssh_key': false,
   'created_at': '2025-01-05T09:00:00.000Z',
   'updated_at': '2025-01-05T09:00:00.000Z',
 };
@@ -292,56 +288,7 @@ void main() {
     });
 
     // -----------------------------------------------------------------------
-    // 8. generateSshKey — success returns public key string
-    // -----------------------------------------------------------------------
-
-    test('generateSshKey posts and returns public key string', () async {
-      http.alwaysReturn(
-        MagicResponse(
-          data: {
-            'data': {'public_key': 'ssh-ed25519 AAAAC3...'},
-          },
-          statusCode: 200,
-        ),
-      );
-
-      final key = await state.generateSshKey(
-        'team-uuid-001',
-        'proj-uuid-001',
-        'repo-uuid-001',
-      );
-
-      expect(key, equals('ssh-ed25519 AAAAC3...'));
-
-      expect(http.calls.first.method, equals('POST'));
-      expect(
-        http.calls.first.url,
-        equals(
-          '/teams/team-uuid-001/projects/proj-uuid-001/repositories/repo-uuid-001/ssh-key',
-        ),
-      );
-    });
-
-    // -----------------------------------------------------------------------
-    // 9. generateSshKey — failure returns null
-    // -----------------------------------------------------------------------
-
-    test('generateSshKey returns null on failure', () async {
-      http.alwaysReturn(
-        MagicResponse(data: {'message': 'Not Found'}, statusCode: 404),
-      );
-
-      final key = await state.generateSshKey(
-        'team-uuid-001',
-        'proj-uuid-001',
-        'repo-uuid-001',
-      );
-
-      expect(key, isNull);
-    });
-
-    // -----------------------------------------------------------------------
-    // 10. cloneRepository — success returns true
+    // 8. cloneRepository — success returns true
     // -----------------------------------------------------------------------
 
     test('cloneRepository posts to clone endpoint and returns true', () async {
@@ -365,7 +312,7 @@ void main() {
     });
 
     // -----------------------------------------------------------------------
-    // 11. cloneRepository — failure returns false
+    // 9. cloneRepository — failure returns false
     // -----------------------------------------------------------------------
 
     test('cloneRepository returns false on failure', () async {
@@ -383,7 +330,7 @@ void main() {
     });
 
     // -----------------------------------------------------------------------
-    // 12. fetchRepoStatus — success stores status and calls refreshUI
+    // 10. fetchRepoStatus — success stores status and calls refreshUI
     // -----------------------------------------------------------------------
 
     test('fetchRepoStatus stores repo status on success', () async {
@@ -396,7 +343,7 @@ void main() {
         ),
       );
 
-      expect(state.repoStatus, isNull);
+      expect(state.repoStatuses['repo-uuid-001'], isNull);
 
       await state.fetchRepoStatus(
         'team-uuid-001',
@@ -404,7 +351,7 @@ void main() {
         'repo-uuid-001',
       );
 
-      expect(state.repoStatus, equals('cloned'));
+      expect(state.repoStatuses['repo-uuid-001'], equals('cloned'));
       expect(
         http.calls.first.url,
         equals(
@@ -414,11 +361,11 @@ void main() {
     });
 
     // -----------------------------------------------------------------------
-    // 13. fetchRepoStatus — failure clears status
+    // 11. fetchRepoStatus — failure clears status
     // -----------------------------------------------------------------------
 
     test('fetchRepoStatus clears repoStatus on failure', () async {
-      // Prime repoStatus with a value via a successful call first.
+      // Prime repoStatuses with a value via a successful call first.
       http.alwaysReturn(
         MagicResponse(
           data: {
@@ -432,7 +379,7 @@ void main() {
         'proj-uuid-001',
         'repo-uuid-001',
       );
-      expect(state.repoStatus, equals('cloned'));
+      expect(state.repoStatuses['repo-uuid-001'], equals('cloned'));
 
       // Now simulate an error.
       http.alwaysReturn(
@@ -444,17 +391,91 @@ void main() {
         'repo-uuid-001',
       );
 
-      expect(state.repoStatus, isNull);
+      expect(state.repoStatuses['repo-uuid-001'], isNull);
     });
 
     // -----------------------------------------------------------------------
-    // 14. repositories getter — returns empty list before first fetch
+    // 12. repositories getter — returns empty list before first fetch
     // -----------------------------------------------------------------------
 
     test('repositories getter returns empty list when rxState is null', () {
       expect(state.rxState, isNull);
       expect(state.repositories, isEmpty);
       expect(state.repositories, isA<List>());
+    });
+
+    // -----------------------------------------------------------------------
+    // 13. setMainRepository — success calls PUT with is_main:true and refreshes
+    // -----------------------------------------------------------------------
+
+    test(
+      'setMainRepository sends PUT with is_main:true and refreshes repo list',
+      () async {
+        const Map<String, dynamic> kRepoAMain = {...kRepoA, 'is_main': true};
+
+        http.whenAny((url) {
+          if (url.contains('/repo/clone') || url.contains('/repo/status')) {
+            return MagicResponse(data: {'data': {}}, statusCode: 200);
+          }
+          if (url.endsWith('/repositories/repo-uuid-001')) {
+            return MagicResponse(data: {'data': kRepoAMain}, statusCode: 200);
+          }
+          // fetchRepositories after refresh
+          return MagicResponse(
+            data: {
+              'data': [kRepoAMain, kRepoB],
+            },
+            statusCode: 200,
+          );
+        });
+
+        await state.setMainRepository(
+          'team-uuid-001',
+          'proj-uuid-001',
+          'repo-uuid-001',
+        );
+
+        // PUT call was made with is_main: true.
+        final putCall = http.calls.firstWhere((c) => c.method == 'PUT');
+        expect(
+          putCall.url,
+          equals(
+            '/teams/team-uuid-001/projects/proj-uuid-001/repositories/repo-uuid-001',
+          ),
+        );
+        expect((putCall.data as Map<String, dynamic>)['is_main'], isTrue);
+
+        // GET call for fetchRepositories was made after PUT.
+        final getCall = http.calls.firstWhere((c) => c.method == 'GET');
+        expect(
+          getCall.url,
+          equals('/teams/team-uuid-001/projects/proj-uuid-001/repositories'),
+        );
+
+        // Repositories list was refreshed.
+        expect(state.repositories.length, equals(2));
+        expect(state.repositories[0].isMain, isTrue);
+      },
+    );
+
+    // -----------------------------------------------------------------------
+    // 14. setMainRepository — failure does not crash, no refresh
+    // -----------------------------------------------------------------------
+
+    test('setMainRepository does not refresh when PUT fails', () async {
+      http.alwaysReturn(
+        MagicResponse(data: {'message': 'Forbidden'}, statusCode: 403),
+      );
+
+      await state.setMainRepository(
+        'team-uuid-001',
+        'proj-uuid-001',
+        'repo-uuid-001',
+      );
+
+      // Only one call was made (PUT) — no GET for refresh.
+      expect(http.calls.length, equals(1));
+      expect(http.calls.first.method, equals('PUT'));
     });
   });
 }

@@ -41,6 +41,7 @@ class Project extends Model with HasTimestamps, InteractsWithPersistence {
   List<String> get fillable => [
     'team_id',
     'name',
+    'short_name',
     'slug',
     'description',
     'tech_stack',
@@ -71,6 +72,12 @@ class Project extends Model with HasTimestamps, InteractsWithPersistence {
 
   /// Set the project name.
   set name(String? value) => setAttribute('name', value);
+
+  /// Get the short name (slug-like identifier) for this project.
+  String? get shortName => getAttribute('short_name') as String?;
+
+  /// Set the short name.
+  set shortName(String? value) => setAttribute('short_name', value);
 
   /// Get the URL-friendly slug for this project.
   String? get slug => getAttribute('slug') as String?;
@@ -105,6 +112,16 @@ class Project extends Model with HasTimestamps, InteractsWithPersistence {
 
   /// Set the project settings map.
   set settings(Map<String, dynamic>? value) => setAttribute('settings', value);
+
+  /// Get the SSH public key provisioned for agent access to this project.
+  ///
+  /// Returns `null` when no key has been generated yet.
+  String? get sshPublicKey => getAttribute('ssh_public_key') as String?;
+
+  /// Whether an SSH key pair has been generated for this project.
+  ///
+  /// Falls back to `false` when not set on the model.
+  bool get hasSshKey => getAttribute('has_ssh_key') as bool? ?? false;
 
   // ---------------------------------------------------------------------------
   // Relationship Accessors

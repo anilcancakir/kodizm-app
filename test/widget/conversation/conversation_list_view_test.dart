@@ -7,8 +7,7 @@ import 'package:magic/magic.dart';
 
 import 'package:app/app/state/conversation_list_state.dart';
 import 'package:app/resources/views/conversation/conversation_list_view.dart';
-import 'package:app/resources/widgets/molecules/page_header.dart';
-import 'package:app/resources/widgets/molecules/section_card.dart';
+import 'package:magic_starter/magic_starter.dart';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -201,17 +200,17 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // 2. Renders PageHeader with conversations.title text
+  // 2. Renders MagicStarterPageHeader with conversations.title text
   // -------------------------------------------------------------------------
 
-  testWidgets('renders PageHeader with title', (tester) async {
+  testWidgets('renders MagicStarterPageHeader with title', (tester) async {
     http.alwaysReturn(
       MagicResponse(data: {'data': <dynamic>[]}, statusCode: 200),
     );
 
     await _pumpView(tester);
 
-    expect(find.byType(PageHeader), findsOneWidget);
+    expect(find.byType(MagicStarterPageHeader), findsOneWidget);
     expect(find.text('Conversations'), findsOneWidget);
   });
 
@@ -294,8 +293,8 @@ void main() {
     // Conversation 2 falls back to agent role name.
     expect(find.text('Lead Developer'), findsOneWidget);
 
-    // SectionCard wraps the list.
-    expect(find.byType(SectionCard), findsOneWidget);
+    // MagicStarterCard wraps the list.
+    expect(find.byType(MagicStarterCard), findsOneWidget);
   });
 
   // -------------------------------------------------------------------------

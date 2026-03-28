@@ -10,8 +10,7 @@ import '../../../app/state/task_state.dart';
 import '../../widgets/atoms/priority_badge.dart';
 import '../../widgets/atoms/status_badge.dart';
 import '../../widgets/atoms/task_type_icon.dart';
-import '../../widgets/molecules/page_header.dart';
-import '../../widgets/molecules/section_card.dart';
+import 'package:magic_starter/magic_starter.dart';
 import '../../widgets/organisms/markdown_viewer.dart';
 
 /// Task detail view — displays full task info, status transitions, sections,
@@ -202,7 +201,7 @@ class _TaskDetailViewState extends State<TaskDetailView> {
             // -----------------------------------------------------------
             // Header
             // -----------------------------------------------------------
-            PageHeader(
+            MagicStarterPageHeader(
               title: task.title ?? '',
               leading: WAnchor(
                 onTap: () =>
@@ -263,38 +262,41 @@ class _TaskDetailViewState extends State<TaskDetailView> {
     final currentStatus = task.status ?? 'draft';
     final transitions = _allowedTransitions[currentStatus] ?? [];
 
-    return SectionCard(
+    return MagicStarterCard(
       title: trans('tasks.status_actions'),
-      children: [
-        if (transitions.isEmpty)
-          WText(
-            trans('tasks.status_done'),
-            className: 'text-sm text-slate-500 dark:text-slate-400',
-          )
-        else
-          WDiv(
-            className: 'wrap gap-2',
-            children: [
-              for (final targetStatus in transitions)
-                WAnchor(
-                  onTap: () => _onTransitionTap(targetStatus),
-                  child: WDiv(
-                    className: _transitionButtonClassName(
-                      currentStatus,
-                      targetStatus,
-                    ),
-                    child: WText(
-                      trans(
-                        _transitionLabelKeys[targetStatus] ??
-                            'tasks.transition_start_analysis',
+      child: WDiv(
+        className: 'flex flex-col gap-4',
+        children: [
+          if (transitions.isEmpty)
+            WText(
+              trans('tasks.status_done'),
+              className: 'text-sm text-slate-500 dark:text-slate-400',
+            )
+          else
+            WDiv(
+              className: 'wrap gap-2',
+              children: [
+                for (final targetStatus in transitions)
+                  WAnchor(
+                    onTap: () => _onTransitionTap(targetStatus),
+                    child: WDiv(
+                      className: _transitionButtonClassName(
+                        currentStatus,
+                        targetStatus,
                       ),
-                      className: 'text-sm font-medium',
+                      child: WText(
+                        trans(
+                          _transitionLabelKeys[targetStatus] ??
+                              'tasks.transition_start_analysis',
+                        ),
+                        className: 'text-sm font-medium',
+                      ),
                     ),
                   ),
-                ),
-            ],
-          ),
-      ],
+              ],
+            ),
+        ],
+      ),
     );
   }
 
@@ -319,100 +321,106 @@ class _TaskDetailViewState extends State<TaskDetailView> {
     final createdAt = task.createdAt?.toDateTime;
     final updatedAt = task.updatedAt?.toDateTime;
 
-    return SectionCard(
+    return MagicStarterCard(
       title: trans('tasks.task_info'),
-      children: [
-        // Description
-        WDiv(
-          className: 'flex flex-col gap-2',
-          children: [
-            WText(
-              trans('tasks.description_label'),
-              className:
-                  'text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide',
-            ),
-            if (task.description != null && task.description!.isNotEmpty)
-              MarkdownViewer(data: task.description!)
-            else
-              WText(
-                trans('tasks.no_description'),
-                className: 'text-sm text-slate-400 dark:text-slate-500',
-              ),
-          ],
-        ),
-
-        // Acceptance Criteria
-        if (task.acceptanceCriteria != null &&
-            task.acceptanceCriteria!.isNotEmpty)
+      child: WDiv(
+        className: 'flex flex-col gap-4',
+        children: [
+          // Description
           WDiv(
             className: 'flex flex-col gap-2',
             children: [
               WText(
-                trans('tasks.acceptance_criteria'),
+                trans('tasks.description_label'),
                 className:
                     'text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide',
               ),
-              MarkdownViewer(data: task.acceptanceCriteria!),
+              if (task.description != null && task.description!.isNotEmpty)
+                MarkdownViewer(data: task.description!)
+              else
+                WText(
+                  trans('tasks.no_description'),
+                  className: 'text-sm text-slate-400 dark:text-slate-500',
+                ),
             ],
           ),
 
-        // Metadata row grid
-        WDiv(
-          className: 'flex flex-col gap-3',
-          children: [
-            // Assigned To
-            _InfoRow(
-              label: trans('tasks.assigned_to'),
-              value: task.assignedAgentRoleName ?? trans('tasks.unassigned'),
+          // Acceptance Criteria
+          if (task.acceptanceCriteria != null &&
+              task.acceptanceCriteria!.isNotEmpty)
+            WDiv(
+              className: 'flex flex-col gap-2',
+              children: [
+                WText(
+                  trans('tasks.acceptance_criteria'),
+                  className:
+                      'text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide',
+                ),
+                MarkdownViewer(data: task.acceptanceCriteria!),
+              ],
             ),
 
-            // Branch
-            _InfoRow(
-              label: trans('tasks.branch'),
-              value: task.branchName ?? trans('tasks.no_branch'),
-            ),
-
-            // Total cost
-            if (task.totalCostUsd != null)
+          // Metadata row grid
+          WDiv(
+            className: 'flex flex-col gap-3',
+            children: [
+              // Assigned To
               _InfoRow(
-                label: trans('tasks.total_cost'),
-                value: _formatCost(task.totalCostUsd),
+                label: trans('tasks.assigned_to'),
+                value: task.assignedAgentRoleName ?? trans('tasks.unassigned'),
               ),
 
-            // Created by
-            if (task.createdByUserName != null)
+              // Branch
               _InfoRow(
-                label: trans('tasks.created_by'),
-                value: task.createdByUserName!,
+                label: trans('tasks.branch'),
+                value: task.branchName ?? trans('tasks.no_branch'),
               ),
 
-            // Source
-            if (task.source != null)
-              _InfoRow(label: trans('tasks.source_label'), value: task.source!),
+              // Total cost
+              if (task.totalCostUsd != null)
+                _InfoRow(
+                  label: trans('tasks.total_cost'),
+                  value: _formatCost(task.totalCostUsd),
+                ),
 
-            // Complexity
-            if (task.estimatedComplexity != null)
-              _InfoRow(
-                label: trans('tasks.complexity_label'),
-                value: _complexityLabel(task.estimatedComplexity!),
-              ),
+              // Created by
+              if (task.createdByUserName != null)
+                _InfoRow(
+                  label: trans('tasks.created_by'),
+                  value: task.createdByUserName!,
+                ),
 
-            // Created At
-            if (createdAt != null)
-              _InfoRow(
-                label: trans('tasks.created_at_label'),
-                value: _formatDate(createdAt),
-              ),
+              // Source
+              if (task.source != null)
+                _InfoRow(
+                  label: trans('tasks.source_label'),
+                  value: task.source!,
+                ),
 
-            // Updated At
-            if (updatedAt != null)
-              _InfoRow(
-                label: trans('tasks.updated_at_label'),
-                value: _formatDate(updatedAt),
-              ),
-          ],
-        ),
-      ],
+              // Complexity
+              if (task.estimatedComplexity != null)
+                _InfoRow(
+                  label: trans('tasks.complexity_label'),
+                  value: _complexityLabel(task.estimatedComplexity!),
+                ),
+
+              // Created At
+              if (createdAt != null)
+                _InfoRow(
+                  label: trans('tasks.created_at_label'),
+                  value: _formatDate(createdAt),
+                ),
+
+              // Updated At
+              if (updatedAt != null)
+                _InfoRow(
+                  label: trans('tasks.updated_at_label'),
+                  value: _formatDate(updatedAt),
+                ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -430,60 +438,64 @@ class _TaskDetailViewState extends State<TaskDetailView> {
 
   /// Builds the task sections card.
   Widget _buildSectionsSection(List<TaskSection> sections) {
-    return SectionCard(
+    return MagicStarterCard(
       title: trans('tasks.sections'),
-      children: [
-        if (sections.isEmpty)
-          WText(
-            trans('tasks.no_sections'),
-            className: 'text-sm text-slate-400 dark:text-slate-500',
-          )
-        else
-          for (final section in sections)
-            WDiv(
-              className: '''
-                flex flex-col gap-3
-                border-b border-slate-100 dark:border-slate-700 pb-4
-              ''',
-              children: [
-                // Header row: type badge + title + version badge
-                WDiv(
-                  className: 'flex flex-row items-center gap-2',
-                  children: [
-                    WDiv(
-                      className:
-                          'px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-500',
-                      child: WText(
-                        _sectionTypeLabel(section.type),
-                        className: 'text-[11px] font-semibold text-indigo-500',
-                      ),
-                    ),
-                    WDiv(
-                      className: 'flex-1',
-                      child: WText(
-                        section.title,
+      child: WDiv(
+        className: 'flex flex-col gap-4',
+        children: [
+          if (sections.isEmpty)
+            WText(
+              trans('tasks.no_sections'),
+              className: 'text-sm text-slate-400 dark:text-slate-500',
+            )
+          else
+            for (final section in sections)
+              WDiv(
+                className: '''
+                  flex flex-col gap-3
+                  border-b border-slate-100 dark:border-slate-700 pb-4
+                ''',
+                children: [
+                  // Header row: type badge + title + version badge
+                  WDiv(
+                    className: 'flex flex-row items-center gap-2',
+                    children: [
+                      WDiv(
                         className:
-                            'text-sm font-semibold text-gray-900 dark:text-white',
+                            'px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-500',
+                        child: WText(
+                          _sectionTypeLabel(section.type),
+                          className:
+                              'text-[11px] font-semibold text-indigo-500',
+                        ),
                       ),
-                    ),
-                    WDiv(
-                      className:
-                          'px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700',
-                      child: WText(
-                        trans('tasks.version_label', {
-                          'version': section.version.toString(),
-                        }),
+                      WDiv(
+                        className: 'flex-1',
+                        child: WText(
+                          section.title,
+                          className:
+                              'text-sm font-semibold text-gray-900 dark:text-white',
+                        ),
+                      ),
+                      WDiv(
                         className:
-                            'text-[11px] font-medium text-slate-500 dark:text-slate-400',
+                            'px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700',
+                        child: WText(
+                          trans('tasks.version_label', {
+                            'version': section.version.toString(),
+                          }),
+                          className:
+                              'text-[11px] font-medium text-slate-500 dark:text-slate-400',
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                // Content
-                MarkdownViewer(data: section.content),
-              ],
-            ),
-      ],
+                    ],
+                  ),
+                  // Content
+                  MarkdownViewer(data: section.content),
+                ],
+              ),
+        ],
+      ),
     );
   }
 
@@ -491,61 +503,64 @@ class _TaskDetailViewState extends State<TaskDetailView> {
   Widget _buildRunHistorySection(BuildContext context, List<TaskRun> runs) {
     final hasActive = _hasActiveRun(runs);
 
-    return SectionCard(
+    return MagicStarterCard(
       title: trans('tasks.run_history'),
-      children: [
-        // Start Run button
-        WAnchor(
-          onTap: hasActive ? null : () => _showStartRunDialog(context),
-          child: WDiv(
-            className: hasActive
-                ? '''
-                  self-start flex flex-row items-center gap-2
-                  px-4 py-2 rounded-lg
-                  bg-slate-100 dark:bg-slate-700
-                  opacity-50
-                '''
-                : '''
-                  self-start flex flex-row items-center gap-2
-                  px-4 py-2 rounded-lg
-                  bg-amber-400
-                ''',
-            children: [
-              WIcon(
-                Icons.play_arrow,
-                className: hasActive
-                    ? 'text-sm text-slate-500'
-                    : 'text-sm text-primary-900',
-              ),
-              WText(
-                trans('tasks.run_agent'),
-                className: hasActive
-                    ? 'text-sm font-semibold text-slate-500'
-                    : 'text-sm font-semibold text-primary-900',
-              ),
-            ],
-          ),
-        ),
-
-        // Run list or empty state
-        if (runs.isEmpty)
-          WText(
-            trans('tasks.no_runs'),
-            className: 'text-sm text-slate-400 dark:text-slate-500',
-          )
-        else
-          WDiv(
-            className: 'flex flex-col gap-3',
-            children: [
-              for (final run in runs)
-                _RunRow(
-                  run: run,
-                  projectId: widget.projectId,
-                  taskId: widget.taskId,
+      child: WDiv(
+        className: 'flex flex-col gap-4',
+        children: [
+          // Start Run button
+          WAnchor(
+            onTap: hasActive ? null : () => _showStartRunDialog(context),
+            child: WDiv(
+              className: hasActive
+                  ? '''
+                    self-start flex flex-row items-center gap-2
+                    px-4 py-2 rounded-lg
+                    bg-slate-100 dark:bg-slate-700
+                    opacity-50
+                  '''
+                  : '''
+                    self-start flex flex-row items-center gap-2
+                    px-4 py-2 rounded-lg
+                    bg-amber-400
+                  ''',
+              children: [
+                WIcon(
+                  Icons.play_arrow,
+                  className: hasActive
+                      ? 'text-sm text-slate-500'
+                      : 'text-sm text-primary-900',
                 ),
-            ],
+                WText(
+                  trans('tasks.run_agent'),
+                  className: hasActive
+                      ? 'text-sm font-semibold text-slate-500'
+                      : 'text-sm font-semibold text-primary-900',
+                ),
+              ],
+            ),
           ),
-      ],
+
+          // Run list or empty state
+          if (runs.isEmpty)
+            WText(
+              trans('tasks.no_runs'),
+              className: 'text-sm text-slate-400 dark:text-slate-500',
+            )
+          else
+            WDiv(
+              className: 'flex flex-col gap-3',
+              children: [
+                for (final run in runs)
+                  _RunRow(
+                    run: run,
+                    projectId: widget.projectId,
+                    taskId: widget.taskId,
+                  ),
+              ],
+            ),
+        ],
+      ),
     );
   }
 }

@@ -8,7 +8,6 @@ import 'package:magic/magic.dart';
 import 'package:app/app/events/websocket_event.dart';
 import 'package:app/app/state/conversation_chat_state.dart';
 import 'package:app/resources/views/conversation/conversation_chat_view.dart';
-import 'package:app/resources/widgets/atoms/status_badge.dart';
 import 'package:app/resources/widgets/atoms/streaming_indicator.dart';
 import 'package:app/resources/widgets/organisms/chat_message_bubble.dart';
 import 'package:app/resources/widgets/organisms/chat_tool_use_card.dart';
@@ -278,7 +277,8 @@ void main() {
   testWidgets('status badge renders for active conversation', (tester) async {
     await pumpWithConversation(tester);
 
-    expect(find.byType(StatusBadge), findsWidgets);
+    // View renders status inline via WDiv — verify the translated text.
+    expect(find.text(trans('conversation_chat.status_active')), findsWidgets);
   });
 
   // -----------------------------------------------------------------------

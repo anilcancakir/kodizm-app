@@ -10,7 +10,7 @@ import '../../../app/models/user.dart';
 import '../../../app/services/websocket_service.dart';
 import '../../../app/state/conversation_chat_state.dart';
 import '../../widgets/atoms/streaming_indicator.dart';
-import '../../widgets/molecules/section_card.dart';
+import 'package:magic_starter/magic_starter.dart';
 import '../../widgets/organisms/chat_message_bubble.dart';
 
 // ---------------------------------------------------------------------------
@@ -710,109 +710,115 @@ class _ConversationChatViewState extends State<ConversationChatView> {
   // -----------------------------------------------------------------------
 
   Widget _buildMetadataCard(Conversation conversation) {
-    return SectionCard(
+    return MagicStarterCard(
       title: trans('conversation_chat.session_info'),
-      children: [
-        // Conversation ID
-        WDiv(
-          className: 'flex flex-col gap-0.5',
-          children: [
-            WText(
-              trans('conversation_chat.conversation_id'),
-              className:
-                  'text-xs font-semibold text-slate-500 dark:text-slate-400',
-            ),
-            WAnchor(
-              onTap: () {
-                Clipboard.setData(ClipboardData(text: conversation.id));
-              },
-              child: WText(
-                _truncateId(conversation.id),
-                className: '''
+      child: WDiv(
+        className: 'flex flex-col gap-4',
+        children: [
+          // Conversation ID
+          WDiv(
+            className: 'flex flex-col gap-0.5',
+            children: [
+              WText(
+                trans('conversation_chat.conversation_id'),
+                className:
+                    'text-xs font-semibold text-slate-500 dark:text-slate-400',
+              ),
+              WAnchor(
+                onTap: () {
+                  Clipboard.setData(ClipboardData(text: conversation.id));
+                },
+                child: WText(
+                  _truncateId(conversation.id),
+                  className: '''
                   text-sm text-gray-800 dark:text-gray-200
                   underline decoration-dotted
                 ''',
+                ),
+              ),
+            ],
+          ),
+
+          // Status
+          _InfoRow(
+            label: trans('agent_run.status'),
+            value: conversation.status,
+          ),
+
+          // Paused badge
+          if (conversation.status == 'paused')
+            WDiv(
+              className: 'px-2 py-1 rounded-lg bg-amber-400/15',
+              child: WText(
+                trans('conversation_chat.status_paused'),
+                className: 'text-xs font-semibold text-amber-500',
               ),
             ),
-          ],
-        ),
 
-        // Status
-        _InfoRow(label: trans('agent_run.status'), value: conversation.status),
-
-        // Paused badge
-        if (conversation.status == 'paused')
-          WDiv(
-            className: 'px-2 py-1 rounded-lg bg-amber-400/15',
-            child: WText(
-              trans('conversation_chat.status_paused'),
-              className: 'text-xs font-semibold text-amber-500',
+          // Agent role
+          if (conversation.agentRoleName != null)
+            _InfoRow(
+              label: trans('conversation_chat.agent_role'),
+              value: conversation.agentRoleName!,
             ),
-          ),
 
-        // Agent role
-        if (conversation.agentRoleName != null)
-          _InfoRow(
-            label: trans('conversation_chat.agent_role'),
-            value: conversation.agentRoleName!,
-          ),
+          // Model
+          if (conversation.model != null)
+            _InfoRow(
+              label: trans('conversation_chat.model_label'),
+              value: conversation.model!,
+            ),
 
-        // Model
-        if (conversation.model != null)
-          _InfoRow(
-            label: trans('conversation_chat.model_label'),
-            value: conversation.model!,
-          ),
-
-        // Cost
-        _InfoRow(
-          label: trans('conversation_chat.cost_label'),
-          value: trans('conversation_chat.cost_format', {
-            'amount': (conversation.totalCostUsd ?? 0.0).toStringAsFixed(2),
-          }),
-        ),
-
-        // Input tokens
-        _InfoRow(
-          label: trans('conversation_chat.input_tokens'),
-          value: (conversation.totalInputTokens ?? 0).toString(),
-        ),
-
-        // Output tokens
-        _InfoRow(
-          label: trans('conversation_chat.output_tokens'),
-          value: (conversation.totalOutputTokens ?? 0).toString(),
-        ),
-
-        // Session ID
-        if (_state.sessionId != null)
-          _InfoRow(
-            label: trans('agent_run.session_id'),
-            value: _truncateId(_state.sessionId!),
-          ),
-
-        // Running cost
-        if (_state.runningCostUsd != null)
+          // Cost
           _InfoRow(
             label: trans('conversation_chat.cost_label'),
-            value: '\$${_state.runningCostUsd}',
+            value: trans('conversation_chat.cost_format', {
+              'amount': (conversation.totalCostUsd ?? 0.0).toStringAsFixed(2),
+            }),
           ),
 
-        // Warm Until
-        if (_state.warmUntil != null)
+          // Input tokens
           _InfoRow(
-            label: trans('conversation_chat.warm_until'),
-            value: _state.warmUntil!,
+            label: trans('conversation_chat.input_tokens'),
+            value: (conversation.totalInputTokens ?? 0).toString(),
           ),
 
-        // Messages count
-        WText(
-          trans('conversation_chat.messages_count', {
-            'count': _state.messages.length.toString(),
-          }),
-          className: 'text-xs text-slate-500 dark:text-slate-400',
-        ),
-      ],
+          // Output tokens
+          _InfoRow(
+            label: trans('conversation_chat.output_tokens'),
+            value: (conversation.totalOutputTokens ?? 0).toString(),
+          ),
+
+          // Session ID
+          if (_state.sessionId != null)
+            _InfoRow(
+              label: trans('agent_run.session_id'),
+              value: _truncateId(_state.sessionId!),
+            ),
+
+          // Running cost
+          if (_state.runningCostUsd != null)
+            _InfoRow(
+              label: trans('conversation_chat.cost_label'),
+              value: '\$${_state.runningCostUsd}',
+            ),
+
+          // Warm Until
+          if (_state.warmUntil != null)
+            _InfoRow(
+              label: trans('conversation_chat.warm_until'),
+              value: _state.warmUntil!,
+            ),
+
+          // Messages count
+          WText(
+            trans('conversation_chat.messages_count', {
+              'count': _state.messages.length.toString(),
+            }),
+            className: 'text-xs text-slate-500 dark:text-slate-400',
+          ),
+        ],
+      ),
     );
   }
 
@@ -823,62 +829,65 @@ class _ConversationChatViewState extends State<ConversationChatView> {
   Widget _buildRawEventsPanel() {
     final events = _state.rawEvents;
 
-    return SectionCard(
+    return MagicStarterCard(
       title: trans('conversation_chat.raw_events_count', {
         'count': events.length.toString(),
       }),
-      children: [
-        // Toggle to expand/collapse events list
-        WAnchor(
-          onTap: () {},
-          child: WDiv(
-            className: 'flex flex-row items-center gap-2',
-            children: [
-              WIcon(Icons.expand_more, className: 'text-sm text-slate-400'),
-              WText(
-                trans('conversation_chat.raw_events'),
-                className:
-                    'text-xs font-medium text-slate-500 dark:text-slate-400',
-              ),
-            ],
-          ),
-        ),
-
-        // Event list
-        for (final event in events)
-          WDiv(
-            className: '''
-              p-3 rounded-lg
-              bg-slate-900 dark:bg-slate-950
-            ''',
-            children: [
-              WDiv(
-                className: 'flex flex-row items-center gap-2 mb-1',
-                children: [
-                  WDiv(
-                    className: 'px-1.5 py-0.5 rounded bg-slate-700',
-                    child: WText(
-                      event.eventName,
-                      className: 'text-[10px] font-mono text-slate-300',
-                    ),
-                  ),
-                  WText(
-                    event.channel,
-                    className: 'text-[10px] font-mono text-slate-500',
-                  ),
-                ],
-              ),
-              SelectableText(
-                const JsonEncoder.withIndent('  ').convert(event.data),
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontFamily: 'JetBrains Mono',
-                  color: Color(0xFF94A3B8),
+      child: WDiv(
+        className: 'flex flex-col gap-4',
+        children: [
+          // Toggle to expand/collapse events list
+          WAnchor(
+            onTap: () {},
+            child: WDiv(
+              className: 'flex flex-row items-center gap-2',
+              children: [
+                WIcon(Icons.expand_more, className: 'text-sm text-slate-400'),
+                WText(
+                  trans('conversation_chat.raw_events'),
+                  className:
+                      'text-xs font-medium text-slate-500 dark:text-slate-400',
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-      ],
+
+          // Event list
+          for (final event in events)
+            WDiv(
+              className: '''
+                p-3 rounded-lg
+                bg-slate-900 dark:bg-slate-950
+              ''',
+              children: [
+                WDiv(
+                  className: 'flex flex-row items-center gap-2 mb-1',
+                  children: [
+                    WDiv(
+                      className: 'px-1.5 py-0.5 rounded bg-slate-700',
+                      child: WText(
+                        event.eventName,
+                        className: 'text-[10px] font-mono text-slate-300',
+                      ),
+                    ),
+                    WText(
+                      event.channel,
+                      className: 'text-[10px] font-mono text-slate-500',
+                    ),
+                  ],
+                ),
+                SelectableText(
+                  const JsonEncoder.withIndent('  ').convert(event.data),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontFamily: 'JetBrains Mono',
+                    color: Color(0xFF94A3B8),
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
     );
   }
 

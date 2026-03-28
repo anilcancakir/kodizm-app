@@ -3,8 +3,7 @@ import 'package:magic/magic.dart';
 
 import '../../../app/models/user.dart';
 import '../../../app/state/task_state.dart';
-import '../../widgets/molecules/page_header.dart';
-import '../../widgets/molecules/section_card.dart';
+import 'package:magic_starter/magic_starter.dart';
 
 // ---------------------------------------------------------------------------
 // Segment model
@@ -261,89 +260,87 @@ class _TaskCreateViewState extends State<TaskCreateView> {
       className: 'p-4 lg:p-6 flex flex-col gap-6',
       children: [
         // Page header — outside the card.
-        PageHeader(
+        MagicStarterPageHeader(
           title: trans('tasks.create_task'),
           subtitle: trans('tasks.create_subtitle'),
         ),
 
         // Form section card.
-        SectionCard(
+        MagicStarterCard(
           title: trans('tasks.create_task'),
-          children: [
-            Form(
-              key: _formKey,
-              child: WDiv(
-                className: 'flex flex-col gap-5',
-                children: [
-                  // Title field.
-                  _buildTitleField(),
+          child: Form(
+            key: _formKey,
+            child: WDiv(
+              className: 'flex flex-col gap-5',
+              children: [
+                // Title field.
+                _buildTitleField(),
 
-                  // Description field.
-                  _buildField(
-                    label: trans('tasks.description_label'),
-                    hint: trans('tasks.description_placeholder'),
-                    controller: _descriptionController,
-                    maxLines: 3,
-                  ),
+                // Description field.
+                _buildField(
+                  label: trans('tasks.description_label'),
+                  hint: trans('tasks.description_placeholder'),
+                  controller: _descriptionController,
+                  maxLines: 3,
+                ),
 
-                  // Acceptance criteria field.
-                  _buildField(
-                    label: trans('tasks.acceptance_criteria_label'),
-                    hint: trans('tasks.acceptance_criteria_placeholder'),
-                    controller: _acceptanceCriteriaController,
-                    maxLines: 3,
-                  ),
+                // Acceptance criteria field.
+                _buildField(
+                  label: trans('tasks.acceptance_criteria_label'),
+                  hint: trans('tasks.acceptance_criteria_placeholder'),
+                  controller: _acceptanceCriteriaController,
+                  maxLines: 3,
+                ),
 
-                  // Type segmented control.
-                  _SegmentedControl(
-                    label: trans('tasks.type_label'),
-                    options: _typeOptions,
-                    selected: _type,
-                    onChanged: (v) => setState(() => _type = v ?? 'task'),
-                  ),
+                // Type segmented control.
+                _SegmentedControl(
+                  label: trans('tasks.type_label'),
+                  options: _typeOptions,
+                  selected: _type,
+                  onChanged: (v) => setState(() => _type = v ?? 'task'),
+                ),
 
-                  // Priority segmented control.
-                  _SegmentedControl(
-                    label: trans('tasks.priority_label'),
-                    options: _priorityOptions,
-                    selected: _priority,
-                    onChanged: (v) => setState(() => _priority = v ?? 'p2'),
-                  ),
+                // Priority segmented control.
+                _SegmentedControl(
+                  label: trans('tasks.priority_label'),
+                  options: _priorityOptions,
+                  selected: _priority,
+                  onChanged: (v) => setState(() => _priority = v ?? 'p2'),
+                ),
 
-                  // Estimated complexity segmented control.
-                  _SegmentedControl(
-                    label: trans('tasks.complexity_label'),
-                    options: _complexityOptions,
-                    selected: _complexity ?? 'none',
-                    onChanged: (v) =>
-                        setState(() => _complexity = (v == 'none') ? null : v),
-                  ),
+                // Estimated complexity segmented control.
+                _SegmentedControl(
+                  label: trans('tasks.complexity_label'),
+                  options: _complexityOptions,
+                  selected: _complexity ?? 'none',
+                  onChanged: (v) =>
+                      setState(() => _complexity = (v == 'none') ? null : v),
+                ),
 
-                  // Inline error banner.
-                  if (_submitError != null)
-                    WDiv(
-                      className: '''
-                        p-3 rounded-lg
-                        bg-red-50 dark:bg-red-900/20
-                        border border-red-200 dark:border-red-800
-                      ''',
-                      child: WText(
-                        _submitError!,
-                        className: 'text-sm text-red-600 dark:text-red-400',
-                      ),
-                    ),
-
-                  const WSpacer(className: 'h-1'),
-
-                  // Action buttons.
+                // Inline error banner.
+                if (_submitError != null)
                   WDiv(
-                    className: 'flex flex-row gap-3 justify-end',
-                    children: [_buildSecondaryButton(), _buildPrimaryButton()],
+                    className: '''
+                      p-3 rounded-lg
+                      bg-red-50 dark:bg-red-900/20
+                      border border-red-200 dark:border-red-800
+                    ''',
+                    child: WText(
+                      _submitError!,
+                      className: 'text-sm text-red-600 dark:text-red-400',
+                    ),
                   ),
-                ],
-              ),
+
+                const WSpacer(className: 'h-1'),
+
+                // Action buttons.
+                WDiv(
+                  className: 'flex flex-row gap-3 justify-end',
+                  children: [_buildSecondaryButton(), _buildPrimaryButton()],
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ],
     );

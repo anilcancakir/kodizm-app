@@ -4,8 +4,7 @@ import 'package:magic/magic.dart';
 import '../../../app/models/project_document.dart';
 import '../../../app/models/user.dart';
 import '../../../app/state/document_state.dart';
-import '../../widgets/molecules/page_header.dart';
-import '../../widgets/molecules/section_card.dart';
+import 'package:magic_starter/magic_starter.dart';
 import '../../widgets/organisms/markdown_viewer.dart';
 
 /// Knowledge document detail view — displays full document content with
@@ -119,7 +118,7 @@ class _KnowledgeDetailViewState extends State<KnowledgeDetailView> {
             // ---------------------------------------------------------------
             // Header
             // ---------------------------------------------------------------
-            PageHeader(
+            MagicStarterPageHeader(
               title: document?.title ?? trans('knowledge.detail_title'),
               leading: WAnchor(
                 onTap: () =>
@@ -164,39 +163,42 @@ class _KnowledgeDetailViewState extends State<KnowledgeDetailView> {
               // -------------------------------------------------------------
               // Content — main document body
               // -------------------------------------------------------------
-              SectionCard(children: [MarkdownViewer(data: document.content)]),
+              MagicStarterCard(child: MarkdownViewer(data: document.content)),
 
               // -------------------------------------------------------------
               // Metadata
               // -------------------------------------------------------------
-              SectionCard(
+              MagicStarterCard(
                 title: trans('knowledge.metadata'),
-                children: [
-                  // Author
-                  _MetaRow(
-                    label: trans('tasks.created_by'),
-                    value: _authorName(document),
-                  ),
-
-                  // Category
-                  if (document.category != null)
+                child: WDiv(
+                  className: 'flex flex-col gap-4',
+                  children: [
+                    // Author
                     _MetaRow(
-                      label: trans('knowledge.category_label'),
-                      value: _categoryLabel(document.category),
+                      label: trans('tasks.created_by'),
+                      value: _authorName(document),
                     ),
 
-                  // Created
-                  _MetaRow(
-                    label: trans('tasks.created_at_label'),
-                    value: _formatDate(document.createdAt),
-                  ),
+                    // Category
+                    if (document.category != null)
+                      _MetaRow(
+                        label: trans('knowledge.category_label'),
+                        value: _categoryLabel(document.category),
+                      ),
 
-                  // Updated
-                  _MetaRow(
-                    label: trans('tasks.updated_at_label'),
-                    value: _formatDate(document.updatedAt),
-                  ),
-                ],
+                    // Created
+                    _MetaRow(
+                      label: trans('tasks.created_at_label'),
+                      value: _formatDate(document.createdAt),
+                    ),
+
+                    // Updated
+                    _MetaRow(
+                      label: trans('tasks.updated_at_label'),
+                      value: _formatDate(document.updatedAt),
+                    ),
+                  ],
+                ),
               ),
             ],
           ],

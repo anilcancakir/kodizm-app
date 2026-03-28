@@ -7,8 +7,7 @@ import 'package:magic/magic.dart';
 
 import 'package:app/app/state/settings_state.dart';
 import 'package:app/resources/views/settings/app_settings_view.dart';
-import 'package:app/resources/widgets/molecules/page_header.dart';
-import 'package:app/resources/widgets/molecules/section_card.dart';
+import 'package:magic_starter/magic_starter.dart';
 
 // ---------------------------------------------------------------------------
 // Fake SettingsStorage for tests
@@ -118,13 +117,13 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // 2. Renders PageHeader with settings.title text
+  // 2. Renders MagicStarterPageHeader with settings.title text
   // -------------------------------------------------------------------------
 
-  testWidgets('renders PageHeader with title', (tester) async {
+  testWidgets('renders MagicStarterPageHeader with title', (tester) async {
     await _pumpView(tester);
 
-    expect(find.byType(PageHeader), findsOneWidget);
+    expect(find.byType(MagicStarterPageHeader), findsOneWidget);
     // trans('settings.title') = 'App Settings'
     expect(find.textContaining('App Settings'), findsOneWidget);
   });
@@ -177,13 +176,13 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // 6. SectionCard widgets are used for layout sections
+  // 6. MagicStarterCard widgets are used for layout sections
   // -------------------------------------------------------------------------
 
-  testWidgets('uses SectionCard widgets for each section', (tester) async {
+  testWidgets('uses MagicStarterCard widgets for each section', (tester) async {
     await _pumpView(tester);
 
     // Appearance + Notifications + About = at least 3 cards
-    expect(find.byType(SectionCard), findsAtLeastNWidgets(2));
+    expect(find.byType(MagicStarterCard), findsAtLeastNWidgets(2));
   });
 }

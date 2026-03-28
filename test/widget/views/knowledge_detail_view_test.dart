@@ -7,8 +7,7 @@ import 'package:magic/magic.dart';
 
 import 'package:app/app/state/document_state.dart';
 import 'package:app/resources/views/knowledge/knowledge_detail_view.dart';
-import 'package:app/resources/widgets/molecules/page_header.dart';
-import 'package:app/resources/widgets/molecules/section_card.dart';
+import 'package:magic_starter/magic_starter.dart';
 import 'package:app/resources/widgets/organisms/markdown_viewer.dart';
 
 // ---------------------------------------------------------------------------
@@ -178,10 +177,10 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // 3. Renders PageHeader with document title when loaded
+  // 3. Renders MagicStarterPageHeader with document title when loaded
   // -------------------------------------------------------------------------
 
-  testWidgets('renders document title in PageHeader when loaded', (
+  testWidgets('renders document title in MagicStarterPageHeader when loaded', (
     tester,
   ) async {
     http.alwaysReturn(
@@ -193,7 +192,7 @@ void main() {
 
     await _pumpView(tester);
 
-    expect(find.byType(PageHeader), findsOneWidget);
+    expect(find.byType(MagicStarterPageHeader), findsOneWidget);
     expect(find.text('Architecture Overview'), findsOneWidget);
   });
 
@@ -230,7 +229,7 @@ void main() {
 
     await _pumpView(tester);
 
-    // Metadata SectionCard title: trans('knowledge.metadata') = 'Metadata'
+    // Metadata MagicStarterCard title: trans('knowledge.metadata') = 'Metadata'
     expect(find.textContaining('Metadata'), findsOneWidget);
 
     // Author: 'Alice Smith'
@@ -240,7 +239,7 @@ void main() {
     // Appears in both the header badge and metadata section.
     expect(find.textContaining('Architecture'), findsWidgets);
 
-    // Two SectionCards: one for content (MarkdownViewer), one for metadata.
-    expect(find.byType(SectionCard), findsNWidgets(2));
+    // Two MagicStarterCards: one for content (MarkdownViewer), one for metadata.
+    expect(find.byType(MagicStarterCard), findsNWidgets(2));
   });
 }

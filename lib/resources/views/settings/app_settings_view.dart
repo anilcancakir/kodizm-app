@@ -4,8 +4,7 @@ import 'package:magic/magic.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../app/state/settings_state.dart';
-import '../../widgets/molecules/page_header.dart';
-import '../../widgets/molecules/section_card.dart';
+import 'package:magic_starter/magic_starter.dart';
 
 /// App-level settings view — theme mode, notifications, and about info.
 ///
@@ -73,7 +72,7 @@ class _SettingsContent extends StatelessWidget {
     return WDiv(
       className: 'p-4 lg:p-6 flex flex-col gap-6',
       children: [
-        PageHeader(
+        MagicStarterPageHeader(
           title: trans('settings.title'),
           subtitle: trans('settings.subtitle'),
         ),
@@ -99,48 +98,45 @@ class _AppearanceCard extends StatelessWidget {
     final isDark = !isSystem && controller.brightness == Brightness.dark;
     final isLight = !isSystem && controller.brightness == Brightness.light;
 
-    return SectionCard(
+    return MagicStarterCard(
       title: trans('settings.appearance'),
-      children: [
-        WDiv(
-          className: 'flex flex-col gap-3',
-          children: [
-            WText(
-              trans('settings.theme_mode'),
-              className:
-                  'text-sm font-medium text-slate-700 dark:text-slate-300',
-            ),
-            WDiv(
-              className: 'flex flex-row gap-2',
-              children: [
-                _ThemeChip(
-                  label: trans('settings.theme_light'),
-                  isActive: isLight,
-                  onTap: () {
-                    WindTheme.of(
-                      context,
-                    ).updateTheme(brightness: Brightness.light);
-                  },
-                ),
-                _ThemeChip(
-                  label: trans('settings.theme_dark'),
-                  isActive: isDark,
-                  onTap: () {
-                    WindTheme.of(
-                      context,
-                    ).updateTheme(brightness: Brightness.dark);
-                  },
-                ),
-                _ThemeChip(
-                  label: trans('settings.theme_system'),
-                  isActive: isSystem,
-                  onTap: () => WindTheme.of(context).resetToSystem(),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ],
+      child: WDiv(
+        className: 'flex flex-col gap-3',
+        children: [
+          WText(
+            trans('settings.theme_mode'),
+            className: 'text-sm font-medium text-slate-700 dark:text-slate-300',
+          ),
+          WDiv(
+            className: 'flex flex-row gap-2',
+            children: [
+              _ThemeChip(
+                label: trans('settings.theme_light'),
+                isActive: isLight,
+                onTap: () {
+                  WindTheme.of(
+                    context,
+                  ).updateTheme(brightness: Brightness.light);
+                },
+              ),
+              _ThemeChip(
+                label: trans('settings.theme_dark'),
+                isActive: isDark,
+                onTap: () {
+                  WindTheme.of(
+                    context,
+                  ).updateTheme(brightness: Brightness.dark);
+                },
+              ),
+              _ThemeChip(
+                label: trans('settings.theme_system'),
+                isActive: isSystem,
+                onTap: () => WindTheme.of(context).resetToSystem(),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -191,34 +187,39 @@ class _NotificationsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = Magic.findOrPut(SettingsState.new);
 
-    return SectionCard(
+    return MagicStarterCard(
       title: trans('settings.notifications'),
-      children: [
-        _NotificationToggle(
-          label: trans('settings.notify_run_completed'),
-          value: state.notifyRunCompleted,
-          onChanged: (val) =>
-              state.setNotificationPref(SettingsState.keyRunCompleted, val),
-        ),
-        _NotificationToggle(
-          label: trans('settings.notify_run_failed'),
-          value: state.notifyRunFailed,
-          onChanged: (val) =>
-              state.setNotificationPref(SettingsState.keyRunFailed, val),
-        ),
-        _NotificationToggle(
-          label: trans('settings.notify_question_pending'),
-          value: state.notifyQuestionPending,
-          onChanged: (val) =>
-              state.setNotificationPref(SettingsState.keyQuestionPending, val),
-        ),
-        _NotificationToggle(
-          label: trans('settings.notify_balance_low'),
-          value: state.notifyBalanceLow,
-          onChanged: (val) =>
-              state.setNotificationPref(SettingsState.keyBalanceLow, val),
-        ),
-      ],
+      child: WDiv(
+        className: 'flex flex-col gap-4',
+        children: [
+          _NotificationToggle(
+            label: trans('settings.notify_run_completed'),
+            value: state.notifyRunCompleted,
+            onChanged: (val) =>
+                state.setNotificationPref(SettingsState.keyRunCompleted, val),
+          ),
+          _NotificationToggle(
+            label: trans('settings.notify_run_failed'),
+            value: state.notifyRunFailed,
+            onChanged: (val) =>
+                state.setNotificationPref(SettingsState.keyRunFailed, val),
+          ),
+          _NotificationToggle(
+            label: trans('settings.notify_question_pending'),
+            value: state.notifyQuestionPending,
+            onChanged: (val) => state.setNotificationPref(
+              SettingsState.keyQuestionPending,
+              val,
+            ),
+          ),
+          _NotificationToggle(
+            label: trans('settings.notify_balance_low'),
+            value: state.notifyBalanceLow,
+            onChanged: (val) =>
+                state.setNotificationPref(SettingsState.keyBalanceLow, val),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -268,25 +269,31 @@ class _AboutCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SectionCard(
+    return MagicStarterCard(
       title: trans('settings.about'),
-      children: [
-        _InfoRow(
-          label: trans('settings.app_version'),
-          value: appVersion.isEmpty ? '–' : appVersion,
-        ),
-        _InfoRow(
-          label: trans('settings.build_number'),
-          value: buildNumber.isEmpty ? '–' : buildNumber,
-        ),
-        _InfoRow(
-          label: trans('settings.api_server'),
-          value: env('API_URL', ''),
-        ),
-        const WSpacer(className: 'h-2'),
-        _LinkRow(label: trans('settings.terms'), url: env('TERMS_URL', '')),
-        _LinkRow(label: trans('settings.privacy'), url: env('PRIVACY_URL', '')),
-      ],
+      child: WDiv(
+        className: 'flex flex-col gap-4',
+        children: [
+          _InfoRow(
+            label: trans('settings.app_version'),
+            value: appVersion.isEmpty ? '–' : appVersion,
+          ),
+          _InfoRow(
+            label: trans('settings.build_number'),
+            value: buildNumber.isEmpty ? '–' : buildNumber,
+          ),
+          _InfoRow(
+            label: trans('settings.api_server'),
+            value: env('API_URL', ''),
+          ),
+          const WSpacer(className: 'h-2'),
+          _LinkRow(label: trans('settings.terms'), url: env('TERMS_URL', '')),
+          _LinkRow(
+            label: trans('settings.privacy'),
+            url: env('PRIVACY_URL', ''),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -4,7 +4,7 @@ import 'package:magic/magic.dart';
 import '../../../app/models/project.dart';
 import '../../../app/models/user.dart';
 import '../../../app/state/project_state.dart';
-import '../../widgets/molecules/page_header.dart';
+import 'package:magic_starter/magic_starter.dart';
 
 /// Project list view — displays all projects for the authenticated user's team.
 ///
@@ -55,7 +55,7 @@ class _ProjectListViewState extends State<ProjectListView> {
         // ---------------------------------------------------------------
         // Header row: title + create button
         // ---------------------------------------------------------------
-        PageHeader(
+        MagicStarterPageHeader(
           title: trans('projects.title'),
           subtitle: trans('projects.manage_subtitle'),
           actions: [
@@ -307,17 +307,37 @@ class _ProjectCard extends StatelessWidget {
         ''',
         children: [
           // ---------------------------------------------------------------
-          // Card header: name + active run dot
+          // Card header: short_name badge + name + active run dot
           // ---------------------------------------------------------------
           WDiv(
             className: 'flex flex-row items-center justify-between',
             children: [
-              WText(
-                project.name ?? trans('projects.unnamed_project'),
-                className: '''
-                  text-lg font-semibold
-                  text-gray-900 dark:text-white
-                ''',
+              WDiv(
+                className: 'flex flex-row items-center gap-2',
+                children: [
+                  if (project.shortName != null &&
+                      project.shortName!.isNotEmpty)
+                    WDiv(
+                      className: '''
+                        px-2 py-0.5 rounded-full
+                        bg-amber-100 dark:bg-amber-900/30
+                      ''',
+                      child: WText(
+                        project.shortName!,
+                        className: '''
+                          text-xs font-bold
+                          text-amber-700 dark:text-amber-400
+                        ''',
+                      ),
+                    ),
+                  WText(
+                    project.name ?? trans('projects.unnamed_project'),
+                    className: '''
+                      text-lg font-semibold
+                      text-gray-900 dark:text-white
+                    ''',
+                  ),
+                ],
               ),
               if (hasActiveRuns)
                 WDiv(

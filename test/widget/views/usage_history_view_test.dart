@@ -7,8 +7,7 @@ import 'package:magic/magic.dart';
 
 import 'package:app/app/state/usage_state.dart';
 import 'package:app/resources/views/billing/usage_history_view.dart';
-import 'package:app/resources/widgets/molecules/page_header.dart';
-import 'package:app/resources/widgets/molecules/section_card.dart';
+import 'package:magic_starter/magic_starter.dart';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -180,16 +179,16 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // 2. Renders PageHeader with usage.title
+  // 2. Renders MagicStarterPageHeader with usage.title
   // -------------------------------------------------------------------------
 
-  testWidgets('renders PageHeader with title', (tester) async {
+  testWidgets('renders MagicStarterPageHeader with title', (tester) async {
     http.alwaysReturn(MagicResponse(data: kUsageResponse, statusCode: 200));
 
     await state.loadUsage('team-001');
     await _pumpView(tester);
 
-    expect(find.byType(PageHeader), findsOneWidget);
+    expect(find.byType(MagicStarterPageHeader), findsOneWidget);
     // trans('usage.title') = 'Usage History'
     expect(find.textContaining('Usage History'), findsOneWidget);
   });
@@ -256,8 +255,8 @@ void main() {
     expect(find.textContaining('claude-3-5-sonnet'), findsOneWidget);
     // Cost formatted to 4 decimal places.
     expect(find.textContaining('0.0042'), findsOneWidget);
-    // SectionCard wrapping the list.
-    expect(find.byType(SectionCard), findsWidgets);
+    // MagicStarterCard wrapping the list.
+    expect(find.byType(MagicStarterCard), findsWidgets);
   });
 
   // -------------------------------------------------------------------------

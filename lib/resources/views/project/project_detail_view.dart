@@ -10,8 +10,7 @@ import '../../../app/state/project_state.dart';
 import '../../../app/state/task_state.dart';
 import '../../widgets/atoms/priority_badge.dart';
 import '../../widgets/atoms/status_badge.dart';
-import '../../widgets/molecules/page_header.dart';
-import '../../widgets/molecules/section_card.dart';
+import 'package:magic_starter/magic_starter.dart';
 
 /// Project detail view — displays a single project's full information.
 ///
@@ -42,15 +41,16 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
 
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
+  final _shortNameController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _techStackController = TextEditingController();
+
+  /// Whether the user has manually edited the short_name field.
+  bool _shortNameManuallyEdited = false;
 
   bool _saving = false;
   bool _deleting = false;
   bool _formPopulated = false;
-
-  /// Tracks which repository's SSH key is currently expanded.
-  String? _expandedSshRepoId;
 
   // ---------------------------------------------------------------------------
   // Add Repository form controllers
@@ -60,7 +60,8 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   final _repoNameController = TextEditingController();
   final _repoUrlController = TextEditingController();
   final _repoBranchController = TextEditingController();
-  final _repoMountPathController = TextEditingController();
+  final _repoMountDirController = TextEditingController();
+  bool _mountDirManuallyEdited = false;
 
   @override
   void initState() {
@@ -70,13 +71,16 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
 
   @override
   void dispose() {
+    ProjectRepositoryState.instance.unsubscribeFromTeam();
+    _nameController.removeListener(_onNameChangedForShortName);
     _nameController.dispose();
+    _shortNameController.dispose();
     _descriptionController.dispose();
     _techStackController.dispose();
     _repoNameController.dispose();
     _repoUrlController.dispose();
     _repoBranchController.dispose();
-    _repoMountPathController.dispose();
+    _repoMountDirController.dispose();
     super.dispose();
   }
 
@@ -85,6 +89,9 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   // ---------------------------------------------------------------------------
 
   /// Fetches the project, repositories, and tasks from the API.
+  ///
+  /// After loading, subscribes to the team channel for real-time
+  /// repo clone status updates via WebSocket.
   Future<void> _fetchData() async {
     final teamId = _teamId;
     if (teamId == null) return;
@@ -99,6 +106,9 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
     ]);
 
     _populateForm();
+
+    // Subscribe to team channel for real-time repo status events.
+    ProjectRepositoryState.instance.subscribeToTeam(teamId, widget.projectId);
   }
 
   /// Fills form controllers from the currently selected project.
@@ -107,14 +117,42 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
     if (project == null || _formPopulated) return;
 
     _nameController.text = project.name ?? '';
+    _shortNameController.text = project.shortName ?? '';
     _descriptionController.text = project.description ?? '';
     _techStackController.text = project.techStack ?? '';
+
+    // If the project already has a short_name, treat it as manually set.
+    _shortNameManuallyEdited = (project.shortName ?? '').isNotEmpty;
+    _nameController.addListener(_onNameChangedForShortName);
+
     _formPopulated = true;
   }
 
   // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
+
+  /// Computes a short name suggestion from the project name.
+  ///
+  /// Takes the first letter of each word, uppercases, max 5 chars.
+  void _onNameChangedForShortName() {
+    if (_shortNameManuallyEdited) return;
+
+    final name = _nameController.text.trim();
+    if (name.isEmpty) {
+      _shortNameController.text = '';
+      return;
+    }
+
+    final initials = name
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .map((w) => w[0].toUpperCase())
+        .take(5)
+        .join();
+
+    _shortNameController.text = initials;
+  }
 
   /// The current team ID from the authenticated user.
   String? get _teamId => Auth.user<User>()?.currentTeam?.id;
@@ -145,6 +183,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
 
     final data = <String, dynamic>{
       'name': _nameController.text.trim(),
+      'short_name': _shortNameController.text.trim(),
       'description': _descriptionController.text.trim(),
       'tech_stack': _techStackController.text.trim(),
     };
@@ -202,107 +241,173 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
     }
   }
 
+  /// Shows a confirmation dialog before regenerating the SSH key.
+  Future<void> _confirmRegenerateSshKey() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(trans('projects.regenerate_ssh_confirm_title')),
+        content: Text(trans('projects.regenerate_ssh_confirm_body')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(trans('common.cancel')),
+          ),
+          // AlertDialog allowed exception — destructive action warning.
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFFEF4444),
+            ),
+            child: Text(trans('projects.regenerate_ssh_confirm_action')),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final teamId = _teamId;
+    if (teamId == null) return;
+
+    await ProjectState.instance.regenerateSshKey(teamId, widget.projectId);
+  }
+
   // ---------------------------------------------------------------------------
   // Repository actions
   // ---------------------------------------------------------------------------
+
+  /// Extracts the repository folder name from a git URL.
+  ///
+  /// Supports SSH (`git@github.com:org/repo.git`) and HTTPS
+  /// (`https://github.com/org/repo.git`) formats.
+  String? _extractRepoNameFromUrl(String url) {
+    final trimmed = url.trim();
+    if (trimmed.isEmpty) return null;
+
+    // Take the last path segment and strip .git suffix.
+    final lastSegment = trimmed.split(RegExp(r'[/:]')).last;
+    final name = lastSegment.endsWith('.git')
+        ? lastSegment.substring(0, lastSegment.length - 4)
+        : lastSegment;
+
+    return name.isNotEmpty ? name : null;
+  }
+
+  /// Auto-populates mount directory from URL changes.
+  void _onRepoUrlChanged() {
+    if (_mountDirManuallyEdited) return;
+
+    final name = _extractRepoNameFromUrl(_repoUrlController.text);
+    _repoMountDirController.text = name ?? '';
+  }
 
   /// Opens the "Add Repository" dialog.
   Future<void> _showAddRepositoryDialog() async {
     _repoNameController.clear();
     _repoUrlController.clear();
-    _repoBranchController.text = 'main';
-    _repoMountPathController.text = '/workspace';
+    _repoBranchController.text = 'master';
+    _repoMountDirController.clear();
+    _mountDirManuallyEdited = false;
+
+    _repoUrlController.addListener(_onRepoUrlChanged);
 
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(trans('projects.add_repository')),
-        content: Form(
-          key: _addRepoFormKey,
-          child: WDiv(
-            className: 'flex flex-col gap-4',
-            children: [
-              WFormInput(
-                controller: _repoNameController,
-                label: trans('projects.repo_name'),
-                labelClassName: '''
+        content: SizedBox(
+          width: 480,
+          child: Form(
+            key: _addRepoFormKey,
+            child: WDiv(
+              className: 'flex flex-col gap-4',
+              children: [
+                WFormInput(
+                  controller: _repoNameController,
+                  label: trans('projects.repo_name'),
+                  labelClassName: '''
                   text-sm font-medium mb-2
                   text-slate-600 dark:text-slate-300
                 ''',
-                placeholder: trans('projects.repo_name_placeholder'),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return trans('validation.required');
-                  }
-                  return null;
-                },
-                className: '''
+                  placeholder: trans('projects.repo_name_placeholder'),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return trans('validation.required');
+                    }
+                    return null;
+                  },
+                  className: '''
                   p-3 border border-slate-200 dark:border-gray-600
                   rounded-lg bg-white dark:bg-gray-900
                   text-sm text-slate-800 dark:text-slate-200
                   focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20
                   error:border-red-500 error:ring-2 error:ring-red-200
                 ''',
-                errorClassName: 'text-red-500 text-xs mt-1',
-              ),
-              WFormInput(
-                controller: _repoUrlController,
-                label: trans('projects.repo_url'),
-                labelClassName: '''
+                  errorClassName: 'text-red-500 text-xs mt-1',
+                ),
+                WFormInput(
+                  controller: _repoUrlController,
+                  label: trans('projects.repo_url'),
+                  labelClassName: '''
                   text-sm font-medium mb-2
                   text-slate-600 dark:text-slate-300
                 ''',
-                placeholder: trans('projects.repo_url_placeholder'),
-                className: '''
+                  placeholder: trans('projects.repo_url_placeholder'),
+                  className: '''
                   p-3 border border-slate-200 dark:border-gray-600
                   rounded-lg bg-white dark:bg-gray-900
                   text-sm text-slate-800 dark:text-slate-200
                   focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20
                   error:border-red-500 error:ring-2 error:ring-red-200
                 ''',
-                errorClassName: 'text-red-500 text-xs mt-1',
-              ),
-              WFormInput(
-                controller: _repoBranchController,
-                label: trans('projects.default_branch'),
-                labelClassName: '''
+                  errorClassName: 'text-red-500 text-xs mt-1',
+                ),
+                WFormInput(
+                  controller: _repoBranchController,
+                  label: trans('projects.default_branch'),
+                  labelClassName: '''
                   text-sm font-medium mb-2
                   text-slate-600 dark:text-slate-300
                 ''',
-                placeholder: trans('projects.default_branch_placeholder'),
-                className: '''
+                  placeholder: trans('projects.default_branch_placeholder'),
+                  className: '''
                   p-3 border border-slate-200 dark:border-gray-600
                   rounded-lg bg-white dark:bg-gray-900
                   text-sm text-slate-800 dark:text-slate-200
                   focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20
                   error:border-red-500 error:ring-2 error:ring-red-200
                 ''',
-                errorClassName: 'text-red-500 text-xs mt-1',
-              ),
-              WFormInput(
-                controller: _repoMountPathController,
-                label: trans('projects.mount_path'),
-                labelClassName: '''
+                  errorClassName: 'text-red-500 text-xs mt-1',
+                ),
+                WFormInput(
+                  controller: _repoMountDirController,
+                  label: trans('projects.mount_directory'),
+                  labelClassName: '''
                   text-sm font-medium mb-2
                   text-slate-600 dark:text-slate-300
                 ''',
-                placeholder: trans('projects.mount_path_placeholder'),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return trans('validation.required');
-                  }
-                  return null;
-                },
-                className: '''
+                  placeholder: trans('projects.mount_directory_placeholder'),
+                  onChanged: (_) {
+                    _mountDirManuallyEdited = true;
+                  },
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return trans('validation.required');
+                    }
+                    return null;
+                  },
+                  className: '''
                   p-3 border border-slate-200 dark:border-gray-600
                   rounded-lg bg-white dark:bg-gray-900
                   text-sm text-slate-800 dark:text-slate-200
                   focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20
                   error:border-red-500 error:ring-2 error:ring-red-200
                 ''',
-                errorClassName: 'text-red-500 text-xs mt-1',
-              ),
-            ],
+                  errorClassName: 'text-red-500 text-xs mt-1',
+                ),
+              ],
+            ),
           ),
         ),
         actions: [
@@ -322,21 +427,25 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
       ),
     );
 
+    _repoUrlController.removeListener(_onRepoUrlChanged);
+
     if (result != true || !mounted) return;
 
     final teamId = _teamId;
     if (teamId == null) return;
 
+    final repoUrl = _repoUrlController.text.trim();
+    final mountDir = _repoMountDirController.text.trim();
     final data = <String, dynamic>{
       'name': _repoNameController.text.trim(),
-      'repository_url': _repoUrlController.text.trim(),
+      'repository_url': repoUrl,
       'default_branch': _repoBranchController.text.trim().isEmpty
-          ? 'main'
+          ? 'master'
           : _repoBranchController.text.trim(),
-      'mount_path': _repoMountPathController.text.trim(),
+      if (mountDir.isNotEmpty) 'mount_path': '/workspace/$mountDir',
     };
 
-    await ProjectRepositoryState.instance.createRepository(
+    final created = await ProjectRepositoryState.instance.createRepository(
       teamId,
       widget.projectId,
       data,
@@ -348,6 +457,13 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
       teamId,
       widget.projectId,
     );
+
+    // If the newly created repo has a URL, a clone job was dispatched
+    // server-side — mark as cloning so the UI shows a spinner immediately.
+    // The WebSocket subscription will handle the status update.
+    if (created != null && repoUrl.isNotEmpty) {
+      ProjectRepositoryState.instance.markAsCloning(created.id);
+    }
   }
 
   /// Shows a confirmation dialog and deletes the repository.
@@ -392,41 +508,30 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
     );
   }
 
-  /// Generates an SSH key for the given repository.
-  Future<void> _generateSshKey(ProjectRepository repo) async {
-    final teamId = _teamId;
-    if (teamId == null) return;
-
-    await ProjectRepositoryState.instance.generateSshKey(
-      teamId,
-      widget.projectId,
-      repo.id,
-    );
-
-    if (!mounted) return;
-
-    await ProjectRepositoryState.instance.fetchRepositories(
-      teamId,
-      widget.projectId,
-    );
-  }
-
   /// Triggers a clone operation for the given repository.
   Future<void> _cloneRepository(ProjectRepository repo) async {
     final teamId = _teamId;
     if (teamId == null) return;
+
+    // Immediately show cloning state and clear any previous error.
+    ProjectRepositoryState.instance.markAsCloning(repo.id);
 
     await ProjectRepositoryState.instance.cloneRepository(
       teamId,
       widget.projectId,
       repo.id,
     );
+  }
 
-    if (!mounted) return;
+  /// Designates [repo] as the primary repository for the project.
+  Future<void> _setMainRepository(ProjectRepository repo) async {
+    final teamId = _teamId;
+    if (teamId == null) return;
 
-    await ProjectRepositoryState.instance.fetchRepositories(
+    await ProjectRepositoryState.instance.setMainRepository(
       teamId,
       widget.projectId,
+      repo.id,
     );
   }
 
@@ -452,7 +557,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
           className: 'p-4 lg:p-6 flex flex-col gap-6',
           children: [
             // Page header — outside cards.
-            PageHeader(
+            MagicStarterPageHeader(
               title: project.name ?? trans('projects.unnamed_project'),
               subtitle: project.description,
               actions: [_buildHeaderBadges(project)],
@@ -460,6 +565,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
 
             // Section cards.
             _buildInfoSection(project),
+            _buildSshKeySection(project),
             _buildRepositoriesSection(),
             _buildRecentTasksSection(),
             _buildKnowledgeSection(),
@@ -475,11 +581,22 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   // Header badges
   // ---------------------------------------------------------------------------
 
-  /// Tech stack + execution mode badges shown in the page header trailing.
+  /// Short name + tech stack + execution mode badges shown in the page header trailing.
   Widget _buildHeaderBadges(Project project) {
     return WDiv(
       className: 'flex flex-row items-center gap-2',
       children: [
+        if (project.shortName != null && project.shortName!.isNotEmpty)
+          WDiv(
+            className: '''
+              px-3 py-1 rounded-full
+              bg-amber-100 dark:bg-amber-900/30
+            ''',
+            child: WText(
+              project.shortName!,
+              className: 'text-xs font-bold text-amber-700 dark:text-amber-400',
+            ),
+          ),
         if (project.techStack != null)
           WDiv(
             className: '''
@@ -512,31 +629,125 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
 
   /// Builds the info section: created date.
   Widget _buildInfoSection(Project project) {
-    return SectionCard(
+    return MagicStarterCard(
       title: trans('projects.project_info'),
-      children: [
-        WDiv(
-          className: 'flex flex-col gap-4',
-          children: [
-            // Created at.
+      child: WDiv(
+        className: 'flex flex-col gap-4',
+        children: [
+          // Created at.
+          WDiv(
+            className: 'flex flex-row items-center gap-2',
+            children: [
+              WIcon(
+                Icons.calendar_today,
+                className: 'text-sm text-slate-400 dark:text-slate-500',
+              ),
+              WText(
+                trans('projects.created_label', {
+                  'date': project.createdAt ?? trans('common.unknown'),
+                }),
+                className: 'text-sm text-slate-600 dark:text-slate-400',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // SSH Key Section
+  // ---------------------------------------------------------------------------
+
+  /// Builds the project-level SSH key section with key display and regenerate button.
+  Widget _buildSshKeySection(Project project) {
+    return MagicStarterCard(
+      title: trans('projects.ssh_section_title'),
+      child: WDiv(
+        className: 'flex flex-col gap-4',
+        children: [
+          if (project.hasSshKey &&
+              project.sshPublicKey != null &&
+              project.sshPublicKey!.isNotEmpty) ...[
             WDiv(
-              className: 'flex flex-row items-center gap-2',
+              className: '''
+              rounded-xl
+              bg-slate-50 dark:bg-gray-900
+              border border-slate-200 dark:border-gray-700
+              p-4
+            ''',
               children: [
-                WIcon(
-                  Icons.calendar_today,
-                  className: 'text-sm text-slate-400 dark:text-slate-500',
-                ),
-                WText(
-                  trans('projects.created_label', {
-                    'date': project.createdAt ?? trans('common.unknown'),
-                  }),
-                  className: 'text-sm text-slate-600 dark:text-slate-400',
+                WDiv(
+                  className: 'flex flex-row items-start gap-2',
+                  children: [
+                    WDiv(
+                      className: 'flex-1 min-w-0',
+                      // SelectableText + TextStyle allowed exception (CLAUDE.md).
+                      child: SelectableText(
+                        project.sshPublicKey!,
+                        style: const TextStyle(
+                          fontFamily: 'JetBrains Mono',
+                          fontSize: 12,
+                          color: Color(0xFF475569),
+                        ),
+                      ),
+                    ),
+                    WAnchor(
+                      onTap: () {
+                        Clipboard.setData(
+                          ClipboardData(text: project.sshPublicKey!),
+                        );
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(trans('projects.ssh_key_copied')),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      },
+                      child: WIcon(
+                        Icons.copy,
+                        className: 'text-sm text-slate-400 dark:text-slate-500',
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
+          ] else ...[
+            WText(
+              trans('projects.no_ssh_key'),
+              className: 'text-sm text-slate-500 dark:text-slate-400',
+            ),
           ],
-        ),
-      ],
+          const WSpacer(className: 'h-3'),
+          WAnchor(
+            onTap: () => _confirmRegenerateSshKey(),
+            child: WDiv(
+              className: '''
+              flex flex-row items-center gap-2
+              px-4 py-2 rounded-lg
+              bg-white dark:bg-gray-700
+              border border-slate-200 dark:border-gray-600
+            ''',
+              children: [
+                WIcon(
+                  Icons.vpn_key_outlined,
+                  className: 'text-xs text-slate-500 dark:text-slate-400',
+                ),
+                WText(
+                  trans('projects.regenerate_ssh_key'),
+                  className: '''
+                  text-sm font-medium
+                  text-slate-600 dark:text-slate-300
+                ''',
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -551,65 +762,68 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
       builder: (context, _) {
         final repositories = ProjectRepositoryState.instance.repositories;
 
-        return SectionCard(
+        return MagicStarterCard(
           title: trans('projects.repositories'),
-          children: [
-            // Header row with add button.
-            WDiv(
-              className: 'flex flex-row items-center justify-end',
-              children: [
-                WAnchor(
-                  onTap: _showAddRepositoryDialog,
-                  child: WDiv(
-                    className: '''
-                      flex flex-row items-center gap-2
-                      px-3 py-1.5 rounded-lg
-                      bg-amber-400 dark:bg-amber-500
-                    ''',
-                    children: [
-                      WIcon(
-                        Icons.add,
-                        className: '''
-                          text-sm font-bold
-                          text-primary dark:text-primary-900
-                        ''',
-                      ),
-                      WText(
-                        trans('projects.add_repository'),
-                        className: '''
-                          text-sm font-medium
-                          text-primary dark:text-primary-900
-                        ''',
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-
-            // Repository list or empty state.
-            if (repositories.isEmpty)
+          child: WDiv(
+            className: 'flex flex-col gap-4',
+            children: [
+              // Header row with add button.
               WDiv(
-                className: '''
-                  flex flex-col items-center justify-center w-full
-                  py-8 rounded-xl
-                  bg-slate-50 dark:bg-gray-900
-                ''',
+                className: 'flex flex-row items-center justify-end',
                 children: [
-                  WIcon(
-                    Icons.folder_outlined,
-                    className: 'text-3xl text-slate-300 dark:text-slate-600',
-                  ),
-                  const WSpacer(className: 'h-2'),
-                  WText(
-                    trans('projects.no_repositories'),
-                    className: 'text-sm text-slate-400 dark:text-slate-500',
+                  WAnchor(
+                    onTap: _showAddRepositoryDialog,
+                    child: WDiv(
+                      className: '''
+                        flex flex-row items-center gap-2
+                        px-3 py-1.5 rounded-lg
+                        bg-amber-400 dark:bg-amber-500
+                      ''',
+                      children: [
+                        WIcon(
+                          Icons.add,
+                          className: '''
+                            text-sm font-bold
+                            text-primary dark:text-primary-900
+                          ''',
+                        ),
+                        WText(
+                          trans('projects.add_repository'),
+                          className: '''
+                            text-sm font-medium
+                            text-primary dark:text-primary-900
+                          ''',
+                        ),
+                      ],
+                    ),
                   ),
                 ],
-              )
-            else
-              ...repositories.map(_buildRepositoryCard),
-          ],
+              ),
+
+              // Repository list or empty state.
+              if (repositories.isEmpty)
+                WDiv(
+                  className: '''
+                    flex flex-col items-center justify-center w-full
+                    py-8 rounded-xl
+                    bg-slate-50 dark:bg-gray-900
+                  ''',
+                  children: [
+                    WIcon(
+                      Icons.folder_outlined,
+                      className: 'text-3xl text-slate-300 dark:text-slate-600',
+                    ),
+                    const WSpacer(className: 'h-2'),
+                    WText(
+                      trans('projects.no_repositories'),
+                      className: 'text-sm text-slate-400 dark:text-slate-500',
+                    ),
+                  ],
+                )
+              else
+                ...repositories.map(_buildRepositoryCard),
+            ],
+          ),
         );
       },
     );
@@ -617,7 +831,13 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
 
   /// Builds a single repository card inside the repositories section.
   Widget _buildRepositoryCard(ProjectRepository repo) {
-    final isExpanded = _expandedSshRepoId == repo.id;
+    final project = ProjectState.instance.selectedProject;
+    final repoState = ProjectRepositoryState.instance;
+    final status = repoState.repoStatuses[repo.id] ?? repo.repoStatus;
+    final isCloning = status == 'cloning';
+    final isCloned = status == 'cloned';
+    final isError = status == 'error';
+    final errorMessage = repoState.repoErrors[repo.id] ?? repo.repoError;
 
     return WDiv(
       className: '''
@@ -627,15 +847,27 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
         border border-slate-200 dark:border-slate-700
       ''',
       children: [
-        // Row 1: Name + repo URL + copy + branch badge.
+        // Row 1: Name + repo URL + copy + branch badge + star toggle.
         WDiv(
           className: 'flex flex-row items-center gap-3',
           children: [
-            // Status dot.
-            WDiv(
-              className:
-                  'w-2.5 h-2.5 rounded-full ${_statusDotClassName(repo.repoStatus)}',
-            ),
+            // Status indicator — spinner for cloning, icon for terminal states,
+            // fallback dot for unknown/not_cloned.
+            if (isCloning)
+              const SizedBox(
+                width: 10,
+                height: 10,
+                child: CircularProgressIndicator(strokeWidth: 1.5),
+              )
+            else if (isCloned)
+              WIcon(Icons.check_circle, className: 'text-sm text-emerald-500')
+            else if (isError)
+              WIcon(Icons.error_outline, className: 'text-sm text-red-500')
+            else
+              WDiv(
+                className:
+                    'w-2.5 h-2.5 rounded-full ${_statusDotClassName(status)}',
+              ),
             // Name.
             WText(
               repo.name,
@@ -660,8 +892,17 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
             // Copy URL button.
             if (repo.repositoryUrl != null)
               WAnchor(
-                onTap: () =>
-                    Clipboard.setData(ClipboardData(text: repo.repositoryUrl!)),
+                onTap: () {
+                  Clipboard.setData(ClipboardData(text: repo.repositoryUrl!));
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(trans('projects.url_copied')),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                },
                 child: WIcon(
                   Icons.copy,
                   className: 'text-xs text-slate-400 dark:text-slate-500',
@@ -679,10 +920,25 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                     'text-xs font-medium text-slate-600 dark:text-slate-400',
               ),
             ),
+            // Star toggle — filled amber for main repo, outline for others.
+            Tooltip(
+              message: repo.isMain
+                  ? trans('projects.main_repository')
+                  : trans('projects.set_as_main'),
+              child: WAnchor(
+                onTap: repo.isMain ? null : () => _setMainRepository(repo),
+                child: WIcon(
+                  repo.isMain ? Icons.star : Icons.star_outline,
+                  className: repo.isMain
+                      ? 'text-base text-amber-400'
+                      : 'text-base text-slate-400 dark:text-slate-500',
+                ),
+              ),
+            ),
           ],
         ),
 
-        // Row 2: Mount path + last synced.
+        // Row 2: Mount path + last synced + clone status label.
         WDiv(
           className: 'flex flex-row items-center gap-4',
           children: [
@@ -704,63 +960,69 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                 repo.lastSyncedAt!,
                 className: 'text-xs text-slate-400 dark:text-slate-500',
               ),
+            // Clone status label for non-null terminal/active states.
+            if (isCloning)
+              WText(
+                trans('projects.clone_in_progress'),
+                className: 'text-xs text-slate-500 dark:text-slate-400',
+              )
+            else if (isCloned)
+              WText(
+                trans('projects.clone_complete'),
+                className: 'text-xs text-emerald-600 dark:text-emerald-400',
+              )
+            else if (isError)
+              WText(
+                trans('projects.clone_failed'),
+                className: 'text-xs text-red-500 dark:text-red-400',
+              ),
           ],
         ),
 
-        // Row 3: Action buttons.
+        // Error detail banner.
+        if (isError && errorMessage != null && errorMessage.isNotEmpty)
+          WDiv(
+            className: '''
+              p-3 rounded-lg
+              bg-red-50 dark:bg-red-900/20
+              border border-red-200 dark:border-red-800
+            ''',
+            child: WText(
+              errorMessage,
+              className: 'text-xs text-red-600 dark:text-red-400',
+            ),
+          ),
+
+        // Row 3: Action buttons — clone hidden when cloned or cloning.
         WDiv(
           className: 'flex flex-row items-center gap-2',
           children: [
-            // SSH Key toggle.
-            WAnchor(
-              onTap: () {
-                setState(() {
-                  _expandedSshRepoId = isExpanded ? null : repo.id;
-                });
-              },
-              child: WDiv(
-                className: '''
-                  flex flex-row items-center gap-1
-                  px-3 py-1.5 rounded-lg
-                  bg-white dark:bg-gray-700
-                  border border-slate-200 dark:border-gray-600
-                ''',
-                children: [
-                  WIcon(
-                    Icons.vpn_key_outlined,
-                    className: 'text-xs text-slate-500 dark:text-slate-400',
-                  ),
-                  WText(
-                    trans('projects.ssh_deploy_key'),
-                    className:
-                        'text-xs font-medium text-slate-600 dark:text-slate-300',
-                  ),
-                ],
+            // Clone button — hidden when repo is already cloned or cloning.
+            if (!isCloned && !isCloning)
+              WAnchor(
+                onTap: (project?.hasSshKey ?? false)
+                    ? () => _cloneRepository(repo)
+                    : null,
+                child: WDiv(
+                  className: '''
+                    flex flex-row items-center gap-1
+                    px-3 py-1.5 rounded-lg
+                    bg-white dark:bg-gray-700
+                    border border-slate-200 dark:border-gray-600
+                  ''',
+                  children: [
+                    WIcon(
+                      Icons.download_outlined,
+                      className: 'text-xs text-slate-500 dark:text-slate-400',
+                    ),
+                    WText(
+                      trans('projects.clone_repo'),
+                      className:
+                          'text-xs font-medium text-slate-600 dark:text-slate-300',
+                    ),
+                  ],
+                ),
               ),
-            ),
-            // Clone button.
-            WAnchor(
-              onTap: () => _cloneRepository(repo),
-              child: WDiv(
-                className: '''
-                  flex flex-row items-center gap-1
-                  px-3 py-1.5 rounded-lg
-                  bg-white dark:bg-gray-700
-                  border border-slate-200 dark:border-gray-600
-                ''',
-                children: [
-                  WIcon(
-                    Icons.download_outlined,
-                    className: 'text-xs text-slate-500 dark:text-slate-400',
-                  ),
-                  WText(
-                    trans('projects.clone_repo'),
-                    className:
-                        'text-xs font-medium text-slate-600 dark:text-slate-300',
-                  ),
-                ],
-              ),
-            ),
             // Delete button.
             WAnchor(
               onTap: () => _confirmDeleteRepository(repo),
@@ -786,75 +1048,6 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
             ),
           ],
         ),
-
-        // Expanded SSH key section.
-        if (isExpanded)
-          WDiv(
-            className: '''
-              rounded-xl
-              bg-slate-50 dark:bg-gray-900
-              border border-slate-200 dark:border-gray-700
-              p-4
-            ''',
-            children: [
-              if (repo.sshPublicKey != null &&
-                  repo.sshPublicKey!.isNotEmpty) ...[
-                WDiv(
-                  className: 'flex flex-row items-start gap-2',
-                  children: [
-                    WDiv(
-                      className: 'flex-1 min-w-0',
-                      // SelectableText + TextStyle allowed exception (CLAUDE.md).
-                      child: SelectableText(
-                        repo.sshPublicKey!,
-                        style: const TextStyle(
-                          fontFamily: 'JetBrains Mono',
-                          fontSize: 12,
-                          color: Color(0xFF475569),
-                        ),
-                      ),
-                    ),
-                    WAnchor(
-                      onTap: () => Clipboard.setData(
-                        ClipboardData(text: repo.sshPublicKey!),
-                      ),
-                      child: WIcon(
-                        Icons.copy,
-                        className: 'text-sm text-slate-400 dark:text-slate-500',
-                      ),
-                    ),
-                  ],
-                ),
-              ] else ...[
-                WText(
-                  trans('projects.no_ssh_key'),
-                  className: 'text-sm text-slate-500 dark:text-slate-400',
-                ),
-              ],
-              const WSpacer(className: 'h-3'),
-              // Generate key button.
-              WAnchor(
-                onTap: () => _generateSshKey(repo),
-                child: WDiv(
-                  className: '''
-                    flex flex-row items-center gap-2
-                    px-4 py-2 rounded-lg
-                    bg-white dark:bg-gray-700
-                    border border-slate-200 dark:border-gray-600
-                  ''',
-                  children: [
-                    WText(
-                      trans('projects.generate_new_key'),
-                      className: '''
-                        text-sm font-medium
-                        text-slate-600 dark:text-slate-300
-                      ''',
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
       ],
     );
   }
@@ -870,69 +1063,72 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
       builder: (context, _) {
         final tasks = TaskState.instance.rxState;
 
-        return SectionCard(
+        return MagicStarterCard(
           title: trans('projects.recent_tasks'),
-          children: [
-            if (tasks == null || tasks.isEmpty)
-              WDiv(
-                className: '''
-                  flex flex-col items-center justify-center w-full
-                  py-8 rounded-xl
-                  bg-slate-50 dark:bg-gray-900
-                ''',
-                children: [
-                  WIcon(
-                    Icons.task_alt,
-                    className: 'text-3xl text-slate-300 dark:text-slate-600',
-                  ),
-                  const WSpacer(className: 'h-2'),
-                  WText(
-                    trans('projects.tasks_placeholder'),
-                    className: 'text-sm text-slate-400 dark:text-slate-500',
-                  ),
-                ],
-              )
-            else ...[
-              ...tasks
-                  .take(5)
-                  .map(
-                    (task) => WAnchor(
-                      onTap: () => MagicRoute.to(
-                        '/projects/${widget.projectId}/tasks/${task.id}',
-                      ),
-                      child: WDiv(
-                        className: '''
-                      flex flex-row items-center gap-3
-                      p-3 rounded-xl
-                      bg-white dark:bg-gray-800
-                      border border-slate-200 dark:border-slate-700
-                    ''',
-                        children: [
-                          WDiv(
-                            className: 'flex-1',
-                            child: WText(
-                              task.title ?? trans('projects.unnamed_project'),
-                              className:
-                                  'text-sm font-medium text-slate-700 dark:text-slate-200',
+          child: WDiv(
+            className: 'flex flex-col gap-4',
+            children: [
+              if (tasks == null || tasks.isEmpty)
+                WDiv(
+                  className: '''
+                    flex flex-col items-center justify-center w-full
+                    py-8 rounded-xl
+                    bg-slate-50 dark:bg-gray-900
+                  ''',
+                  children: [
+                    WIcon(
+                      Icons.task_alt,
+                      className: 'text-3xl text-slate-300 dark:text-slate-600',
+                    ),
+                    const WSpacer(className: 'h-2'),
+                    WText(
+                      trans('projects.tasks_placeholder'),
+                      className: 'text-sm text-slate-400 dark:text-slate-500',
+                    ),
+                  ],
+                )
+              else ...[
+                ...tasks
+                    .take(5)
+                    .map(
+                      (task) => WAnchor(
+                        onTap: () => MagicRoute.to(
+                          '/projects/${widget.projectId}/tasks/${task.id}',
+                        ),
+                        child: WDiv(
+                          className: '''
+                        flex flex-row items-center gap-3
+                        p-3 rounded-xl
+                        bg-white dark:bg-gray-800
+                        border border-slate-200 dark:border-slate-700
+                      ''',
+                          children: [
+                            WDiv(
+                              className: 'flex-1',
+                              child: WText(
+                                task.title ?? trans('projects.unnamed_project'),
+                                className:
+                                    'text-sm font-medium text-slate-700 dark:text-slate-200',
+                              ),
                             ),
-                          ),
-                          StatusBadge(status: task.status ?? 'draft'),
-                          PriorityBadge(priority: task.priority ?? 'p3'),
-                        ],
+                            StatusBadge(status: task.status ?? 'draft'),
+                            PriorityBadge(priority: task.priority ?? 'p3'),
+                          ],
+                        ),
                       ),
                     ),
+                const WSpacer(className: 'h-2'),
+                WAnchor(
+                  onTap: () =>
+                      MagicRoute.to('/projects/${widget.projectId}/tasks'),
+                  child: WText(
+                    trans('projects.view_all_tasks'),
+                    className: 'text-sm font-medium text-amber-500',
                   ),
-              const WSpacer(className: 'h-2'),
-              WAnchor(
-                onTap: () =>
-                    MagicRoute.to('/projects/${widget.projectId}/tasks'),
-                child: WText(
-                  trans('projects.view_all_tasks'),
-                  className: 'text-sm font-medium text-amber-500',
                 ),
-              ),
+              ],
             ],
-          ],
+          ),
         );
       },
     );
@@ -944,35 +1140,33 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
 
   /// Builds the knowledge base link section.
   Widget _buildKnowledgeSection() {
-    return SectionCard(
+    return MagicStarterCard(
       title: trans('knowledge.title'),
-      children: [
-        WAnchor(
-          onTap: () => MagicRoute.to('/projects/${widget.projectId}/knowledge'),
-          child: WDiv(
-            className: '''
-              flex flex-row items-center gap-3
-              p-3 rounded-xl
-              bg-white dark:bg-gray-800
-              border border-slate-200 dark:border-slate-700
-            ''',
-            children: [
-              WIcon(
-                Icons.library_books_outlined,
-                className: 'text-base text-slate-400 dark:text-slate-500',
+      child: WAnchor(
+        onTap: () => MagicRoute.to('/projects/${widget.projectId}/knowledge'),
+        child: WDiv(
+          className: '''
+            flex flex-row items-center gap-3
+            p-3 rounded-xl
+            bg-white dark:bg-gray-800
+            border border-slate-200 dark:border-slate-700
+          ''',
+          children: [
+            WIcon(
+              Icons.library_books_outlined,
+              className: 'text-base text-slate-400 dark:text-slate-500',
+            ),
+            WDiv(
+              className: 'flex-1',
+              child: WText(
+                trans('knowledge.subtitle'),
+                className: 'text-sm text-slate-600 dark:text-slate-400',
               ),
-              WDiv(
-                className: 'flex-1',
-                child: WText(
-                  trans('knowledge.subtitle'),
-                  className: 'text-sm text-slate-600 dark:text-slate-400',
-                ),
-              ),
-              WIcon(Icons.chevron_right, className: 'text-base text-slate-400'),
-            ],
-          ),
+            ),
+            WIcon(Icons.chevron_right, className: 'text-base text-slate-400'),
+          ],
         ),
-      ],
+      ),
     );
   }
 
@@ -982,35 +1176,33 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
 
   /// Builds the debug chat link section for real-time conversation testing.
   Widget _buildDebugChatSection() {
-    return SectionCard(
+    return MagicStarterCard(
       title: trans('conversation_chat.title'),
-      children: [
-        WAnchor(
-          onTap: () => MagicRoute.to('/projects/${widget.projectId}/chat'),
-          child: WDiv(
-            className: '''
-              flex flex-row items-center gap-3
-              p-3 rounded-xl
-              bg-white dark:bg-gray-800
-              border border-slate-200 dark:border-slate-700
-            ''',
-            children: [
-              WIcon(
-                Icons.chat_outlined,
-                className: 'text-base text-slate-400 dark:text-slate-500',
+      child: WAnchor(
+        onTap: () => MagicRoute.to('/projects/${widget.projectId}/chat'),
+        child: WDiv(
+          className: '''
+            flex flex-row items-center gap-3
+            p-3 rounded-xl
+            bg-white dark:bg-gray-800
+            border border-slate-200 dark:border-slate-700
+          ''',
+          children: [
+            WIcon(
+              Icons.chat_outlined,
+              className: 'text-base text-slate-400 dark:text-slate-500',
+            ),
+            WDiv(
+              className: 'flex-1',
+              child: WText(
+                trans('conversation_chat.title'),
+                className: 'text-sm text-slate-600 dark:text-slate-400',
               ),
-              WDiv(
-                className: 'flex-1',
-                child: WText(
-                  trans('conversation_chat.title'),
-                  className: 'text-sm text-slate-600 dark:text-slate-400',
-                ),
-              ),
-              WIcon(Icons.chevron_right, className: 'text-base text-slate-400'),
-            ],
-          ),
+            ),
+            WIcon(Icons.chevron_right, className: 'text-base text-slate-400'),
+          ],
         ),
-      ],
+      ),
     );
   }
 
@@ -1020,115 +1212,151 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
 
   /// Builds the settings section with edit form and delete button.
   Widget _buildSettingsSection(Project project) {
-    return SectionCard(
+    return MagicStarterCard(
       title: trans('projects.settings'),
-      children: [
-        Form(
-          key: _formKey,
-          child: WDiv(
-            className: 'flex flex-col gap-5',
-            children: [
-              _buildField(
-                label: trans('projects.project_name'),
-                hint: trans('projects.name_placeholder'),
-                controller: _nameController,
-                required: true,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return trans('projects.name_required');
-                  }
-                  return null;
-                },
-              ),
-              _buildField(
-                label: trans('projects.description'),
-                hint: trans('projects.description_placeholder'),
-                controller: _descriptionController,
-                maxLines: 3,
-              ),
-              _buildField(
-                label: trans('projects.tech_stack'),
-                hint: trans('projects.tech_stack_placeholder'),
-                controller: _techStackController,
-              ),
-              const WSpacer(className: 'h-1'),
+      child: Form(
+        key: _formKey,
+        child: WDiv(
+          className: 'flex flex-col gap-5',
+          children: [
+            _buildField(
+              label: trans('projects.project_name'),
+              hint: trans('projects.name_placeholder'),
+              controller: _nameController,
+              required: true,
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return trans('projects.name_required');
+                }
+                return null;
+              },
+            ),
+            _buildShortNameField(),
+            _buildField(
+              label: trans('projects.description'),
+              hint: trans('projects.description_placeholder'),
+              controller: _descriptionController,
+              maxLines: 3,
+            ),
+            _buildField(
+              label: trans('projects.tech_stack'),
+              hint: trans('projects.tech_stack_placeholder'),
+              controller: _techStackController,
+            ),
+            const WSpacer(className: 'h-1'),
 
-              // Action buttons.
-              WDiv(
-                className: 'flex flex-row items-center justify-between',
-                children: [
-                  // Delete button.
-                  WAnchor(
-                    onTap: _deleting ? null : _confirmDelete,
-                    child: WDiv(
-                      className: '''
-                        flex flex-row items-center gap-2
-                        px-4 py-2 rounded-lg
-                        bg-red-500 dark:bg-red-600
-                      ''',
-                      children: [
-                        if (_deleting)
-                          const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.white,
-                              ),
+            // Action buttons.
+            WDiv(
+              className: 'flex flex-row items-center justify-between',
+              children: [
+                // Delete button.
+                WAnchor(
+                  onTap: _deleting ? null : _confirmDelete,
+                  child: WDiv(
+                    className: '''
+                      flex flex-row items-center gap-2
+                      px-4 py-2 rounded-lg
+                      bg-red-500 dark:bg-red-600
+                    ''',
+                    children: [
+                      if (_deleting)
+                        const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
                             ),
                           ),
-                        WText(
-                          trans('projects.delete_project'),
-                          className: 'text-sm font-semibold text-white',
                         ),
-                      ],
-                    ),
+                      WText(
+                        trans('projects.delete_project'),
+                        className: 'text-sm font-semibold text-white',
+                      ),
+                    ],
                   ),
+                ),
 
-                  // Save button.
-                  WAnchor(
-                    onTap: _saving ? null : _saveChanges,
-                    child: WDiv(
-                      className: '''
-                        flex flex-row items-center gap-2
-                        px-5 py-2 rounded-lg
-                        bg-amber-400 dark:bg-amber-500
-                      ''',
-                      children: [
-                        if (_saving)
-                          const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Color(0xFF334E68),
-                              ),
+                // Save button.
+                WAnchor(
+                  onTap: _saving ? null : _saveChanges,
+                  child: WDiv(
+                    className: '''
+                      flex flex-row items-center gap-2
+                      px-5 py-2 rounded-lg
+                      bg-amber-400 dark:bg-amber-500
+                    ''',
+                    children: [
+                      if (_saving)
+                        const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Color(0xFF334E68),
                             ),
                           ),
-                        WText(
-                          trans('projects.save_changes'),
-                          className: '''
-                            text-sm font-semibold
-                            text-primary dark:text-primary-900
-                          ''',
                         ),
-                      ],
-                    ),
+                      WText(
+                        trans('projects.save_changes'),
+                        className: '''
+                          text-sm font-semibold
+                          text-primary dark:text-primary-900
+                        ''',
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ],
-          ),
+                ),
+              ],
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
   // ---------------------------------------------------------------------------
   // Field builder
   // ---------------------------------------------------------------------------
+
+  /// Builds the short name [WFormInput] with uppercase enforcement and validation.
+  Widget _buildShortNameField() {
+    return WFormInput(
+      controller: _shortNameController,
+      label: '${trans('projects.short_name')} *',
+      labelClassName: '''
+        text-sm font-medium mb-2
+        text-slate-600 dark:text-slate-300
+      ''',
+      placeholder: trans('projects.short_name_placeholder'),
+      textCapitalization: TextCapitalization.characters,
+      onChanged: (value) {
+        _shortNameManuallyEdited = true;
+      },
+      validator: (value) {
+        final trimmed = value?.trim() ?? '';
+        if (trimmed.isEmpty) {
+          return trans('projects.short_name_invalid');
+        }
+        if (trimmed.length < 2 ||
+            trimmed.length > 5 ||
+            !RegExp(r'^[A-Z]+$').hasMatch(trimmed)) {
+          return trans('projects.short_name_invalid');
+        }
+        return null;
+      },
+      className: '''
+        p-3 border border-slate-200 dark:border-gray-600
+        rounded-lg bg-white dark:bg-gray-900
+        text-sm text-slate-800 dark:text-slate-200
+        focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20
+        error:border-red-500 error:ring-2 error:ring-red-200
+      ''',
+      errorClassName: 'text-red-500 text-xs mt-1',
+    );
+  }
 
   /// Builds a labelled [WFormInput] field with proper label-input spacing.
   Widget _buildField({

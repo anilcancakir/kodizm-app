@@ -647,5 +647,226 @@ void main() {
       expect(state.rawEvents.length, equals(1));
       expect(state.conversation, isNull);
     });
+
+    // -----------------------------------------------------------------------
+    // 18. loadConversation — fetches conversation, messages, and subscribes
+    // -----------------------------------------------------------------------
+
+    test(
+      'loadConversation fetches conversation, loads messages, and subscribes to WS',
+      () async {
+        http.whenAny((url) {
+          if (url.contains('/messages')) {
+            return MagicResponse(data: kMessagesResponse, statusCode: 200);
+          }
+          // GET single conversation.
+          return MagicResponse(data: kConversationResponse, statusCode: 200);
+        });
+
+        await state.loadConversation(
+          'team-uuid-001',
+          'proj-uuid-001',
+          'conv-uuid-001',
+        );
+
+        // Conversation is loaded.
+        expect(state.conversation, isNotNull);
+        expect(state.conversation!.id, equals('conv-uuid-001'));
+        expect(state.error, isNull);
+
+        // Messages are loaded.
+        expect(state.messages.length, equals(2));
+
+        // HTTP calls: GET conversation, GET messages.
+        final getCalls = http.calls.where((c) => c.method == 'GET').toList();
+        expect(getCalls.length, equals(2));
+        expect(
+          getCalls[0].url,
+          equals(
+            '/teams/team-uuid-001/projects/proj-uuid-001/conversations/conv-uuid-001',
+          ),
+        );
+        expect(
+          getCalls[1].url,
+          equals(
+            '/teams/team-uuid-001/projects/proj-uuid-001/conversations/conv-uuid-001/messages',
+          ),
+        );
+
+        // WS subscription to conversation channel.
+        expect(
+          ws.subscribedChannels,
+          contains('private-conversation.conv-uuid-001'),
+        );
+      },
+    );
+
+    // -----------------------------------------------------------------------
+    // 19. loadConversation — API failure sets error
+    // -----------------------------------------------------------------------
+
+    test('loadConversation sets error on API failure', () async {
+      http.alwaysReturn(
+        MagicResponse(data: {'message': 'Not found'}, statusCode: 404),
+      );
+
+      await state.loadConversation(
+        'team-uuid-001',
+        'proj-uuid-001',
+        'conv-uuid-001',
+      );
+
+      expect(state.conversation, isNull);
+      expect(state.error, isNotNull);
+    });
+
+    // -----------------------------------------------------------------------
+    // 20. sessionId — populated from .conversation.status WS event
+    // -----------------------------------------------------------------------
+
+    test(
+      'sessionId is populated from .conversation.status event and session WS channel is subscribed',
+      () async {
+        http.whenAny((url) {
+          if (url.contains('/agent-roles')) {
+            return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
+          }
+          return MagicResponse(data: kConversationResponse, statusCode: 201);
+        });
+
+        await state.createConversation('team-uuid-001', 'proj-uuid-001');
+
+        expect(state.sessionId, isNull);
+
+        final wsEvent = WebSocketEvent(
+          id: 'ws:status:with-session',
+          channel: 'private-conversation.conv-uuid-001',
+          eventName: '.conversation.status',
+          data: {
+            'conversation_id': 'conv-uuid-001',
+            'status': 'processing',
+            'session_id': 'sess-uuid-001',
+            'warm_until': null,
+          },
+          receivedAt: DateTime.now(),
+        );
+
+        state.addEvent(wsEvent);
+
+        expect(state.sessionId, equals('sess-uuid-001'));
+
+        // Session WS channel subscribed.
+        expect(
+          ws.subscribedChannels,
+          contains('private-session.sess-uuid-001'),
+        );
+      },
+    );
+
+    // -----------------------------------------------------------------------
+    // 21. session WS events — .session.cost and .session.status are handled
+    // -----------------------------------------------------------------------
+
+    test('session WS events update running cost and session phase', () async {
+      http.whenAny((url) {
+        if (url.contains('/agent-roles')) {
+          return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
+        }
+        return MagicResponse(data: kConversationResponse, statusCode: 201);
+      });
+
+      await state.createConversation('team-uuid-001', 'proj-uuid-001');
+
+      // Trigger session subscription via status event.
+      state.addEvent(
+        WebSocketEvent(
+          id: 'ws:status:sess',
+          channel: 'private-conversation.conv-uuid-001',
+          eventName: '.conversation.status',
+          data: {
+            'conversation_id': 'conv-uuid-001',
+            'status': 'processing',
+            'session_id': 'sess-uuid-001',
+            'warm_until': null,
+          },
+          receivedAt: DateTime.now(),
+        ),
+      );
+
+      expect(state.sessionId, equals('sess-uuid-001'));
+
+      // Simulate .session.cost event.
+      ws.simulateEvent(
+        'private-session.sess-uuid-001',
+        WebSocketEvent(
+          id: 'ws:session:cost:1',
+          channel: 'private-session.sess-uuid-001',
+          eventName: '.session.cost',
+          data: {'running_cost_usd': '0.0042'},
+          receivedAt: DateTime.now(),
+        ),
+      );
+
+      expect(state.runningCostUsd, equals('0.0042'));
+
+      // Simulate .session.status event.
+      ws.simulateEvent(
+        'private-session.sess-uuid-001',
+        WebSocketEvent(
+          id: 'ws:session:status:1',
+          channel: 'private-session.sess-uuid-001',
+          eventName: '.session.status',
+          data: {'phase': 'executing'},
+          receivedAt: DateTime.now(),
+        ),
+      );
+
+      expect(state.sessionPhase, equals('executing'));
+    });
+
+    // -----------------------------------------------------------------------
+    // 22. reset — clears sessionId, runningCostUsd, sessionPhase, unsubscribes session WS
+    // -----------------------------------------------------------------------
+
+    test(
+      'reset clears session fields and unsubscribes from session WS channel',
+      () async {
+        http.whenAny((url) {
+          if (url.contains('/agent-roles')) {
+            return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
+          }
+          return MagicResponse(data: kConversationResponse, statusCode: 201);
+        });
+
+        await state.createConversation('team-uuid-001', 'proj-uuid-001');
+
+        state.addEvent(
+          WebSocketEvent(
+            id: 'ws:status:sess:reset',
+            channel: 'private-conversation.conv-uuid-001',
+            eventName: '.conversation.status',
+            data: {
+              'conversation_id': 'conv-uuid-001',
+              'status': 'processing',
+              'session_id': 'sess-uuid-001',
+              'warm_until': null,
+            },
+            receivedAt: DateTime.now(),
+          ),
+        );
+
+        expect(state.sessionId, equals('sess-uuid-001'));
+
+        state.reset();
+
+        expect(state.sessionId, isNull);
+        expect(state.runningCostUsd, isNull);
+        expect(state.sessionPhase, isNull);
+        expect(
+          ws.unsubscribedChannels,
+          contains('private-session.sess-uuid-001'),
+        );
+      },
+    );
   });
 }

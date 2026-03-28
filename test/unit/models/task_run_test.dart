@@ -13,6 +13,8 @@ void main() {
       'agent_role': {'id': 'role-uuid-1', 'name': 'Developer'},
       'status': 'done',
       'model': 'claude-3-5-sonnet',
+      'session_id': 'sess-uuid-1',
+      'prompt': 'Implement the login feature',
       'total_cost_usd': 0.0042,
       'duration_ms': 8500,
       'num_turns': 12,
@@ -29,6 +31,8 @@ void main() {
       'agent_role': null,
       'status': 'failed',
       'model': null,
+      'session_id': null,
+      'prompt': null,
       'total_cost_usd': null,
       'duration_ms': null,
       'num_turns': null,
@@ -103,6 +107,30 @@ void main() {
       final run = TaskRun.fromMap(fullFixture);
 
       expect(run.error, isNull);
+    });
+
+    test('fromMap parses sessionId from session_id key', () {
+      final run = TaskRun.fromMap(fullFixture);
+
+      expect(run.sessionId, 'sess-uuid-1');
+    });
+
+    test('fromMap handles null sessionId', () {
+      final run = TaskRun.fromMap(failedFixture);
+
+      expect(run.sessionId, isNull);
+    });
+
+    test('fromMap parses prompt text', () {
+      final run = TaskRun.fromMap(fullFixture);
+
+      expect(run.prompt, 'Implement the login feature');
+    });
+
+    test('fromMap handles null prompt', () {
+      final run = TaskRun.fromMap(failedFixture);
+
+      expect(run.prompt, isNull);
     });
   });
 }

@@ -57,35 +57,65 @@ class _TerminalEventListState extends State<TerminalEventList> {
 
   @override
   Widget build(BuildContext context) {
+    final items = _buildItemsWithSeparators();
+
     return WDiv(
       className: 'bg-primary-900 rounded-2xl overflow-hidden',
       child: ListView.builder(
         controller: widget.scrollController,
-        itemCount: widget.events.length,
-        itemBuilder: (context, index) {
-          final event = widget.events[index];
-
-          // Match question events to their answers.
-          String? answerText;
-          if (event.type == 'question' || event.isQuestion) {
-            final questionId = event.data['question_id'] as String?;
-            if (questionId != null) {
-              final match = widget.questions
-                  .where((q) => q.id == questionId)
-                  .firstOrNull;
-              answerText = match?.answerText;
-            }
-          }
-
-          return TerminalEventTile(
-            event: event,
-            isExpanded: _expandedToolUseIds.contains(event.id),
-            onToggleExpand: _handleToggleExpand,
-            answerText: answerText,
-          );
-        },
+        itemCount: items.length,
+        itemBuilder: (context, index) => items[index],
       ),
     );
+  }
+
+  // -----------------------------------------------------------------------
+  // Build items with turn separators
+  // -----------------------------------------------------------------------
+
+  /// Builds the list of widgets including turn separators between groups
+  /// of events that have different [StreamEvent.turnNumber] values.
+  List<Widget> _buildItemsWithSeparators() {
+    final List<Widget> items = [];
+    int? lastTurnNumber;
+
+    for (final event in widget.events) {
+      // Insert turn separator when turnNumber changes.
+      if (event.turnNumber != null &&
+          lastTurnNumber != null &&
+          event.turnNumber != lastTurnNumber) {
+        items.add(WDiv(className: 'border-t border-slate-100 my-1'));
+      }
+
+      if (event.turnNumber != null) {
+        lastTurnNumber = event.turnNumber;
+      }
+
+      // Match question events to their answers.
+      String? answerText;
+      if (event.type == 'question' || event.isQuestion) {
+        final questionId = event.data['question_id'] as String?;
+        if (questionId != null) {
+          final match = widget.questions
+              .where((q) => q.id == questionId)
+              .firstOrNull;
+          answerText = match?.answerText;
+        }
+      }
+
+      items.add(
+        TerminalEventTile(
+          event: event,
+          isExpanded: _expandedToolUseIds.contains(event.id),
+          onToggleExpand: _handleToggleExpand,
+          answerText: answerText,
+          subagentId: event.subagentId,
+          turnNumber: event.turnNumber,
+        ),
+      );
+    }
+
+    return items;
   }
 
   // -----------------------------------------------------------------------

@@ -21,7 +21,6 @@ void main() {
       'prompt': 'Implement the feature...',
       'model': 'claude-sonnet-4-6',
       'session_id': 'sess_abc123',
-      'container_name': 'kodizm-run-abc',
       'total_cost_usd': 0.47,
       'usage': {'input_tokens': 1000, 'output_tokens': 500},
       'duration_ms': 154000,
@@ -30,7 +29,6 @@ void main() {
       'ai_token_id': 'token-uuid-1',
       'worktree_path': '/path/to/worktree',
       'worktree_branch': 'agent/task-abc',
-      'warm_until': '2026-03-25T11:00:00.000000Z',
       'started_at': '2026-03-25T10:00:00.000000Z',
       'completed_at': null,
       'created_at': '2026-03-25T09:59:00.000000Z',
@@ -46,7 +44,6 @@ void main() {
       'prompt': 'Analyse the requirements.',
       'model': null,
       'session_id': null,
-      'container_name': null,
       'total_cost_usd': null,
       'usage': null,
       'duration_ms': null,
@@ -55,7 +52,6 @@ void main() {
       'ai_token_id': null,
       'worktree_path': null,
       'worktree_branch': null,
-      'warm_until': null,
       'started_at': null,
       'completed_at': null,
       'created_at': '2026-03-25T09:00:00.000000Z',
@@ -105,7 +101,6 @@ void main() {
 
       expect(run.model, isNull);
       expect(run.sessionId, isNull);
-      expect(run.containerName, isNull);
       expect(run.totalCostUsd, isNull);
       expect(run.usage, isNull);
       expect(run.durationMs, isNull);
@@ -114,7 +109,6 @@ void main() {
       expect(run.aiTokenId, isNull);
       expect(run.worktreePath, isNull);
       expect(run.worktreeBranch, isNull);
-      expect(run.warmUntil, isNull);
       expect(run.updatedAt, isNull);
     });
 
@@ -132,11 +126,9 @@ void main() {
 
       expect(run.usage, {'input_tokens': 1000, 'output_tokens': 500});
       expect(run.sessionId, 'sess_abc123');
-      expect(run.containerName, 'kodizm-run-abc');
       expect(run.aiTokenId, 'token-uuid-1');
       expect(run.worktreePath, '/path/to/worktree');
       expect(run.worktreeBranch, 'agent/task-abc');
-      expect(run.warmUntil, '2026-03-25T11:00:00.000000Z');
     });
 
     // -------
@@ -169,13 +161,11 @@ void main() {
       expect(updated.prompt, run.prompt);
       expect(updated.model, run.model);
       expect(updated.sessionId, run.sessionId);
-      expect(updated.containerName, run.containerName);
       expect(updated.usage, run.usage);
       expect(updated.error, run.error);
       expect(updated.aiTokenId, run.aiTokenId);
       expect(updated.worktreePath, run.worktreePath);
       expect(updated.worktreeBranch, run.worktreeBranch);
-      expect(updated.warmUntil, run.warmUntil);
       expect(updated.startedAt, run.startedAt);
       expect(updated.completedAt, run.completedAt);
       expect(updated.createdAt, run.createdAt);

@@ -134,6 +134,12 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   String _projectId = '';
   String? _subscribedChannel;
 
+  // Session state
+  String? _sessionId;
+  String? _subscribedSessionChannel;
+  String? _runningCostUsd;
+  String? _sessionPhase;
+
   // Question/permission state
   Map<String, dynamic>? _pendingQuestion;
   Map<String, dynamic>? _pendingPermission;
@@ -161,6 +167,21 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
 
   /// The `warm_until` timestamp from the latest status event.
   String? get warmUntil => _warmUntil;
+
+  /// The session ID linked to this conversation, or `null` if not yet known.
+  ///
+  /// Populated from the `session_id` field of `.conversation.status` WS events.
+  String? get sessionId => _sessionId;
+
+  /// The running cost of the linked session in USD, or `null` if not yet received.
+  ///
+  /// Updated via `.session.cost` WS events on the session channel.
+  String? get runningCostUsd => _runningCostUsd;
+
+  /// The current execution phase of the linked session, or `null` if not yet received.
+  ///
+  /// Updated via `.session.status` WS events on the session channel.
+  String? get sessionPhase => _sessionPhase;
 
   /// The pending question awaiting a user answer, or `null`.
   ///
@@ -213,6 +234,49 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
     _conversation = Conversation.fromMap(data);
 
     // -- Subscribe to WS channel --
+    final channel = 'private-conversation.${_conversation!.id}';
+    _subscribedChannel = channel;
+    _ws?.subscribe(channel, addEvent);
+
+    refreshUI();
+  }
+
+  // ---------------------------------------------------------------------------
+  // loadConversation
+  // ---------------------------------------------------------------------------
+
+  /// Load an existing conversation by ID and prepare the chat session.
+  ///
+  /// GETs `/teams/{teamId}/projects/{projectId}/conversations/{conversationId}`,
+  /// parses the result into [_conversation], fetches existing messages via
+  /// [loadMessages], and subscribes to the conversation WebSocket channel.
+  Future<void> loadConversation(
+    String teamId,
+    String projectId,
+    String conversationId,
+  ) async {
+    _error = null;
+    _teamId = teamId;
+    _projectId = projectId;
+
+    final response = await _http.get(
+      '/teams/$teamId/projects/$projectId/conversations/$conversationId',
+    );
+
+    if (!response.successful) {
+      _error = response.errorMessage ?? 'Failed to load conversation';
+      refreshUI();
+      return;
+    }
+
+    final Map<String, dynamic> data =
+        (response.data as Map<String, dynamic>)['data'] as Map<String, dynamic>;
+    _conversation = Conversation.fromMap(data);
+
+    // -- Load existing messages --
+    await loadMessages();
+
+    // -- Subscribe to conversation WS channel --
     final channel = 'private-conversation.${_conversation!.id}';
     _subscribedChannel = channel;
     _ws?.subscribe(channel, addEvent);
@@ -365,13 +429,20 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   // reset
   // ---------------------------------------------------------------------------
 
-  /// Clear all state fields and unsubscribe from the WebSocket channel.
+  /// Clear all state fields and unsubscribe from the WebSocket channels.
   ///
-  /// Call this when leaving the conversation chat screen to free resources.
+  /// Unsubscribes from both the conversation channel and the session channel
+  /// (if any). Call this when leaving the conversation chat screen to free
+  /// resources.
   void reset() {
     if (_subscribedChannel != null) {
       _ws?.unsubscribe(_subscribedChannel!);
       _subscribedChannel = null;
+    }
+
+    if (_subscribedSessionChannel != null) {
+      _ws?.unsubscribe(_subscribedSessionChannel!);
+      _subscribedSessionChannel = null;
     }
 
     _conversation = null;
@@ -382,6 +453,9 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
     _warmUntil = null;
     _teamId = '';
     _projectId = '';
+    _sessionId = null;
+    _runningCostUsd = null;
+    _sessionPhase = null;
     _pendingQuestion = null;
     _pendingPermission = null;
     _pendingOptions = null;
@@ -483,8 +557,9 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
     _messages = [..._messages, message];
   }
 
-  /// Handle `.conversation.status` — update conversation status and
-  /// extract `warm_until`.
+  /// Handle `.conversation.status` — update conversation status,
+  /// extract `warm_until`, and wire up the session WS channel when
+  /// `session_id` becomes known for the first time.
   void _handleStatusEvent(WebSocketEvent wsEvent) {
     final status = wsEvent.data['status'] as String?;
 
@@ -493,5 +568,29 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
     }
 
     _warmUntil = wsEvent.data['warm_until'] as String?;
+
+    // Subscribe to session WS channel on first encounter.
+    final incomingSessionId = wsEvent.data['session_id'] as String?;
+    if (incomingSessionId != null && _sessionId != incomingSessionId) {
+      _sessionId = incomingSessionId;
+      final sessionChannel = 'private-session.$_sessionId';
+      _subscribedSessionChannel = sessionChannel;
+      _ws?.subscribe(sessionChannel, _handleSessionEvent);
+    }
+  }
+
+  /// Handle events arriving on the `private-session.{sessionId}` channel.
+  ///
+  /// Routes `.session.cost` to update [_runningCostUsd] and
+  /// `.session.status` to update [_sessionPhase].
+  void _handleSessionEvent(WebSocketEvent wsEvent) {
+    switch (wsEvent.eventName) {
+      case '.session.cost':
+        _runningCostUsd = wsEvent.data['running_cost_usd'] as String?;
+      case '.session.status':
+        _sessionPhase = wsEvent.data['phase'] as String?;
+    }
+
+    refreshUI();
   }
 }

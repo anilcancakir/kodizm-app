@@ -34,6 +34,8 @@ class TerminalEventTile extends StatelessWidget {
     this.isExpanded = false,
     this.onToggleExpand,
     this.answerText,
+    this.subagentId,
+    this.turnNumber,
   });
 
   /// The stream event to render.
@@ -48,6 +50,13 @@ class TerminalEventTile extends StatelessWidget {
   /// The answer text for this question event, if answered.
   final String? answerText;
 
+  /// When non-null, this event belongs to a sub-agent and is rendered
+  /// with extra left padding and a teal left border indicator.
+  final String? subagentId;
+
+  /// The turn number for this event, displayed when available.
+  final int? turnNumber;
+
   // -----------------------------------------------------------------------
   // Build
   // -----------------------------------------------------------------------
@@ -55,17 +64,51 @@ class TerminalEventTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Tool use is a sub-type of assistant — check first.
-    if (_isToolUse) return _buildToolUse();
+    Widget content;
+    if (_isToolUse) {
+      content = _buildToolUse();
+    } else {
+      content = switch (event.type) {
+        'system' => _buildSystem(),
+        'assistant' => _buildAssistant(),
+        'result' => _buildResult(),
+        'file_change' => _buildFileChange(),
+        'error' => _buildError(),
+        'question' => _buildQuestion(),
+        _ => _buildFallback(),
+      };
+    }
 
-    return switch (event.type) {
-      'system' => _buildSystem(),
-      'assistant' => _buildAssistant(),
-      'result' => _buildResult(),
-      'file_change' => _buildFileChange(),
-      'error' => _buildError(),
-      'question' => _buildQuestion(),
-      _ => _buildFallback(),
-    };
+    // Wrap sub-agent events with indentation and indicator.
+    if (subagentId != null) {
+      return WDiv(
+        className: 'pl-4 border-l-2 border-teal-400',
+        children: [
+          WDiv(
+            className: 'flex flex-row items-center gap-1 px-4 pt-1',
+            children: [
+              WDiv(
+                className: 'px-1.5 py-0.5 rounded bg-teal-500/15',
+                child: WText(
+                  trans('agent_run.subagent_indicator'),
+                  className: 'text-[10px] font-bold text-teal-400',
+                ),
+              ),
+              if (turnNumber != null)
+                WText(
+                  trans('agent_run.turn_label', {
+                    'number': turnNumber.toString(),
+                  }),
+                  className: 'text-[10px] text-slate-500',
+                ),
+            ],
+          ),
+          content,
+        ],
+      );
+    }
+
+    return content;
   }
 
   // -----------------------------------------------------------------------

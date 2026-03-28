@@ -3,6 +3,7 @@ import 'package:magic/magic.dart';
 import '../events/websocket_event.dart';
 import '../models/agent_question.dart';
 import '../models/file_change.dart';
+import '../models/session.dart';
 import '../models/stream_event.dart';
 import '../models/task_run_detail.dart';
 
@@ -50,6 +51,36 @@ class _MagicAgentRunHttpClient implements AgentRunHttpClient {
 }
 
 // ---------------------------------------------------------------------------
+// Session HTTP abstraction for testability
+// ---------------------------------------------------------------------------
+
+/// Thin interface for fetching session data within [AgentRunState].
+///
+/// Separate from [AgentRunHttpClient] to keep session concerns isolated.
+/// Tests inject a fake that returns canned session responses.
+abstract class SessionAgentHttpClient {
+  /// Perform a GET request.
+  Future<MagicResponse> get(
+    String url, {
+    Map<String, dynamic>? query,
+    Map<String, String>? headers,
+  });
+}
+
+/// Default production [SessionAgentHttpClient] backed by the Magic [Http]
+/// facade.
+class _MagicSessionAgentHttpClient implements SessionAgentHttpClient {
+  const _MagicSessionAgentHttpClient();
+
+  @override
+  Future<MagicResponse> get(
+    String url, {
+    Map<String, dynamic>? query,
+    Map<String, String>? headers,
+  }) => Http.get(url, query: query, headers: headers);
+}
+
+// ---------------------------------------------------------------------------
 // Event name → type mapping
 // ---------------------------------------------------------------------------
 
@@ -93,12 +124,17 @@ const Map<String, String> _wsEventTypeMap = {
 /// runState.reset();
 /// ```
 class AgentRunState extends MagicController with MagicStateMixin<void> {
-  /// Creates an [AgentRunState] with an optional [httpClient] for testing.
+  /// Creates an [AgentRunState] with optional [httpClient] and
+  /// [sessionHttpClient] for testing.
   ///
   /// When [httpClient] is `null` (production), the Magic [Http] facade is
-  /// used via [_MagicAgentRunHttpClient].
-  AgentRunState({AgentRunHttpClient? httpClient})
-    : _http = httpClient ?? const _MagicAgentRunHttpClient();
+  /// used via [_MagicAgentRunHttpClient]. [sessionHttpClient] defaults to the
+  /// same production facade backed by [_MagicSessionAgentHttpClient].
+  AgentRunState({
+    AgentRunHttpClient? httpClient,
+    SessionAgentHttpClient? sessionHttpClient,
+  }) : _http = httpClient ?? const _MagicAgentRunHttpClient(),
+       _sessionHttp = sessionHttpClient ?? const _MagicSessionAgentHttpClient();
 
   /// Lazy singleton accessor.
   ///
@@ -107,12 +143,14 @@ class AgentRunState extends MagicController with MagicStateMixin<void> {
   static AgentRunState get instance => Magic.findOrPut(AgentRunState.new);
 
   final AgentRunHttpClient _http;
+  final SessionAgentHttpClient _sessionHttp;
 
   // ---------------------------------------------------------------------------
   // State fields
   // ---------------------------------------------------------------------------
 
   TaskRunDetail? _runDetail;
+  Session? _session;
   List<StreamEvent> _events = [];
   final Set<String> _seenEventIds = {};
   int _turnCount = 0;
@@ -126,6 +164,10 @@ class AgentRunState extends MagicController with MagicStateMixin<void> {
 
   /// The loaded run detail, or `null` if not yet fetched.
   TaskRunDetail? get runDetail => _runDetail;
+
+  /// The session associated with this run, or `null` if not yet fetched or
+  /// if the run has no [TaskRunDetail.sessionId].
+  Session? get session => _session;
 
   /// All streaming events received so far (replay + live), in order.
   List<StreamEvent> get events => List.unmodifiable(_events);
@@ -168,6 +210,11 @@ class AgentRunState extends MagicController with MagicStateMixin<void> {
           (response.data as Map<String, dynamic>)['data']
               as Map<String, dynamic>;
       _runDetail = TaskRunDetail.fromMap(data);
+
+      // Fetch associated session if sessionId is present.
+      if (_runDetail?.sessionId != null) {
+        await _loadSession(_runDetail!.sessionId!);
+      }
     } else {
       _runDetail = null;
     }
@@ -257,6 +304,12 @@ class AgentRunState extends MagicController with MagicStateMixin<void> {
       filePath: filePath,
       isQuestion: wsEvent.eventName == '.agent.question',
       occurredAt: DateTime.now(),
+      sessionId: null,
+      subagentId: null,
+      parentEventId: null,
+      model: null,
+      turnNumber: null,
+      metadata: null,
     );
 
     // -- Per-event-type side effects --
@@ -441,6 +494,7 @@ class AgentRunState extends MagicController with MagicStateMixin<void> {
   /// Call this when leaving the agent run detail screen to free memory.
   void reset() {
     _runDetail = null;
+    _session = null;
     _events = [];
     _seenEventIds.clear();
     _turnCount = 0;
@@ -453,6 +507,42 @@ class AgentRunState extends MagicController with MagicStateMixin<void> {
   // ---------------------------------------------------------------------------
   // Private helpers
   // ---------------------------------------------------------------------------
+
+  /// Fetch a session by [sessionId] and store as [_session].
+  ///
+  /// Maps to `GET /v1/sessions/{sessionId}`. On failure, [_session] is set to
+  /// `null`. Does NOT call [refreshUI] — callers must refresh after.
+  Future<void> _loadSession(String sessionId) async {
+    final response = await _sessionHttp.get('/v1/sessions/$sessionId');
+
+    if (response.successful) {
+      final Map<String, dynamic> data =
+          (response.data as Map<String, dynamic>)['data']
+              as Map<String, dynamic>;
+      _session = Session.fromMap(data);
+    } else {
+      _session = null;
+    }
+  }
+
+  /// Update the stored session from a WebSocket event payload.
+  ///
+  /// Called when the view receives a live session update via
+  /// `private-session.{sessionId}`.
+  void updateSessionFromEvent(Map<String, dynamic> data) {
+    if (_session == null) return;
+
+    _session = _session!.copyWith(
+      phase: data['phase'] as String? ?? _session!.phase,
+      warmUntil: data['warm_until'] != null
+          ? DateTime.parse(data['warm_until'] as String)
+          : _session!.warmUntil,
+    );
+
+    refreshUI();
+  }
+
+  // -------
 
   /// Handle `.agent.system` — extract `session_id` and `model`, update
   /// [_runDetail] via [TaskRunDetail.copyWith].

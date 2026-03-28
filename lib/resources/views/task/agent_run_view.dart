@@ -4,12 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:magic/magic.dart';
 
+import '../../../app/events/websocket_event.dart';
 import '../../../app/models/file_change.dart';
+import '../../../app/models/session.dart';
 import '../../../app/models/task_run_detail.dart';
 import '../../../app/models/user.dart';
 import '../../../app/services/websocket_service.dart';
 import '../../../app/state/agent_run_state.dart';
 import '../../widgets/atoms/status_badge.dart';
+import '../../widgets/molecules/model_cost_breakdown.dart';
 import '../../widgets/molecules/section_card.dart';
 import '../../widgets/organisms/question_panel.dart';
 import '../../widgets/organisms/terminal_event_list.dart';
@@ -67,6 +70,7 @@ class _AgentRunViewState extends State<AgentRunView> {
   bool _autoScroll = true;
   bool _isAnswering = false;
   String _wsChannel = '';
+  String? _sessionWsChannel;
 
   // -----------------------------------------------------------------------
   // Lifecycle
@@ -106,14 +110,23 @@ class _AgentRunViewState extends State<AgentRunView> {
     _elapsedTimer = Timer.periodic(const Duration(seconds: 1), _onTimerTick);
 
     _scrollController.addListener(_onScrollChanged);
+
+    // Subscribe to session WS channel once session loads.
+    _state.addListener(_onStateChanged);
   }
 
   @override
   void dispose() {
     _elapsedTimer?.cancel();
+    _state.removeListener(_onStateChanged);
 
     try {
       Magic.make<WebSocketService>('websocket').unsubscribe(_wsChannel);
+      if (_sessionWsChannel != null) {
+        Magic.make<WebSocketService>(
+          'websocket',
+        ).unsubscribe(_sessionWsChannel!);
+      }
     } catch (_) {
       // WS may not be connected in tests.
     }
@@ -165,6 +178,47 @@ class _AgentRunViewState extends State<AgentRunView> {
     if (!_scrollController.hasClients) return;
     if (!_scrollController.position.hasContentDimensions) return;
     _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+  }
+
+  // -----------------------------------------------------------------------
+  // Session WS subscription
+  // -----------------------------------------------------------------------
+
+  /// React to state changes — subscribe to session WS channel when session
+  /// becomes available.
+  void _onStateChanged() {
+    final sessionId = _state.session?.id;
+    final expectedChannel = sessionId != null
+        ? 'private-session.$sessionId'
+        : null;
+
+    if (expectedChannel != null && _sessionWsChannel != expectedChannel) {
+      // Unsubscribe from the previous session channel if any.
+      if (_sessionWsChannel != null) {
+        try {
+          Magic.make<WebSocketService>(
+            'websocket',
+          ).unsubscribe(_sessionWsChannel!);
+        } catch (_) {}
+      }
+
+      _sessionWsChannel = expectedChannel;
+
+      try {
+        Magic.make<WebSocketService>(
+          'websocket',
+        ).subscribe(_sessionWsChannel!, _onSessionWsEvent);
+      } catch (_) {
+        // WS may not be connected in tests.
+      }
+    }
+  }
+
+  /// Handle live session WebSocket events.
+  void _onSessionWsEvent(dynamic event) {
+    // WebSocketEvent carries data with session fields.
+    if (event is! WebSocketEvent) return;
+    _state.updateSessionFromEvent(event.data);
   }
 
   // -----------------------------------------------------------------------
@@ -278,7 +332,11 @@ class _AgentRunViewState extends State<AgentRunView> {
         // Right — sidebar
         WDiv(
           className: 'w-80 flex flex-col gap-4',
-          children: [_buildRunInfoCard(runDetail), _buildFileChangesCard()],
+          children: [
+            _buildRunInfoCard(runDetail),
+            if (_state.session != null) _buildSessionInfoCard(_state.session!),
+            _buildFileChangesCard(),
+          ],
         ),
       ],
     );
@@ -293,6 +351,7 @@ class _AgentRunViewState extends State<AgentRunView> {
       className: 'flex flex-col gap-4',
       children: [
         _buildRunInfoCard(runDetail),
+        if (_state.session != null) _buildSessionInfoCard(_state.session!),
         _buildTerminalStack(),
         _buildFileChangesCard(),
       ],
@@ -416,6 +475,69 @@ class _AgentRunViewState extends State<AgentRunView> {
           ),
       ],
     );
+  }
+
+  // -----------------------------------------------------------------------
+  // Session info card
+  // -----------------------------------------------------------------------
+
+  Widget _buildSessionInfoCard(Session session) {
+    return SectionCard(
+      title: trans('agent_run.cost_breakdown'),
+      children: [
+        // Phase badge
+        WDiv(
+          className: 'flex flex-col gap-0.5',
+          children: [
+            WText(
+              trans('agent_run.session_phase'),
+              className:
+                  'text-xs font-semibold text-slate-500 dark:text-slate-400',
+            ),
+            WDiv(
+              className:
+                  'self-start px-2 py-0.5 rounded-full ${_phaseBadgeClassName(session.phase)}',
+              child: WText(
+                trans('sessions.phase_${session.phase}'),
+                className: 'text-xs font-medium',
+              ),
+            ),
+          ],
+        ),
+
+        // Warm until
+        if (session.warmUntil != null)
+          _InfoRow(
+            label: trans('sessions.warm_until', {
+              'time': _formatWarmUntil(session.warmUntil!),
+            }),
+            value: '',
+          ),
+
+        // Model cost breakdown — rendered only when records exist.
+        if (session.usageRecords.isNotEmpty)
+          ModelCostBreakdown(usageRecords: session.usageRecords),
+      ],
+    );
+  }
+
+  /// Returns className for session phase badge.
+  String _phaseBadgeClassName(String phase) {
+    return switch (phase) {
+      'provisioning' => 'bg-blue-500/15 text-blue-500',
+      'executing' => 'bg-amber-500/15 text-amber-500',
+      'warm' => 'bg-emerald-500/15 text-emerald-500',
+      'dead' => 'bg-slate-500/15 text-slate-500',
+      _ => 'bg-slate-500/15 text-slate-500',
+    };
+  }
+
+  /// Formats a [DateTime] warm_until value as HH:mm.
+  String _formatWarmUntil(DateTime warmUntil) {
+    final local = warmUntil.toLocal();
+    final hour = local.hour.toString().padLeft(2, '0');
+    final minute = local.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
   }
 
   // -----------------------------------------------------------------------

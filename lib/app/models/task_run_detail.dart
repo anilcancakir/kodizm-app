@@ -24,7 +24,6 @@ class TaskRunDetail {
     this.agentRoleSlug,
     this.model,
     this.sessionId,
-    this.containerName,
     this.totalCostUsd,
     this.usage,
     this.durationMs,
@@ -33,7 +32,6 @@ class TaskRunDetail {
     this.aiTokenId,
     this.worktreePath,
     this.worktreeBranch,
-    this.warmUntil,
     this.startedAt,
     this.completedAt,
     this.updatedAt,
@@ -70,9 +68,6 @@ class TaskRunDetail {
   /// Session identifier returned by the agent runtime. Null until assigned.
   final String? sessionId;
 
-  /// Docker container name for this run. Null if not yet dispatched.
-  final String? containerName;
-
   /// Total cost of the run in USD. Null if billing has not yet been computed.
   final double? totalCostUsd;
 
@@ -96,10 +91,6 @@ class TaskRunDetail {
 
   /// Git branch name for the worktree (e.g. `'agent/task-abc'`).
   final String? worktreeBranch;
-
-  /// ISO-8601 timestamp string until which the container stays warm.
-  /// Kept as raw string to avoid timezone drift on display.
-  final String? warmUntil;
 
   /// UTC timestamp when the run was dispatched to the agent.
   final DateTime? startedAt;
@@ -132,7 +123,6 @@ class TaskRunDetail {
       prompt: map['prompt'] as String,
       model: map['model'] as String?,
       sessionId: map['session_id'] as String?,
-      containerName: map['container_name'] as String?,
       totalCostUsd: (map['total_cost_usd'] as num?)?.toDouble(),
       usage: map['usage'] as Map<String, dynamic>?,
       durationMs: map['duration_ms'] as int?,
@@ -141,7 +131,6 @@ class TaskRunDetail {
       aiTokenId: map['ai_token_id'] as String?,
       worktreePath: map['worktree_path'] as String?,
       worktreeBranch: map['worktree_branch'] as String?,
-      warmUntil: map['warm_until'] as String?,
       startedAt: map['started_at'] != null
           ? DateTime.parse(map['started_at'] as String)
           : null,
@@ -178,7 +167,6 @@ class TaskRunDetail {
       prompt: prompt,
       model: model ?? this.model,
       sessionId: sessionId ?? this.sessionId,
-      containerName: containerName,
       totalCostUsd: totalCostUsd ?? this.totalCostUsd,
       usage: usage,
       durationMs: durationMs ?? this.durationMs,
@@ -187,7 +175,6 @@ class TaskRunDetail {
       aiTokenId: aiTokenId,
       worktreePath: worktreePath,
       worktreeBranch: worktreeBranch,
-      warmUntil: warmUntil,
       startedAt: startedAt,
       completedAt: completedAt,
       createdAt: createdAt,

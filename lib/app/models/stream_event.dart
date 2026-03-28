@@ -23,6 +23,12 @@ class StreamEvent {
     required this.occurredAt,
     this.contentText,
     this.filePath,
+    this.sessionId,
+    this.subagentId,
+    this.parentEventId,
+    this.model,
+    this.turnNumber,
+    this.metadata,
   });
 
   // -------
@@ -52,6 +58,13 @@ class StreamEvent {
   /// UTC timestamp when the event occurred on the server.
   final DateTime occurredAt;
 
+  final String? sessionId;
+  final String? subagentId;
+  final String? parentEventId;
+  final String? model;
+  final int? turnNumber;
+  final Map<String, dynamic>? metadata;
+
   // -------
 
   /// Parses a [StreamEvent] from a JSON-decoded map.
@@ -65,6 +78,12 @@ class StreamEvent {
       filePath: map['file_path'] as String?,
       isQuestion: map['is_question'] as bool,
       occurredAt: DateTime.parse(map['occurred_at'] as String),
+      sessionId: map['session_id'] as String?,
+      subagentId: map['subagent_id'] as String?,
+      parentEventId: map['parent_event_id'] as String?,
+      model: map['model'] as String?,
+      turnNumber: map['turn_number'] as int?,
+      metadata: map['metadata'] as Map<String, dynamic>?,
     );
   }
 }

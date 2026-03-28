@@ -51,9 +51,19 @@ class AppServiceProvider extends ServiceProvider {
           path: '/knowledge',
         ),
         MagicStarterNavItem(
+          icon: Icons.chat_outlined,
+          labelKey: 'nav.conversations',
+          path: '/conversations',
+        ),
+        MagicStarterNavItem(
           icon: Icons.account_balance_wallet_outlined,
           labelKey: 'nav.billing',
           path: '/billing',
+        ),
+        MagicStarterNavItem(
+          icon: Icons.devices_outlined,
+          labelKey: 'nav.sessions',
+          path: '/sessions',
         ),
         MagicStarterNavItem(
           icon: Icons.settings_outlined,
@@ -83,9 +93,19 @@ class AppServiceProvider extends ServiceProvider {
           path: '/knowledge',
         ),
         MagicStarterNavItem(
+          icon: Icons.chat_outlined,
+          labelKey: 'nav.conversations',
+          path: '/conversations',
+        ),
+        MagicStarterNavItem(
           icon: Icons.account_balance_wallet_outlined,
           labelKey: 'nav.billing',
           path: '/billing',
+        ),
+        MagicStarterNavItem(
+          icon: Icons.devices_outlined,
+          labelKey: 'nav.sessions',
+          path: '/sessions',
         ),
         MagicStarterNavItem(
           icon: Icons.settings_outlined,

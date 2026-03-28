@@ -17,7 +17,10 @@ import '../resources/views/billing/usage_history_view.dart';
 import '../resources/views/settings/ai_token_list_view.dart';
 import '../resources/views/settings/app_settings_view.dart';
 import '../resources/views/conversation/conversation_chat_view.dart';
+import '../resources/views/conversation/conversation_list_view.dart';
 import '../resources/views/nav/project_scoped_nav_view.dart';
+import '../resources/views/session/session_detail_view.dart';
+import '../resources/views/session/session_list_view.dart';
 
 /// Application Route Definitions.
 ///
@@ -72,6 +75,17 @@ void registerAppRoutes() {
         '/knowledge',
         () => const ProjectScopedNavView(targetPath: 'knowledge'),
       );
+      MagicRoute.page(
+        '/conversations',
+        () => const ProjectScopedNavView(targetPath: 'conversations'),
+      );
+
+      // Session routes.
+      MagicRoute.page('/sessions', () => const SessionListView());
+      MagicRoute.page(
+        '/sessions/:sessionId',
+        (String sessionId) => SessionDetailView(sessionId: sessionId),
+      );
 
       // Billing routes.
       MagicRoute.page('/billing', () => const BillingView());
@@ -90,6 +104,12 @@ void registerAppRoutes() {
         '/projects/:projectId/knowledge/:documentId',
         (String projectId, String documentId) =>
             KnowledgeDetailView(projectId: projectId, documentId: documentId),
+      );
+
+      // Project-scoped conversation routes.
+      MagicRoute.page(
+        '/projects/:projectId/conversations',
+        (String projectId) => ConversationListView(projectId: projectId),
       );
     },
   );

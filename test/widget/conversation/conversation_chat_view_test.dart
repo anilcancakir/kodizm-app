@@ -9,6 +9,9 @@ import 'package:app/app/events/websocket_event.dart';
 import 'package:app/app/state/conversation_chat_state.dart';
 import 'package:app/resources/views/conversation/conversation_chat_view.dart';
 import 'package:app/resources/widgets/atoms/status_badge.dart';
+import 'package:app/resources/widgets/atoms/streaming_indicator.dart';
+import 'package:app/resources/widgets/organisms/chat_message_bubble.dart';
+import 'package:app/resources/widgets/organisms/chat_tool_use_card.dart';
 
 // ---------------------------------------------------------------------------
 // Fake HTTP client
@@ -117,7 +120,7 @@ Map<String, dynamic> _conversationPayload({String status = 'active'}) {
       'name': 'Business Analyst',
       'slug': 'ba',
     },
-    'title': null,
+    'title': 'Test Conversation',
     'status': status,
     'model': 'claude-sonnet-4-6',
     'total_cost_usd': '0.12',
@@ -159,7 +162,11 @@ Widget _buildTestWidget({String projectId = kProjectId}) {
   return WindTheme(
     data: WindThemeData(),
     child: MaterialApp(
-      home: Scaffold(body: ConversationChatView(projectId: projectId)),
+      home: Scaffold(
+        body: SingleChildScrollView(
+          child: ConversationChatView(projectId: projectId),
+        ),
+      ),
     ),
   );
 }
@@ -275,20 +282,20 @@ void main() {
   });
 
   // -----------------------------------------------------------------------
-  // 5. Metadata sidebar shows conversation info
+  // 5. Header shows conversation title and cost
   // -----------------------------------------------------------------------
 
-  testWidgets('metadata sidebar shows conversation info', (tester) async {
+  testWidgets('header shows conversation title and cost', (tester) async {
     await pumpWithConversation(tester);
 
-    // Session Info section title.
-    expect(find.text(trans('conversation_chat.session_info')), findsOneWidget);
+    // Conversation title from fixture.
+    expect(find.text('Test Conversation'), findsOneWidget);
 
-    // Model label.
-    expect(find.text('claude-sonnet-4-6'), findsWidgets);
-
-    // Agent role name.
-    expect(find.text('Business Analyst'), findsWidgets);
+    // Cost display.
+    expect(
+      find.text(trans('conversation_chat.cost_format', {'amount': '0.12'})),
+      findsWidgets,
+    );
   });
 
   // -----------------------------------------------------------------------
@@ -314,10 +321,10 @@ void main() {
   });
 
   // -----------------------------------------------------------------------
-  // 8. Send message adds user message to list
+  // 8. Send message renders ChatMessageBubble
   // -----------------------------------------------------------------------
 
-  testWidgets('send message adds user message to list', (tester) async {
+  testWidgets('send message renders ChatMessageBubble', (tester) async {
     await pumpWithConversation(tester);
 
     // Type a message.
@@ -333,15 +340,20 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    // Optimistic message should appear.
+    // ChatMessageBubble should be rendered.
+    expect(find.byType(ChatMessageBubble), findsOneWidget);
+
+    // Optimistic message content should appear.
     expect(find.text('Hello agent!'), findsOneWidget);
   });
 
   // -----------------------------------------------------------------------
-  // 9. addEvent shows assistant message in list (real-time simulation)
+  // 9. addEvent shows assistant message as ChatMessageBubble
   // -----------------------------------------------------------------------
 
-  testWidgets('addEvent shows assistant message in list', (tester) async {
+  testWidgets('addEvent shows assistant message as ChatMessageBubble', (
+    tester,
+  ) async {
     await pumpWithConversation(tester);
 
     // Simulate a WS event.
@@ -363,6 +375,7 @@ void main() {
 
     await tester.pumpAndSettle();
 
+    expect(find.byType(ChatMessageBubble), findsOneWidget);
     expect(find.text('Hello! How can I help?'), findsOneWidget);
   });
 
@@ -390,6 +403,11 @@ void main() {
 
     await tester.pumpAndSettle();
 
+    // Open debug panel to see the raw events count.
+    final debugToggle = find.byIcon(Icons.bug_report_outlined);
+    await tester.tap(debugToggle.first);
+    await tester.pump();
+
     expect(
       find.text(trans('conversation_chat.raw_events_count', {'count': '1'})),
       findsOneWidget,
@@ -397,10 +415,45 @@ void main() {
   });
 
   // -----------------------------------------------------------------------
-  // 11. Message bubble shows role badge
+  // 11. Debug toggle shows and hides raw events panel
   // -----------------------------------------------------------------------
 
-  testWidgets('message bubble shows role badge for user', (tester) async {
+  testWidgets('debug toggle shows and hides raw events panel', (tester) async {
+    await pumpWithConversation(tester);
+
+    // Debug panel should be hidden initially (raw events section not visible).
+    expect(find.text(trans('conversation_chat.raw_events')), findsNothing);
+
+    // Find and tap the debug toggle button (first icon — header button).
+    final debugToggle = find.byIcon(Icons.bug_report_outlined).first;
+
+    await tester.tap(debugToggle);
+    await tester.pump();
+
+    // Debug panel should now be visible.
+    expect(
+      find.text(trans('conversation_chat.raw_events_count', {'count': '0'})),
+      findsOneWidget,
+    );
+
+    // Tap header toggle again to hide — it's now the first of two.
+    await tester.tap(find.byIcon(Icons.bug_report_outlined).first);
+    await tester.pump();
+
+    // Should be hidden again.
+    expect(
+      find.text(trans('conversation_chat.raw_events_count', {'count': '0'})),
+      findsNothing,
+    );
+  });
+
+  // -----------------------------------------------------------------------
+  // 12. ChatMessageBubble shows user role badge
+  // -----------------------------------------------------------------------
+
+  testWidgets('ChatMessageBubble shows user message right-aligned', (
+    tester,
+  ) async {
     await pumpWithConversation(tester);
 
     // Send a message first.
@@ -413,7 +466,116 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    // User role badge should appear.
-    expect(find.text(trans('conversation_chat.user_role')), findsWidgets);
+    // ChatMessageBubble renders user content.
+    expect(find.byType(ChatMessageBubble), findsOneWidget);
+    expect(find.text('Test message'), findsOneWidget);
+  });
+
+  // -----------------------------------------------------------------------
+  // 13. ChatToolUseCard renders and is collapsible
+  // -----------------------------------------------------------------------
+
+  testWidgets('ChatToolUseCard renders tool name and collapses', (
+    tester,
+  ) async {
+    setViewport(tester);
+
+    await tester.pumpWidget(
+      WindTheme(
+        data: WindThemeData(),
+        child: MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: ChatToolUseCard(
+                toolName: 'ReadFile',
+                input: {'path': '/src/main.dart'},
+                result: {'content': 'file contents here'},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // Tool name should be visible.
+    expect(
+      find.text(trans('conversation_chat.tool_name', {'name': 'ReadFile'})),
+      findsOneWidget,
+    );
+
+    // Input/result sections hidden by default.
+    expect(find.text(trans('conversation_chat.tool_input')), findsNothing);
+
+    // Expand by tapping.
+    await tester.tap(
+      find.text(trans('conversation_chat.tool_name', {'name': 'ReadFile'})),
+    );
+    await tester.pump();
+
+    // Now input/result should be visible.
+    expect(find.text(trans('conversation_chat.tool_input')), findsOneWidget);
+    expect(find.text(trans('conversation_chat.tool_result')), findsOneWidget);
+  });
+
+  // -----------------------------------------------------------------------
+  // 14. StreamingIndicator renders thinking text
+  // -----------------------------------------------------------------------
+
+  testWidgets('StreamingIndicator renders thinking text', (tester) async {
+    setViewport(tester);
+
+    await tester.pumpWidget(
+      WindTheme(
+        data: WindThemeData(),
+        child: MaterialApp(home: Scaffold(body: const StreamingIndicator())),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text(trans('conversation_chat.streaming')), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+  });
+
+  // -----------------------------------------------------------------------
+  // 15. Header shows agent role badge
+  // -----------------------------------------------------------------------
+
+  testWidgets('header shows agent role name', (tester) async {
+    await pumpWithConversation(tester);
+
+    // Agent role name from fixture.
+    expect(find.text('Business Analyst'), findsWidgets);
+  });
+
+  // -----------------------------------------------------------------------
+  // 16. Metadata sidebar hidden in production layout (behind debug toggle)
+  // -----------------------------------------------------------------------
+
+  testWidgets('metadata sidebar hidden until debug toggle activated', (
+    tester,
+  ) async {
+    await pumpWithConversation(tester);
+
+    // Session Info should not be visible by default.
+    expect(find.text(trans('conversation_chat.session_info')), findsNothing);
+
+    // Activate debug (first icon — header button).
+    await tester.tap(find.byIcon(Icons.bug_report_outlined).first);
+    await tester.pump();
+
+    // Session Info should now be visible in the debug panel.
+    expect(find.text(trans('conversation_chat.session_info')), findsOneWidget);
+  });
+
+  // -----------------------------------------------------------------------
+  // 17. Streaming indicator shown when sending
+  // -----------------------------------------------------------------------
+
+  testWidgets('streaming indicator not shown when not sending', (tester) async {
+    await pumpWithConversation(tester);
+
+    // StreamingIndicator should NOT be present when not sending.
+    expect(find.byType(StreamingIndicator), findsNothing);
   });
 }

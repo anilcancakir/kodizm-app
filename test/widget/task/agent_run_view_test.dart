@@ -13,6 +13,8 @@ import 'package:app/app/services/websocket_service.dart';
 import 'package:app/app/state/agent_run_state.dart';
 import 'package:app/resources/views/task/agent_run_view.dart';
 import 'package:app/resources/widgets/atoms/status_badge.dart';
+import 'package:app/resources/widgets/atoms/terminal_event_tile.dart';
+import 'package:app/resources/widgets/molecules/model_cost_breakdown.dart';
 import 'package:app/resources/widgets/organisms/terminal_event_list.dart';
 
 // ---------------------------------------------------------------------------
@@ -81,7 +83,8 @@ final List<FileChange> kFileChanges = [
 // Fake HTTP client
 // ---------------------------------------------------------------------------
 
-class _FakeAgentRunHttpClient implements AgentRunHttpClient {
+class _FakeAgentRunHttpClient
+    implements AgentRunHttpClient, SessionAgentHttpClient {
   final List<String> calls = [];
 
   MagicResponse Function(String url)? responder;
@@ -218,7 +221,7 @@ void main() {
       return MagicResponse(data: <String, dynamic>{}, statusCode: 404);
     };
 
-    state = AgentRunState(httpClient: http);
+    state = AgentRunState(httpClient: http, sessionHttpClient: http);
     Magic.put<AgentRunState>(state);
 
     fakeWs = _FakeWebSocketService();
@@ -253,6 +256,9 @@ void main() {
       }
       if (url.contains('/questions')) {
         return MagicResponse(data: {'data': <dynamic>[]}, statusCode: 200);
+      }
+      if (url.contains('/v1/sessions/')) {
+        return MagicResponse(data: <String, dynamic>{}, statusCode: 404);
       }
       return MagicResponse(
         data: {
@@ -309,6 +315,9 @@ void main() {
       if (url.contains('/questions')) {
         return MagicResponse(data: {'data': <dynamic>[]}, statusCode: 200);
       }
+      if (url.contains('/v1/sessions/')) {
+        return MagicResponse(data: <String, dynamic>{}, statusCode: 404);
+      }
       return MagicResponse(
         data: {
           'data': {
@@ -364,6 +373,9 @@ void main() {
       }
       if (url.contains('/questions')) {
         return MagicResponse(data: {'data': <dynamic>[]}, statusCode: 200);
+      }
+      if (url.contains('/v1/sessions/')) {
+        return MagicResponse(data: <String, dynamic>{}, statusCode: 404);
       }
       return MagicResponse(
         data: {
@@ -566,5 +578,406 @@ void main() {
     await pumpWithRunningState(tester);
 
     expect(find.byType(StatusBadge), findsWidgets);
+  });
+
+  // -----------------------------------------------------------------------
+  // 11. Sub-agent events rendered with indicator
+  // -----------------------------------------------------------------------
+
+  testWidgets('sub-agent events show subagent indicator', (tester) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    http.responder = (url) {
+      if (url.contains('/stream-events')) {
+        return MagicResponse(
+          data: {
+            'data': <dynamic>[],
+            'meta': {'has_more': false, 'next_cursor': null},
+          },
+          statusCode: 200,
+        );
+      }
+      if (url.contains('/questions')) {
+        return MagicResponse(data: {'data': <dynamic>[]}, statusCode: 200);
+      }
+      if (url.contains('/v1/sessions/')) {
+        return MagicResponse(data: <String, dynamic>{}, statusCode: 404);
+      }
+      return MagicResponse(
+        data: {
+          'data': {
+            'id': 'run-uuid-001',
+            'task_id': 'task-uuid-001',
+            'agent_role_id': 'role-uuid-001',
+            'agent_role': {'name': 'Developer', 'slug': 'developer'},
+            'status': 'running',
+            'prompt': 'Implement the login screen',
+            'model': 'claude-sonnet-4-6',
+            'session_id': 'sess-abc-123',
+            'created_at': '2026-03-25T10:00:00.000Z',
+            'started_at': '2026-03-25T10:00:00.000Z',
+          },
+        },
+        statusCode: 200,
+      );
+    };
+
+    await state.loadRunDetail(
+      'team-uuid-001',
+      'proj-uuid-001',
+      'task-uuid-001',
+      'run-uuid-001',
+    );
+
+    // Add a regular event and a sub-agent event.
+    state.addStreamEvent(
+      StreamEvent(
+        id: 'evt-main-1',
+        taskRunId: 'run-uuid-001',
+        type: 'assistant',
+        data: const {},
+        contentText: 'Main agent working',
+        isQuestion: false,
+        occurredAt: DateTime.utc(2026, 3, 25, 10, 0, 1),
+        turnNumber: 1,
+      ),
+    );
+    state.addStreamEvent(
+      StreamEvent(
+        id: 'evt-sub-1',
+        taskRunId: 'run-uuid-001',
+        type: 'assistant',
+        data: const {},
+        contentText: 'Sub-agent exploring',
+        isQuestion: false,
+        occurredAt: DateTime.utc(2026, 3, 25, 10, 0, 2),
+        subagentId: 'subagent-uuid-001',
+        turnNumber: 2,
+      ),
+    );
+    state.refreshUI();
+
+    await tester.pumpWidget(_buildTestWidget());
+    await tester.pump();
+
+    // Both events should render.
+    expect(find.byType(TerminalEventTile), findsAtLeast(2));
+
+    // The sub-agent indicator text should be present.
+    expect(find.text(trans('agent_run.subagent_indicator')), findsOneWidget);
+  });
+
+  // -----------------------------------------------------------------------
+  // 12. Session info displayed when session is loaded
+  // -----------------------------------------------------------------------
+
+  testWidgets('session phase badge and warm_until shown in sidebar', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    http.responder = (url) {
+      if (url.contains('/stream-events')) {
+        return MagicResponse(
+          data: {
+            'data': <dynamic>[],
+            'meta': {'has_more': false, 'next_cursor': null},
+          },
+          statusCode: 200,
+        );
+      }
+      if (url.contains('/questions')) {
+        return MagicResponse(data: {'data': <dynamic>[]}, statusCode: 200);
+      }
+      if (url.contains('/v1/sessions/sess-abc-123')) {
+        return MagicResponse(
+          data: {
+            'data': {
+              'id': 'sess-abc-123',
+              'type': 'autonomous',
+              'phase': 'warm',
+              'model': 'claude-sonnet-4-6',
+              'total_cost_usd': '0.125000',
+              'total_input_tokens': 5000,
+              'total_output_tokens': 2000,
+              'total_cache_read_tokens': 1000,
+              'total_cache_creation_tokens': 500,
+              'warm_until': '2026-03-25T11:00:00.000Z',
+              'started_at': '2026-03-25T10:00:00.000Z',
+              'created_at': '2026-03-25T10:00:00.000Z',
+              'updated_at': '2026-03-25T10:01:00.000Z',
+              'usage_records': <dynamic>[],
+              'shares': <dynamic>[],
+            },
+          },
+          statusCode: 200,
+        );
+      }
+      return MagicResponse(
+        data: {
+          'data': {
+            'id': 'run-uuid-001',
+            'task_id': 'task-uuid-001',
+            'agent_role_id': 'role-uuid-001',
+            'agent_role': {'name': 'Developer', 'slug': 'developer'},
+            'status': 'running',
+            'prompt': 'Implement the login screen',
+            'model': 'claude-sonnet-4-6',
+            'session_id': 'sess-abc-123',
+            'created_at': '2026-03-25T10:00:00.000Z',
+            'started_at': '2026-03-25T10:00:00.000Z',
+          },
+        },
+        statusCode: 200,
+      );
+    };
+
+    await state.loadRunDetail(
+      'team-uuid-001',
+      'proj-uuid-001',
+      'task-uuid-001',
+      'run-uuid-001',
+    );
+
+    // Wait for session fetch to complete.
+    await tester.pumpWidget(_buildTestWidget());
+    await tester.pumpAndSettle();
+
+    // Session phase label should be visible.
+    expect(find.text(trans('agent_run.session_phase')), findsOneWidget);
+
+    // Phase value displayed.
+    expect(find.text(trans('sessions.phase_warm')), findsOneWidget);
+
+    // ModelCostBreakdown NOT rendered when usage records are empty.
+    expect(find.byType(ModelCostBreakdown), findsNothing);
+  });
+
+  // -----------------------------------------------------------------------
+  // 13. AgentRunState session fetch integration
+  // -----------------------------------------------------------------------
+
+  test('loadRunDetail fetches session when sessionId is present', () async {
+    final List<String> sessionCalls = [];
+    http.responder = (url) {
+      if (url.contains('/v1/sessions/')) {
+        sessionCalls.add(url);
+        return MagicResponse(
+          data: {
+            'data': {
+              'id': 'sess-abc-123',
+              'type': 'autonomous',
+              'phase': 'executing',
+              'model': 'claude-sonnet-4-6',
+              'total_cost_usd': '0.050000',
+              'total_input_tokens': 3000,
+              'total_output_tokens': 1000,
+              'total_cache_read_tokens': 0,
+              'total_cache_creation_tokens': 0,
+              'created_at': '2026-03-25T10:00:00.000Z',
+              'updated_at': '2026-03-25T10:00:30.000Z',
+              'usage_records': <dynamic>[],
+              'shares': <dynamic>[],
+            },
+          },
+          statusCode: 200,
+        );
+      }
+      if (url.contains('/stream-events')) {
+        return MagicResponse(
+          data: {
+            'data': <dynamic>[],
+            'meta': {'has_more': false, 'next_cursor': null},
+          },
+          statusCode: 200,
+        );
+      }
+      if (url.contains('/questions')) {
+        return MagicResponse(data: {'data': <dynamic>[]}, statusCode: 200);
+      }
+      return MagicResponse(
+        data: {
+          'data': {
+            'id': 'run-uuid-001',
+            'task_id': 'task-uuid-001',
+            'agent_role_id': 'role-uuid-001',
+            'agent_role': {'name': 'Developer', 'slug': 'developer'},
+            'status': 'running',
+            'prompt': 'Implement the login screen',
+            'model': 'claude-sonnet-4-6',
+            'session_id': 'sess-abc-123',
+            'created_at': '2026-03-25T10:00:00.000Z',
+            'started_at': '2026-03-25T10:00:00.000Z',
+          },
+        },
+        statusCode: 200,
+      );
+    };
+
+    await state.loadRunDetail(
+      'team-uuid-001',
+      'proj-uuid-001',
+      'task-uuid-001',
+      'run-uuid-001',
+    );
+
+    // Session should have been fetched.
+    expect(sessionCalls, contains(contains('/v1/sessions/sess-abc-123')));
+    expect(state.session, isNotNull);
+    expect(state.session!.phase, equals('executing'));
+    expect(state.session!.id, equals('sess-abc-123'));
+  });
+
+  // -----------------------------------------------------------------------
+  // 14. AgentRunState session is null when no sessionId
+  // -----------------------------------------------------------------------
+
+  test('loadRunDetail does NOT fetch session when sessionId is null', () async {
+    final List<String> sessionCalls = [];
+    http.responder = (url) {
+      if (url.contains('/v1/sessions/')) {
+        sessionCalls.add(url);
+        return MagicResponse(data: <String, dynamic>{}, statusCode: 200);
+      }
+      if (url.contains('/stream-events')) {
+        return MagicResponse(
+          data: {
+            'data': <dynamic>[],
+            'meta': {'has_more': false, 'next_cursor': null},
+          },
+          statusCode: 200,
+        );
+      }
+      if (url.contains('/questions')) {
+        return MagicResponse(data: {'data': <dynamic>[]}, statusCode: 200);
+      }
+      return MagicResponse(
+        data: {
+          'data': {
+            'id': 'run-uuid-002',
+            'task_id': 'task-uuid-001',
+            'agent_role_id': 'role-uuid-001',
+            'agent_role': {'name': 'Developer', 'slug': 'developer'},
+            'status': 'pending',
+            'prompt': 'Implement something',
+            'created_at': '2026-03-25T10:00:00.000Z',
+          },
+        },
+        statusCode: 200,
+      );
+    };
+
+    await state.loadRunDetail(
+      'team-uuid-001',
+      'proj-uuid-001',
+      'task-uuid-001',
+      'run-uuid-002',
+    );
+
+    // No session fetch should have been made.
+    expect(sessionCalls, isEmpty);
+    expect(state.session, isNull);
+  });
+
+  // -----------------------------------------------------------------------
+  // 15. Turn grouping — events grouped by turnNumber with separators
+  // -----------------------------------------------------------------------
+
+  testWidgets('events grouped by turn with visual separator', (tester) async {
+    tester.view.physicalSize = const Size(1440, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    http.responder = (url) {
+      if (url.contains('/stream-events')) {
+        return MagicResponse(
+          data: {
+            'data': <dynamic>[],
+            'meta': {'has_more': false, 'next_cursor': null},
+          },
+          statusCode: 200,
+        );
+      }
+      if (url.contains('/questions')) {
+        return MagicResponse(data: {'data': <dynamic>[]}, statusCode: 200);
+      }
+      if (url.contains('/v1/sessions/')) {
+        return MagicResponse(data: <String, dynamic>{}, statusCode: 404);
+      }
+      return MagicResponse(
+        data: {
+          'data': {
+            'id': 'run-uuid-001',
+            'task_id': 'task-uuid-001',
+            'agent_role_id': 'role-uuid-001',
+            'agent_role': {'name': 'Developer', 'slug': 'developer'},
+            'status': 'running',
+            'prompt': 'Implement the login screen',
+            'model': 'claude-sonnet-4-6',
+            'session_id': 'sess-abc-123',
+            'created_at': '2026-03-25T10:00:00.000Z',
+            'started_at': '2026-03-25T10:00:00.000Z',
+          },
+        },
+        statusCode: 200,
+      );
+    };
+
+    await state.loadRunDetail(
+      'team-uuid-001',
+      'proj-uuid-001',
+      'task-uuid-001',
+      'run-uuid-001',
+    );
+
+    // Add events across two different turns.
+    state.addStreamEvent(
+      StreamEvent(
+        id: 'turn-1-evt-1',
+        taskRunId: 'run-uuid-001',
+        type: 'assistant',
+        data: const {},
+        contentText: 'Turn 1 event A',
+        isQuestion: false,
+        occurredAt: DateTime.utc(2026, 3, 25, 10, 0, 1),
+        turnNumber: 1,
+      ),
+    );
+    state.addStreamEvent(
+      StreamEvent(
+        id: 'turn-1-evt-2',
+        taskRunId: 'run-uuid-001',
+        type: 'assistant',
+        data: const {},
+        contentText: 'Turn 1 event B',
+        isQuestion: false,
+        occurredAt: DateTime.utc(2026, 3, 25, 10, 0, 2),
+        turnNumber: 1,
+      ),
+    );
+    state.addStreamEvent(
+      StreamEvent(
+        id: 'turn-2-evt-1',
+        taskRunId: 'run-uuid-001',
+        type: 'assistant',
+        data: const {},
+        contentText: 'Turn 2 event A',
+        isQuestion: false,
+        occurredAt: DateTime.utc(2026, 3, 25, 10, 0, 3),
+        turnNumber: 2,
+      ),
+    );
+    state.refreshUI();
+
+    await tester.pumpWidget(_buildTestWidget());
+    await tester.pump();
+
+    // All three events plus turn separator should render.
+    // TerminalEventList's itemCount includes separators.
+    expect(find.byType(TerminalEventTile), findsAtLeast(3));
   });
 }

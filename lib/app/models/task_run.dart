@@ -20,6 +20,8 @@ class TaskRun {
     required this.createdAt,
     this.agentRoleName,
     this.model,
+    this.sessionId,
+    this.prompt,
     this.totalCostUsd,
     this.durationMs,
     this.numTurns,
@@ -48,6 +50,12 @@ class TaskRun {
 
   /// LLM model identifier used for this run (e.g. `'claude-3-5-sonnet'`).
   final String? model;
+
+  /// Session identifier (UUID FK to Session). Null until assigned.
+  final String? sessionId;
+
+  /// The prompt text sent to the agent for this run.
+  final String? prompt;
 
   /// Total cost of the run in USD. Null if billing has not yet been computed.
   final double? totalCostUsd;
@@ -86,6 +94,8 @@ class TaskRun {
       agentRoleName: agentRole?['name'] as String?,
       status: map['status'] as String,
       model: map['model'] as String?,
+      sessionId: map['session_id'] as String?,
+      prompt: map['prompt'] as String?,
       totalCostUsd: (map['total_cost_usd'] as num?)?.toDouble(),
       durationMs: map['duration_ms'] as int?,
       numTurns: map['num_turns'] as int?,

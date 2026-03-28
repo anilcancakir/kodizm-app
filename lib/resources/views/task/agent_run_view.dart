@@ -605,15 +605,28 @@ class _AgentRunViewState extends State<AgentRunView> {
     showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(trans('agent_run.cancel_confirm_title')),
-        content: Text(trans('agent_run.cancel_confirm_message')),
+        title: WText(
+          trans('agent_run.cancel_confirm_title'),
+          className: 'text-base font-semibold text-gray-900 dark:text-white',
+        ),
+        content: WText(
+          trans('agent_run.cancel_confirm_message'),
+          className: 'text-sm text-gray-600 dark:text-gray-400',
+        ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(trans('common.cancel')),
+          WAnchor(
+            onTap: () => Navigator.of(dialogContext).pop(),
+            child: WDiv(
+              className: 'px-4 py-2',
+              child: WText(
+                trans('common.cancel'),
+                className:
+                    'text-sm font-medium text-gray-600 dark:text-gray-400',
+              ),
+            ),
           ),
-          TextButton(
-            onPressed: () {
+          WAnchor(
+            onTap: () {
               Navigator.of(dialogContext).pop();
               _state.cancelRun(
                 _teamId,
@@ -622,7 +635,13 @@ class _AgentRunViewState extends State<AgentRunView> {
                 widget.runId,
               );
             },
-            child: Text(trans('agent_run.cancel_confirm_action')),
+            child: WDiv(
+              className: 'px-4 py-2',
+              child: WText(
+                trans('agent_run.cancel_confirm_action'),
+                className: 'text-sm font-medium text-red-500',
+              ),
+            ),
           ),
         ],
       ),

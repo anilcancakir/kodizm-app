@@ -1,6 +1,6 @@
 # State Management
 
-12 state classes. All except `SettingsState` extend `MagicController with MagicStateMixin<T>`.
+13 state classes. All except `SettingsState` extend `MagicController with MagicStateMixin<T>`.
 
 ## Architecture
 
@@ -15,6 +15,7 @@
 |-------------|------|-------------|----------------|-------------|
 | `DashboardState` | `dashboard_state.dart` | `DashboardData` | `DashboardHttpClient` (GET) | -- |
 | `ProjectState` | `project_state.dart` | `List<Project>` | `HttpClient` (GET/POST/PUT/DELETE) | -- |
+| `ProjectRepositoryState` | `project_repository_state.dart` | `List<ProjectRepository>` | `HttpClient` (GET/POST/PUT/DELETE) | -- |
 | `TaskState` | `task_state.dart` | `List<Task>` | `TaskHttpClient` (GET/POST/PUT/DELETE) | -- |
 | `AgentRunState` | `agent_run_state.dart` | `void` | `AgentRunHttpClient` (GET/POST) + `SessionAgentHttpClient` (GET) | Via view: `private-task-run.{runId}` |
 | `DocumentState` | `document_state.dart` | `List<ProjectDocument>` | `DocumentHttpClient` (GET) | -- |
@@ -43,7 +44,17 @@ All files in `lib/app/state/`.
 | `fetchProjects`, `fetchProject` | Load list or single |
 | `createProject`, `updateProject`, `deleteProject` | CRUD |
 | `sortProjects(field)` | Local sort (name, lastUpdated) |
-| `generateSshKey`, `fetchRepoStatus` | Project-specific actions |
+
+### ProjectRepositoryState
+
+| Method | Description |
+|--------|-------------|
+| `fetchRepositories(teamId, projectId)` | Load repository list |
+| `createRepository`, `updateRepository`, `deleteRepository` | CRUD |
+| `generateSshKey(teamId, projectId, repositoryId)` | Generate SSH key pair |
+| `fetchSshKey(teamId, projectId, repositoryId)` | Fetch current public key |
+| `cloneRepository(teamId, projectId, repositoryId)` | Trigger background clone |
+| `fetchRepoStatus(teamId, projectId, repositoryId)` | Poll clone/sync status |
 
 ### TaskState
 

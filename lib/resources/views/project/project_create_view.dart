@@ -34,9 +34,7 @@ class _ProjectCreateViewState extends State<ProjectCreateView> {
 
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _repositoryUrlController = TextEditingController();
   final _techStackController = TextEditingController();
-  final _defaultBranchController = TextEditingController(text: 'main');
 
   bool _submitting = false;
   String? _submitError;
@@ -45,9 +43,7 @@ class _ProjectCreateViewState extends State<ProjectCreateView> {
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
-    _repositoryUrlController.dispose();
     _techStackController.dispose();
-    _defaultBranchController.dispose();
     super.dispose();
   }
 
@@ -74,13 +70,8 @@ class _ProjectCreateViewState extends State<ProjectCreateView> {
       'name': _nameController.text.trim(),
       if (_descriptionController.text.trim().isNotEmpty)
         'description': _descriptionController.text.trim(),
-      if (_repositoryUrlController.text.trim().isNotEmpty)
-        'repository_url': _repositoryUrlController.text.trim(),
       if (_techStackController.text.trim().isNotEmpty)
         'tech_stack': _techStackController.text.trim(),
-      'default_branch': _defaultBranchController.text.trim().isEmpty
-          ? 'main'
-          : _defaultBranchController.text.trim(),
     };
 
     final project = await ProjectState.instance.createProject(teamId, data);
@@ -143,20 +134,9 @@ class _ProjectCreateViewState extends State<ProjectCreateView> {
                     maxLines: 3,
                   ),
                   _buildField(
-                    label: trans('projects.repo_url'),
-                    hint: trans('projects.repo_url_placeholder_optional'),
-                    controller: _repositoryUrlController,
-                    keyboardType: TextInputType.url,
-                  ),
-                  _buildField(
                     label: trans('projects.tech_stack'),
                     hint: trans('projects.tech_stack_placeholder_optional'),
                     controller: _techStackController,
-                  ),
-                  _buildField(
-                    label: trans('projects.default_branch'),
-                    hint: trans('projects.default_branch_placeholder'),
-                    controller: _defaultBranchController,
                   ),
 
                   // Inline error.
@@ -202,7 +182,6 @@ class _ProjectCreateViewState extends State<ProjectCreateView> {
     required TextEditingController controller,
     bool required = false,
     int maxLines = 1,
-    TextInputType? keyboardType,
     String? Function(String?)? validator,
   }) {
     return WFormInput(

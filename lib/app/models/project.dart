@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:magic/magic.dart';
 
+import 'project_repository.dart';
+
 /// Project model.
 ///
 /// Represents a Kodizm project within a team. Extends the Magic ORM [Model]
@@ -41,10 +43,7 @@ class Project extends Model with HasTimestamps, InteractsWithPersistence {
     'name',
     'slug',
     'description',
-    'repository_url',
-    'default_branch',
     'tech_stack',
-    'ssh_public_key',
     'execution_mode',
     'settings',
   ];
@@ -85,32 +84,11 @@ class Project extends Model with HasTimestamps, InteractsWithPersistence {
   /// Set the project description.
   set description(String? value) => setAttribute('description', value);
 
-  /// Get the optional repository URL (SSH or HTTPS).
-  String? get repositoryUrl => getAttribute('repository_url') as String?;
-
-  /// Set the repository URL.
-  set repositoryUrl(String? value) => setAttribute('repository_url', value);
-
-  /// Get the default Git branch (e.g. `main`, `master`).
-  ///
-  /// Falls back to `'main'` when not set on the model.
-  String get defaultBranch =>
-      getAttribute('default_branch') as String? ?? 'main';
-
-  /// Set the default Git branch.
-  set defaultBranch(String value) => setAttribute('default_branch', value);
-
   /// Get the optional tech stack description (e.g. `Laravel, PostgreSQL`).
   String? get techStack => getAttribute('tech_stack') as String?;
 
   /// Set the tech stack description.
   set techStack(String? value) => setAttribute('tech_stack', value);
-
-  /// Get the optional SSH public key provisioned for agent access.
-  String? get sshPublicKey => getAttribute('ssh_public_key') as String?;
-
-  /// Set the SSH public key.
-  set sshPublicKey(String? value) => setAttribute('ssh_public_key', value);
 
   /// Get the execution mode (`'manual'` or `'auto'`).
   ///
@@ -127,6 +105,30 @@ class Project extends Model with HasTimestamps, InteractsWithPersistence {
 
   /// Set the project settings map.
   set settings(Map<String, dynamic>? value) => setAttribute('settings', value);
+
+  // ---------------------------------------------------------------------------
+  // Relationship Accessors
+  // ---------------------------------------------------------------------------
+
+  /// Get the list of repositories linked to this project.
+  ///
+  /// Parses the nested `repositories` array from the API response into
+  /// a typed list of [ProjectRepository] value objects. Returns an empty
+  /// list when the relation is not loaded.
+  List<ProjectRepository> get repositories {
+    final raw = getAttribute('repositories') as List<dynamic>?;
+    if (raw == null) return const [];
+    return raw
+        .map((e) => ProjectRepository.fromMap(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Get the total number of repositories linked to this project.
+  ///
+  /// Uses the API-provided `repositories_count` when available, otherwise
+  /// falls back to the length of the loaded [repositories] list.
+  int get repositoriesCount =>
+      getAttribute('repositories_count') as int? ?? repositories.length;
 
   // ---------------------------------------------------------------------------
   // Computed (API-only) Accessors

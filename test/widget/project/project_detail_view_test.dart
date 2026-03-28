@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
 
 import 'package:app/app/models/user.dart';
+import 'package:app/app/state/project_repository_state.dart';
 import 'package:app/app/state/project_state.dart';
 import 'package:app/app/state/task_state.dart';
 import 'package:app/resources/views/project/project_detail_view.dart';
@@ -137,6 +138,48 @@ class _FakeTaskHttpClient implements TaskHttpClient {
 }
 
 // ---------------------------------------------------------------------------
+// Fake ProjectRepository HTTP client
+// ---------------------------------------------------------------------------
+
+class _FakeRepoHttpClient implements ProjectRepositoryHttpClient {
+  MagicResponse _response = MagicResponse(
+    data: {'data': <dynamic>[]},
+    statusCode: 200,
+  );
+
+  void alwaysReturn(MagicResponse response) {
+    _response = response;
+  }
+
+  @override
+  Future<MagicResponse> get(
+    String url, {
+    Map<String, dynamic>? query,
+    Map<String, String>? headers,
+  }) async => _response;
+
+  @override
+  Future<MagicResponse> post(
+    String url, {
+    dynamic data,
+    Map<String, String>? headers,
+  }) async => _response;
+
+  @override
+  Future<MagicResponse> put(
+    String url, {
+    dynamic data,
+    Map<String, String>? headers,
+  }) async => _response;
+
+  @override
+  Future<MagicResponse> delete(
+    String url, {
+    Map<String, String>? headers,
+  }) async => _response;
+}
+
+// ---------------------------------------------------------------------------
 // Test-safe translation loader
 // ---------------------------------------------------------------------------
 
@@ -177,24 +220,13 @@ class _TestAssetLoader implements TranslationLoader {
 
 /// Configures a standard responder on the fake HTTP client.
 void _configureResponder(_FakeHttpClient http) {
-  http.whenAny((url) {
-    if (url.contains('/repo/status')) {
-      return MagicResponse(
-        data: {
-          'data': {'status': 'connected'},
-        },
-        statusCode: 200,
-      );
-    }
-    return MagicResponse(data: {'data': kProject}, statusCode: 200);
-  });
+  http.alwaysReturn(MagicResponse(data: {'data': kProject}, statusCode: 200));
 }
 
-/// Pre-populates the [state] with project and repo status data so the widget
-/// renders content without needing a real Auth context.
+/// Pre-populates the [state] with project data so the widget renders content
+/// without needing a real Auth context.
 Future<void> _preloadState(ProjectState state) async {
   await state.fetchProject('team-uuid-001', 'proj-uuid-001');
-  await state.fetchRepoStatus('team-uuid-001', 'proj-uuid-001');
 }
 
 /// Wraps [ProjectDetailView] in a [WindTheme] + [MaterialApp] for widget testing.
@@ -233,6 +265,8 @@ void main() {
   late _FakeHttpClient http;
   late ProjectState state;
   late TaskState taskState;
+  late _FakeRepoHttpClient repoHttp;
+  late ProjectRepositoryState repoState;
 
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
@@ -244,10 +278,13 @@ void main() {
     http = _FakeHttpClient();
     state = ProjectState(httpClient: http);
     taskState = TaskState(httpClient: _FakeTaskHttpClient());
+    repoHttp = _FakeRepoHttpClient();
+    repoState = ProjectRepositoryState(httpClient: repoHttp);
 
     // Pre-register fake states so .instance returns them.
     Magic.put<ProjectState>(state);
     Magic.put<TaskState>(taskState);
+    Magic.put<ProjectRepositoryState>(repoState);
 
     // Set up auth context — owner/admin role so settings section renders.
     Auth.manager.setUserFactory((data) => User.fromMap(data));
@@ -268,8 +305,10 @@ void main() {
   tearDown(() {
     state.dispose();
     taskState.dispose();
+    repoState.dispose();
     Magic.delete<ProjectState>();
     Magic.delete<TaskState>();
+    Magic.delete<ProjectRepositoryState>();
   });
 
   // -------------------------------------------------------------------------
@@ -298,48 +337,36 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // 2. Renders SSH key section
+  // 2. Repositories section header rendered
   // -------------------------------------------------------------------------
 
-  testWidgets('renders SSH key section with public key', (tester) async {
+  testWidgets('renders repositories section header', (tester) async {
     _configureResponder(http);
     await _preloadState(state);
 
     await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
 
-    // SSH key section header is displayed.
-    expect(find.text(trans('projects.ssh_deploy_key')), findsOneWidget);
+    // Repositories section title.
+    expect(find.text(trans('projects.repositories')), findsOneWidget);
 
-    // Public key text is displayed.
-    expect(
-      find.text('ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFakeKey'),
-      findsOneWidget,
-    );
-
-    // Generate button is displayed.
-    expect(find.text(trans('projects.generate_new_key')), findsOneWidget);
+    // Add repository button is always present.
+    expect(find.text(trans('projects.add_repository')), findsOneWidget);
   });
 
   // -------------------------------------------------------------------------
-  // 3. Renders status indicator
+  // 3. Repositories section — empty state when no repos loaded
   // -------------------------------------------------------------------------
 
-  testWidgets('renders git status indicator with connected state', (
+  testWidgets('renders no-repositories empty state when repo list is empty', (
     tester,
   ) async {
     _configureResponder(http);
     await _preloadState(state);
 
+    // repoState has no repos — empty state should be shown.
     await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
 
-    // Git status section header.
-    expect(find.text(trans('projects.git_status')), findsOneWidget);
-
-    // Status text.
-    expect(find.text('connected'), findsOneWidget);
-
-    // Check Status button.
-    expect(find.text(trans('projects.check_status')), findsOneWidget);
+    expect(find.text(trans('projects.no_repositories')), findsOneWidget);
   });
 
   // -------------------------------------------------------------------------
@@ -431,5 +458,102 @@ void main() {
 
     // Should show a CircularProgressIndicator since selectedProject is null.
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
+  });
+
+  // -------------------------------------------------------------------------
+  // 8. Repositories section — empty state
+  // -------------------------------------------------------------------------
+
+  testWidgets('renders repositories section with empty state', (tester) async {
+    _configureResponder(http);
+    await _preloadState(state);
+
+    // Repo state starts empty (no fetchRepositories call succeeds with data).
+    repoHttp.alwaysReturn(
+      MagicResponse(data: {'data': <dynamic>[]}, statusCode: 200),
+    );
+
+    await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
+
+    // Section title.
+    expect(find.text(trans('projects.repositories')), findsOneWidget);
+
+    // Add repository button.
+    expect(find.text(trans('projects.add_repository')), findsOneWidget);
+
+    // Empty state message.
+    expect(find.text(trans('projects.no_repositories')), findsOneWidget);
+  });
+
+  // -------------------------------------------------------------------------
+  // 9. Repositories section — renders repo cards
+  // -------------------------------------------------------------------------
+
+  testWidgets('renders repository cards when repositories are loaded', (
+    tester,
+  ) async {
+    _configureResponder(http);
+    await _preloadState(state);
+
+    // Pre-load two repositories into repoState.
+    repoHttp.alwaysReturn(
+      MagicResponse(
+        data: {
+          'data': [
+            {
+              'id': 'repo-uuid-001',
+              'project_id': 'proj-uuid-001',
+              'name': 'API Repo',
+              'repository_url': 'git@github.com:acme/api.git',
+              'default_branch': 'main',
+              'ssh_public_key': null,
+              'repo_status': 'cloned',
+              'repo_error': null,
+              'last_synced_at': null,
+              'mount_path': '/workspace',
+              'has_ssh_key': false,
+              'created_at': null,
+              'updated_at': null,
+            },
+            {
+              'id': 'repo-uuid-002',
+              'project_id': 'proj-uuid-001',
+              'name': 'Frontend Repo',
+              'repository_url': null,
+              'default_branch': 'develop',
+              'ssh_public_key': null,
+              'repo_status': null,
+              'repo_error': null,
+              'last_synced_at': null,
+              'mount_path': '/frontend',
+              'has_ssh_key': false,
+              'created_at': null,
+              'updated_at': null,
+            },
+          ],
+        },
+        statusCode: 200,
+      ),
+    );
+    await repoState.fetchRepositories('team-uuid-001', 'proj-uuid-001');
+
+    await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
+
+    // Both repo names should appear.
+    expect(find.text('API Repo'), findsOneWidget);
+    expect(find.text('Frontend Repo'), findsOneWidget);
+
+    // Branch badges.
+    expect(find.text('main'), findsOneWidget);
+    expect(find.text('develop'), findsOneWidget);
+
+    // Mount paths.
+    expect(find.text('/workspace'), findsOneWidget);
+    expect(find.text('/frontend'), findsOneWidget);
+
+    // Per-repo action buttons — SSH key toggle, clone, delete.
+    expect(find.text(trans('projects.ssh_deploy_key')), findsNWidgets(2));
+    expect(find.text(trans('projects.clone_repo')), findsNWidgets(2));
+    expect(find.text(trans('projects.delete_repo')), findsNWidgets(2));
   });
 }

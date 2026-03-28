@@ -24,6 +24,7 @@ const Map<String, dynamic> kProjectAlpha = {
   'updated_at': '2024-06-20T14:00:00.000Z',
   'task_count': 10,
   'active_run_count': 1,
+  'repositories_count': 2,
 };
 
 const Map<String, dynamic> kProjectBravo = {
@@ -40,6 +41,7 @@ const Map<String, dynamic> kProjectBravo = {
   'updated_at': '2025-03-20T12:00:00.000Z',
   'task_count': 5,
   'active_run_count': 0,
+  'repositories_count': 0,
 };
 
 // ---------------------------------------------------------------------------
@@ -171,11 +173,11 @@ void main() {
     expect(find.text('Alpha'), findsOneWidget);
     expect(find.text('Bravo'), findsOneWidget);
 
-    // Repo URL from kProjectAlpha.
-    expect(find.text('git@github.com:acme/alpha.git'), findsOneWidget);
+    // Alpha has repositories_count = 2 — repo_count badge shown.
+    expect(find.text(trans('projects.repo_count')), findsOneWidget);
 
-    // kProjectBravo has null repo — placeholder text shown (trans key in test env).
-    expect(find.text(trans('projects.no_repo_connected')), findsOneWidget);
+    // Bravo has repositories_count = 0 — no_repositories label shown.
+    expect(find.text(trans('projects.no_repositories')), findsOneWidget);
 
     // Tech stack badges.
     expect(find.text('Flutter, Dart'), findsOneWidget);
@@ -294,5 +296,57 @@ void main() {
 
     expect(find.text(trans('projects.failed_to_load')), findsOneWidget);
     expect(find.text('Unauthorized'), findsOneWidget);
+  });
+
+  // -------------------------------------------------------------------------
+  // 7. Repo count badge — shows count when repositories_count > 0
+  // -------------------------------------------------------------------------
+
+  testWidgets('shows repo count badge when project has repositories', (
+    tester,
+  ) async {
+    // kProjectAlpha has repositories_count = 2.
+    _seedSuccess([kProjectAlpha]);
+
+    await _pumpSubject(tester);
+
+    // trans() returns the key string in test env (no real replacements).
+    // The badge text is trans('projects.repo_count', {'count': '2'}).
+    // In test env the key is returned as-is; verify the widget is rendered.
+    expect(find.text(trans('projects.repo_count')), findsOneWidget);
+  });
+
+  // -------------------------------------------------------------------------
+  // 8. Repo count badge — shows no-repositories label when count is 0
+  // -------------------------------------------------------------------------
+
+  testWidgets('shows no-repositories label when project has no repositories', (
+    tester,
+  ) async {
+    // kProjectBravo has repositories_count = 0.
+    _seedSuccess([kProjectBravo]);
+
+    await _pumpSubject(tester);
+
+    expect(find.text(trans('projects.no_repositories')), findsOneWidget);
+  });
+
+  // -------------------------------------------------------------------------
+  // 9. Repo count badge — both badges shown for mixed list
+  // -------------------------------------------------------------------------
+
+  testWidgets('shows repo count and no-repo labels for mixed project list', (
+    tester,
+  ) async {
+    // Alpha: 2 repos, Bravo: 0 repos.
+    _seedSuccess([kProjectAlpha, kProjectBravo]);
+
+    await _pumpSubject(tester);
+
+    // Alpha: repo_count badge.
+    expect(find.text(trans('projects.repo_count')), findsOneWidget);
+
+    // Bravo: no_repositories label.
+    expect(find.text(trans('projects.no_repositories')), findsOneWidget);
   });
 }

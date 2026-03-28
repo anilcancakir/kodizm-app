@@ -14,14 +14,31 @@ Core domain models for project management and multi-agent task execution.
 | teamId | String? | Parent team |
 | name, slug | String? | Display name + URL slug |
 | description | String? | Project description |
-| repositoryUrl | String? | SSH or HTTPS repo URL |
-| defaultBranch | String | Defaults to `'main'` |
 | techStack | String? | e.g. `'Laravel, PostgreSQL'` |
-| sshPublicKey | String? | Agent SSH access key |
 | executionMode | String | `'manual'` or `'auto'` |
 | settings | Map? | Project-level settings |
 | taskCount | int? | API-computed, read-only |
 | activeRunCount | int? | API-computed, read-only |
+| repositoriesCount | int? | API-computed, read-only |
+
+Accessor: `repositories` — parsed from the API-included `repositories` array via `ProjectRepository.fromMap()`, returns `List<ProjectRepository>`.
+
+### ProjectRepository
+
+`lib/app/models/project_repository.dart` -- Immutable VO (`const` constructor + `fromMap` factory).
+
+| Field | Type | Notes |
+|-------|------|-------|
+| id | String (UUID) | Primary key |
+| projectId | String | Parent project |
+| name | String | Display name |
+| repositoryUrl | String | SSH or HTTPS Git URL |
+| defaultBranch | String | Defaults to `'main'` |
+| sshPublicKey | String? | Public key to add to Git host |
+| repoStatus | String? | `null`, `'cloning'`, `'ready'`, `'error'` |
+| repoError | String? | Last error message |
+| lastSyncedAt | String? | ISO8601 last sync timestamp |
+| mountPath | String? | Container workspace mount path |
 
 ### Task
 
@@ -64,10 +81,25 @@ Core domain models for project management and multi-agent task execution.
 | `updateProject(teamId, projectId, data)` | Update project |
 | `deleteProject(teamId, projectId)` | Delete project |
 | `sortProjects(field)` | Local sort by name or lastUpdated |
-| `generateSshKey(teamId, projectId)` | Generate SSH key pair |
-| `fetchRepoStatus(teamId, projectId)` | Check repository status |
 
 HTTP interface: `HttpClient` (GET/POST/PUT/DELETE).
+
+### ProjectRepositoryState
+
+`lib/app/state/project_repository_state.dart` -- `MagicController with MagicStateMixin<List<ProjectRepository>>`.
+
+| Method | Description |
+|--------|-------------|
+| `fetchRepositories(teamId, projectId)` | Load repository list for a project |
+| `createRepository(teamId, projectId, data)` | Create new repository |
+| `updateRepository(teamId, projectId, repositoryId, data)` | Update repository |
+| `deleteRepository(teamId, projectId, repositoryId)` | Delete repository |
+| `generateSshKey(teamId, projectId, repositoryId)` | Generate SSH key pair for repository |
+| `fetchSshKey(teamId, projectId, repositoryId)` | Fetch current public key |
+| `cloneRepository(teamId, projectId, repositoryId)` | Trigger background clone |
+| `fetchRepoStatus(teamId, projectId, repositoryId)` | Poll clone/sync status |
+
+HTTP interface: Injectable `HttpClient` (GET/POST/PUT/DELETE).
 
 ### TaskState
 
@@ -95,7 +127,7 @@ HTTP interface: `TaskHttpClient` (GET/POST/PUT/DELETE).
 |------|------|-------|-------|
 | `ProjectListView` | `lib/resources/views/project/project_list_view.dart` | `/projects` | `ProjectState` |
 | `ProjectCreateView` | `lib/resources/views/project/project_create_view.dart` | `/projects/create` | `ProjectState` |
-| `ProjectDetailView` | `lib/resources/views/project/project_detail_view.dart` | `/projects/:id` | `ProjectState` |
+| `ProjectDetailView` | `lib/resources/views/project/project_detail_view.dart` | `/projects/:id` | `ProjectState`, `ProjectRepositoryState` |
 | `TaskListView` | `lib/resources/views/task/task_list_view.dart` | `/projects/:projectId/tasks` | `TaskState` |
 | `TaskCreateView` | `lib/resources/views/task/task_create_view.dart` | `/projects/:projectId/tasks/create` | `TaskState` |
 | `TaskDetailView` | `lib/resources/views/task/task_detail_view.dart` | `/projects/:projectId/tasks/:taskId` | `TaskState` |

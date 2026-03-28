@@ -320,54 +320,7 @@ void main() {
     });
 
     // -----------------------------------------------------------------------
-    // 9. generateSshKey — success
-    // -----------------------------------------------------------------------
-
-    test('generateSshKey posts and returns public key string', () async {
-      http.alwaysReturn(
-        MagicResponse(
-          data: {
-            'data': {'public_key': 'ssh-ed25519 AAAAC3...'},
-          },
-          statusCode: 200,
-        ),
-      );
-
-      final key = await state.generateSshKey('team-uuid-001', 'proj-uuid-001');
-
-      expect(key, equals('ssh-ed25519 AAAAC3...'));
-      expect(http.calls.first.method, equals('POST'));
-      expect(
-        http.calls.first.url,
-        equals('/teams/team-uuid-001/projects/proj-uuid-001/ssh-key'),
-      );
-    });
-
-    // -----------------------------------------------------------------------
-    // 10. fetchRepoStatus — success
-    // -----------------------------------------------------------------------
-
-    test('fetchRepoStatus stores repo status string', () async {
-      http.alwaysReturn(
-        MagicResponse(
-          data: {
-            'data': {'status': 'cloned'},
-          },
-          statusCode: 200,
-        ),
-      );
-
-      await state.fetchRepoStatus('team-uuid-001', 'proj-uuid-001');
-
-      expect(state.repoStatus, equals('cloned'));
-      expect(
-        http.calls.first.url,
-        equals('/teams/team-uuid-001/projects/proj-uuid-001/repo/status'),
-      );
-    });
-
-    // -----------------------------------------------------------------------
-    // 11. fetchProject — error sets selectedProject to null
+    // 9. fetchProject — error sets selectedProject to null
     // -----------------------------------------------------------------------
 
     test('fetchProject sets selectedProject to null on error', () async {
@@ -388,7 +341,7 @@ void main() {
     });
 
     // -----------------------------------------------------------------------
-    // 12. deleteProject — failure returns false
+    // 10. deleteProject — failure returns false
     // -----------------------------------------------------------------------
 
     test('deleteProject returns false on failure', () async {

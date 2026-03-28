@@ -86,11 +86,11 @@ class _MagicHttpClient implements HttpClient {
 /// Reactive state controller for project CRUD and related operations.
 ///
 /// Manages the list of projects for a team, a single selected project,
-/// sorting, SSH key generation, and repository status checks.
+/// and in-memory sorting.
 ///
 /// The primary state (`rxState`) holds the `List<Project>` for the active
-/// team. Secondary state fields ([selectedProject], [repoStatus]) are
-/// managed independently with manual [refreshUI] calls.
+/// team. The secondary state field ([selectedProject]) is managed
+/// independently with manual [refreshUI] calls.
 ///
 /// ## Usage
 ///
@@ -130,13 +130,9 @@ class ProjectState extends MagicController with MagicStateMixin<List<Project>> {
   // ---------------------------------------------------------------------------
 
   Project? _selectedProject;
-  String? _repoStatus;
 
   /// The currently selected project (set by [fetchProject]).
   Project? get selectedProject => _selectedProject;
-
-  /// The repository clone/sync status for the selected project.
-  String? get repoStatus => _repoStatus;
 
   // ---------------------------------------------------------------------------
   // Project list operations
@@ -266,51 +262,5 @@ class ProjectState extends MagicController with MagicStateMixin<List<Project>> {
     }
 
     setSuccess(sorted);
-  }
-
-  // ---------------------------------------------------------------------------
-  // SSH key
-  // ---------------------------------------------------------------------------
-
-  /// Generate (or regenerate) an SSH deploy key for the given project.
-  ///
-  /// Returns the public key string on success, or `null` on failure.
-  Future<String?> generateSshKey(String teamId, String projectId) async {
-    final response = await _http.post(
-      '/teams/$teamId/projects/$projectId/ssh-key',
-    );
-
-    if (response.successful) {
-      final Map<String, dynamic> data =
-          (response.data as Map<String, dynamic>)['data']
-              as Map<String, dynamic>;
-      return data['public_key'] as String?;
-    }
-
-    return null;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Repository status
-  // ---------------------------------------------------------------------------
-
-  /// Fetch the repository clone/sync status for the given project.
-  ///
-  /// Stores the result in [repoStatus] and calls [refreshUI].
-  Future<void> fetchRepoStatus(String teamId, String projectId) async {
-    final response = await _http.get(
-      '/teams/$teamId/projects/$projectId/repo/status',
-    );
-
-    if (response.successful) {
-      final Map<String, dynamic> data =
-          (response.data as Map<String, dynamic>)['data']
-              as Map<String, dynamic>;
-      _repoStatus = data['status'] as String?;
-    } else {
-      _repoStatus = null;
-    }
-
-    refreshUI();
   }
 }

@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:magic/magic.dart';
 
 import '../../../app/models/project.dart';
+import '../../../app/models/project_repository.dart';
 import '../../../app/models/user.dart';
+import '../../../app/state/project_repository_state.dart';
 import '../../../app/state/project_state.dart';
 import '../../../app/state/task_state.dart';
 import '../../widgets/atoms/priority_badge.dart';
@@ -41,15 +43,24 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
-  final _repositoryUrlController = TextEditingController();
   final _techStackController = TextEditingController();
-  final _defaultBranchController = TextEditingController();
 
   bool _saving = false;
   bool _deleting = false;
-  bool _generatingKey = false;
-  bool _checkingStatus = false;
   bool _formPopulated = false;
+
+  /// Tracks which repository's SSH key is currently expanded.
+  String? _expandedSshRepoId;
+
+  // ---------------------------------------------------------------------------
+  // Add Repository form controllers
+  // ---------------------------------------------------------------------------
+
+  final _addRepoFormKey = GlobalKey<FormState>();
+  final _repoNameController = TextEditingController();
+  final _repoUrlController = TextEditingController();
+  final _repoBranchController = TextEditingController();
+  final _repoMountPathController = TextEditingController();
 
   @override
   void initState() {
@@ -61,9 +72,11 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
-    _repositoryUrlController.dispose();
     _techStackController.dispose();
-    _defaultBranchController.dispose();
+    _repoNameController.dispose();
+    _repoUrlController.dispose();
+    _repoBranchController.dispose();
+    _repoMountPathController.dispose();
     super.dispose();
   }
 
@@ -71,14 +84,17 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   // Data fetching
   // ---------------------------------------------------------------------------
 
-  /// Fetches the project and repo status from the API.
+  /// Fetches the project, repositories, and tasks from the API.
   Future<void> _fetchData() async {
     final teamId = _teamId;
     if (teamId == null) return;
 
     await Future.wait([
       ProjectState.instance.fetchProject(teamId, widget.projectId),
-      ProjectState.instance.fetchRepoStatus(teamId, widget.projectId),
+      ProjectRepositoryState.instance.fetchRepositories(
+        teamId,
+        widget.projectId,
+      ),
       TaskState.instance.fetchTasks(teamId, widget.projectId),
     ]);
 
@@ -92,9 +108,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
 
     _nameController.text = project.name ?? '';
     _descriptionController.text = project.description ?? '';
-    _repositoryUrlController.text = project.repositoryUrl ?? '';
     _techStackController.text = project.techStack ?? '';
-    _defaultBranchController.text = project.defaultBranch;
     _formPopulated = true;
   }
 
@@ -132,11 +146,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
     final data = <String, dynamic>{
       'name': _nameController.text.trim(),
       'description': _descriptionController.text.trim(),
-      'repository_url': _repositoryUrlController.text.trim(),
       'tech_stack': _techStackController.text.trim(),
-      'default_branch': _defaultBranchController.text.trim().isEmpty
-          ? 'main'
-          : _defaultBranchController.text.trim(),
     };
 
     await ProjectState.instance.updateProject(teamId, widget.projectId, data);
@@ -192,13 +202,161 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
     }
   }
 
-  /// Generates a new SSH key after confirmation.
-  Future<void> _confirmGenerateKey() async {
+  // ---------------------------------------------------------------------------
+  // Repository actions
+  // ---------------------------------------------------------------------------
+
+  /// Opens the "Add Repository" dialog.
+  Future<void> _showAddRepositoryDialog() async {
+    _repoNameController.clear();
+    _repoUrlController.clear();
+    _repoBranchController.text = 'main';
+    _repoMountPathController.text = '/workspace';
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(trans('projects.add_repository')),
+        content: Form(
+          key: _addRepoFormKey,
+          child: WDiv(
+            className: 'flex flex-col gap-4',
+            children: [
+              WFormInput(
+                controller: _repoNameController,
+                label: trans('projects.repo_name'),
+                labelClassName: '''
+                  text-sm font-medium mb-2
+                  text-slate-600 dark:text-slate-300
+                ''',
+                placeholder: trans('projects.repo_name_placeholder'),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return trans('validation.required');
+                  }
+                  return null;
+                },
+                className: '''
+                  p-3 border border-slate-200 dark:border-gray-600
+                  rounded-lg bg-white dark:bg-gray-900
+                  text-sm text-slate-800 dark:text-slate-200
+                  focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20
+                  error:border-red-500 error:ring-2 error:ring-red-200
+                ''',
+                errorClassName: 'text-red-500 text-xs mt-1',
+              ),
+              WFormInput(
+                controller: _repoUrlController,
+                label: trans('projects.repo_url'),
+                labelClassName: '''
+                  text-sm font-medium mb-2
+                  text-slate-600 dark:text-slate-300
+                ''',
+                placeholder: trans('projects.repo_url_placeholder'),
+                className: '''
+                  p-3 border border-slate-200 dark:border-gray-600
+                  rounded-lg bg-white dark:bg-gray-900
+                  text-sm text-slate-800 dark:text-slate-200
+                  focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20
+                  error:border-red-500 error:ring-2 error:ring-red-200
+                ''',
+                errorClassName: 'text-red-500 text-xs mt-1',
+              ),
+              WFormInput(
+                controller: _repoBranchController,
+                label: trans('projects.default_branch'),
+                labelClassName: '''
+                  text-sm font-medium mb-2
+                  text-slate-600 dark:text-slate-300
+                ''',
+                placeholder: trans('projects.default_branch_placeholder'),
+                className: '''
+                  p-3 border border-slate-200 dark:border-gray-600
+                  rounded-lg bg-white dark:bg-gray-900
+                  text-sm text-slate-800 dark:text-slate-200
+                  focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20
+                  error:border-red-500 error:ring-2 error:ring-red-200
+                ''',
+                errorClassName: 'text-red-500 text-xs mt-1',
+              ),
+              WFormInput(
+                controller: _repoMountPathController,
+                label: trans('projects.mount_path'),
+                labelClassName: '''
+                  text-sm font-medium mb-2
+                  text-slate-600 dark:text-slate-300
+                ''',
+                placeholder: trans('projects.mount_path_placeholder'),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return trans('validation.required');
+                  }
+                  return null;
+                },
+                className: '''
+                  p-3 border border-slate-200 dark:border-gray-600
+                  rounded-lg bg-white dark:bg-gray-900
+                  text-sm text-slate-800 dark:text-slate-200
+                  focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20
+                  error:border-red-500 error:ring-2 error:ring-red-200
+                ''',
+                errorClassName: 'text-red-500 text-xs mt-1',
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(trans('common.cancel')),
+          ),
+          TextButton(
+            onPressed: () {
+              if (_addRepoFormKey.currentState?.validate() ?? false) {
+                Navigator.of(context).pop(true);
+              }
+            },
+            child: Text(trans('common.save')),
+          ),
+        ],
+      ),
+    );
+
+    if (result != true || !mounted) return;
+
+    final teamId = _teamId;
+    if (teamId == null) return;
+
+    final data = <String, dynamic>{
+      'name': _repoNameController.text.trim(),
+      'repository_url': _repoUrlController.text.trim(),
+      'default_branch': _repoBranchController.text.trim().isEmpty
+          ? 'main'
+          : _repoBranchController.text.trim(),
+      'mount_path': _repoMountPathController.text.trim(),
+    };
+
+    await ProjectRepositoryState.instance.createRepository(
+      teamId,
+      widget.projectId,
+      data,
+    );
+
+    if (!mounted) return;
+
+    await ProjectRepositoryState.instance.fetchRepositories(
+      teamId,
+      widget.projectId,
+    );
+  }
+
+  /// Shows a confirmation dialog and deletes the repository.
+  Future<void> _confirmDeleteRepository(ProjectRepository repo) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(trans('projects.ssh_generate_title')),
-        content: Text(trans('projects.ssh_generate_body')),
+        title: Text(trans('projects.delete_repo_confirm_title')),
+        content: Text(trans('projects.delete_repo_confirm_body')),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -206,7 +364,10 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: Text(trans('common.generate')),
+            style: TextButton.styleFrom(
+              foregroundColor: const Color(0xFFEF4444),
+            ),
+            child: Text(trans('common.delete')),
           ),
         ],
       ),
@@ -217,29 +378,56 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
     final teamId = _teamId;
     if (teamId == null) return;
 
-    setState(() => _generatingKey = true);
-
-    await ProjectState.instance.generateSshKey(teamId, widget.projectId);
-
-    if (!mounted) return;
-
-    await ProjectState.instance.fetchProject(teamId, widget.projectId);
+    await ProjectRepositoryState.instance.deleteRepository(
+      teamId,
+      widget.projectId,
+      repo.id,
+    );
 
     if (!mounted) return;
-    setState(() => _generatingKey = false);
+
+    await ProjectRepositoryState.instance.fetchRepositories(
+      teamId,
+      widget.projectId,
+    );
   }
 
-  /// Fetches the latest repo status.
-  Future<void> _checkStatus() async {
+  /// Generates an SSH key for the given repository.
+  Future<void> _generateSshKey(ProjectRepository repo) async {
     final teamId = _teamId;
     if (teamId == null) return;
 
-    setState(() => _checkingStatus = true);
-
-    await ProjectState.instance.fetchRepoStatus(teamId, widget.projectId);
+    await ProjectRepositoryState.instance.generateSshKey(
+      teamId,
+      widget.projectId,
+      repo.id,
+    );
 
     if (!mounted) return;
-    setState(() => _checkingStatus = false);
+
+    await ProjectRepositoryState.instance.fetchRepositories(
+      teamId,
+      widget.projectId,
+    );
+  }
+
+  /// Triggers a clone operation for the given repository.
+  Future<void> _cloneRepository(ProjectRepository repo) async {
+    final teamId = _teamId;
+    if (teamId == null) return;
+
+    await ProjectRepositoryState.instance.cloneRepository(
+      teamId,
+      widget.projectId,
+      repo.id,
+    );
+
+    if (!mounted) return;
+
+    await ProjectRepositoryState.instance.fetchRepositories(
+      teamId,
+      widget.projectId,
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -252,11 +440,10 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
       listenable: ProjectState.instance,
       builder: (context, _) {
         final project = ProjectState.instance.selectedProject;
-        final repoStatus = ProjectState.instance.repoStatus;
 
         if (project == null) {
           return const WDiv(
-            className: 'flex items-center justify-center py-16',
+            className: 'flex items-center justify-center w-full py-16',
             child: CircularProgressIndicator(),
           );
         }
@@ -273,8 +460,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
 
             // Section cards.
             _buildInfoSection(project),
-            _buildSshKeySection(project),
-            _buildGitStatusSection(repoStatus),
+            _buildRepositoriesSection(),
             _buildRecentTasksSection(),
             _buildKnowledgeSection(),
             _buildDebugChatSection(),
@@ -324,7 +510,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   // 1. Info Section
   // ---------------------------------------------------------------------------
 
-  /// Builds the info section: repo URL, default branch, created date.
+  /// Builds the info section: created date.
   Widget _buildInfoSection(Project project) {
     return SectionCard(
       title: trans('projects.project_info'),
@@ -332,50 +518,6 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
         WDiv(
           className: 'flex flex-col gap-4',
           children: [
-            // Repository URL.
-            WDiv(
-              className: 'flex flex-row items-center gap-2',
-              children: [
-                WIcon(
-                  Icons.link,
-                  className: 'text-sm text-slate-400 dark:text-slate-500',
-                ),
-                WDiv(
-                  className: 'flex-1 min-w-0',
-                  child: WText(
-                    project.repositoryUrl ??
-                        trans('projects.no_repo_configured'),
-                    className: 'text-sm text-slate-600 dark:text-slate-400',
-                  ),
-                ),
-                if (project.repositoryUrl != null)
-                  WAnchor(
-                    onTap: () => Clipboard.setData(
-                      ClipboardData(text: project.repositoryUrl!),
-                    ),
-                    child: WIcon(
-                      Icons.copy,
-                      className: 'text-sm text-slate-400 dark:text-slate-500',
-                    ),
-                  ),
-              ],
-            ),
-            // Default branch.
-            WDiv(
-              className: 'flex flex-row items-center gap-2',
-              children: [
-                WIcon(
-                  Icons.alt_route,
-                  className: 'text-sm text-slate-400 dark:text-slate-500',
-                ),
-                WText(
-                  trans('projects.branch_label', {
-                    'branch': project.defaultBranch,
-                  }),
-                  className: 'text-sm text-slate-600 dark:text-slate-400',
-                ),
-              ],
-            ),
             // Created at.
             WDiv(
               className: 'flex flex-row items-center gap-2',
@@ -399,160 +541,326 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   }
 
   // ---------------------------------------------------------------------------
-  // 2. SSH Key Section
+  // 2. Repositories Section
   // ---------------------------------------------------------------------------
 
-  /// Builds the SSH deploy key section with monospace key display.
-  Widget _buildSshKeySection(Project project) {
-    final publicKey = project.sshPublicKey;
+  /// Builds the repositories section with list of repos and inline add button.
+  Widget _buildRepositoriesSection() {
+    return ListenableBuilder(
+      listenable: ProjectRepositoryState.instance,
+      builder: (context, _) {
+        final repositories = ProjectRepositoryState.instance.repositories;
 
-    return SectionCard(
-      title: trans('projects.ssh_deploy_key'),
-      children: [
-        // Inset card with key.
-        WDiv(
-          className: '''
-            rounded-xl
-            bg-slate-50 dark:bg-gray-900
-            border border-slate-200 dark:border-gray-700
-            p-4
-          ''',
+        return SectionCard(
+          title: trans('projects.repositories'),
           children: [
-            if (publicKey != null && publicKey.isNotEmpty) ...[
-              WDiv(
-                className: 'flex flex-row items-start gap-2',
-                children: [
-                  WDiv(
-                    className: 'flex-1 min-w-0',
-                    // SelectableText + TextStyle allowed exception (CLAUDE.md).
-                    child: SelectableText(
-                      publicKey,
-                      style: const TextStyle(
-                        fontFamily: 'JetBrains Mono',
-                        fontSize: 12,
-                        color: Color(0xFF475569),
-                      ),
-                    ),
-                  ),
-                  WAnchor(
-                    onTap: () =>
-                        Clipboard.setData(ClipboardData(text: publicKey)),
-                    child: WIcon(
-                      Icons.copy,
-                      className: 'text-sm text-slate-400 dark:text-slate-500',
-                    ),
-                  ),
-                ],
-              ),
-            ] else ...[
-              WText(
-                trans('projects.no_ssh_key'),
-                className: 'text-sm text-slate-500 dark:text-slate-400',
-              ),
-            ],
-          ],
-        ),
-        const WSpacer(className: 'h-4'),
-
-        // Generate button.
-        WAnchor(
-          onTap: _generatingKey ? null : _confirmGenerateKey,
-          child: WDiv(
-            className: '''
-              flex flex-row items-center gap-2
-              px-4 py-2 rounded-lg
-              bg-white dark:bg-gray-700
-              border border-slate-200 dark:border-gray-600
-            ''',
-            children: [
-              if (_generatingKey)
-                const SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              WText(
-                trans('projects.generate_new_key'),
-                className:
-                    'text-sm font-medium text-slate-600 dark:text-slate-300',
-              ),
-            ],
-          ),
-        ),
-        const WSpacer(className: 'h-3'),
-
-        // Instructions.
-        WText(
-          trans('projects.ssh_instruction'),
-          className: 'text-xs text-slate-400 dark:text-slate-500',
-        ),
-      ],
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // 3. Git Status Section
-  // ---------------------------------------------------------------------------
-
-  /// Builds the git status section with status indicator dot.
-  Widget _buildGitStatusSection(String? repoStatus) {
-    final statusLabel =
-        repoStatus ?? trans('projects.git_status_not_configured');
-
-    return SectionCard(
-      title: trans('projects.git_status'),
-      children: [
-        WDiv(
-          className: 'flex flex-row items-center justify-between',
-          children: [
+            // Header row with add button.
             WDiv(
-              className: 'flex flex-row items-center gap-3',
+              className: 'flex flex-row items-center justify-end',
               children: [
-                // Status dot.
-                WDiv(
-                  className:
-                      'w-2.5 h-2.5 rounded-full ${_statusDotClassName(repoStatus)}',
-                ),
-                WText(
-                  statusLabel,
-                  className:
-                      'text-sm font-medium text-slate-700 dark:text-slate-300',
+                WAnchor(
+                  onTap: _showAddRepositoryDialog,
+                  child: WDiv(
+                    className: '''
+                      flex flex-row items-center gap-2
+                      px-3 py-1.5 rounded-lg
+                      bg-amber-400 dark:bg-amber-500
+                    ''',
+                    children: [
+                      WIcon(
+                        Icons.add,
+                        className: '''
+                          text-sm font-bold
+                          text-primary dark:text-primary-900
+                        ''',
+                      ),
+                      WText(
+                        trans('projects.add_repository'),
+                        className: '''
+                          text-sm font-medium
+                          text-primary dark:text-primary-900
+                        ''',
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
-            // Check Status button.
+
+            // Repository list or empty state.
+            if (repositories.isEmpty)
+              WDiv(
+                className: '''
+                  flex flex-col items-center justify-center w-full
+                  py-8 rounded-xl
+                  bg-slate-50 dark:bg-gray-900
+                ''',
+                children: [
+                  WIcon(
+                    Icons.folder_outlined,
+                    className: 'text-3xl text-slate-300 dark:text-slate-600',
+                  ),
+                  const WSpacer(className: 'h-2'),
+                  WText(
+                    trans('projects.no_repositories'),
+                    className: 'text-sm text-slate-400 dark:text-slate-500',
+                  ),
+                ],
+              )
+            else
+              ...repositories.map(_buildRepositoryCard),
+          ],
+        );
+      },
+    );
+  }
+
+  /// Builds a single repository card inside the repositories section.
+  Widget _buildRepositoryCard(ProjectRepository repo) {
+    final isExpanded = _expandedSshRepoId == repo.id;
+
+    return WDiv(
+      className: '''
+        flex flex-col gap-3
+        p-4 rounded-xl
+        bg-white dark:bg-gray-800
+        border border-slate-200 dark:border-slate-700
+      ''',
+      children: [
+        // Row 1: Name + repo URL + copy + branch badge.
+        WDiv(
+          className: 'flex flex-row items-center gap-3',
+          children: [
+            // Status dot.
+            WDiv(
+              className:
+                  'w-2.5 h-2.5 rounded-full ${_statusDotClassName(repo.repoStatus)}',
+            ),
+            // Name.
+            WText(
+              repo.name,
+              className:
+                  'text-sm font-semibold text-slate-700 dark:text-slate-200',
+            ),
+            // Repo URL (truncated).
+            if (repo.repositoryUrl != null)
+              WDiv(
+                className: 'flex-1 min-w-0',
+                child: WText(
+                  repo.repositoryUrl!,
+                  className:
+                      'text-xs text-slate-400 dark:text-slate-500 truncate',
+                ),
+              )
+            else
+              WDiv(
+                className: 'flex-1',
+                child: const WSpacer(className: 'w-1'),
+              ),
+            // Copy URL button.
+            if (repo.repositoryUrl != null)
+              WAnchor(
+                onTap: () =>
+                    Clipboard.setData(ClipboardData(text: repo.repositoryUrl!)),
+                child: WIcon(
+                  Icons.copy,
+                  className: 'text-xs text-slate-400 dark:text-slate-500',
+                ),
+              ),
+            // Branch badge.
+            WDiv(
+              className: '''
+                px-2 py-0.5 rounded-full
+                bg-slate-100 dark:bg-gray-700
+              ''',
+              child: WText(
+                repo.defaultBranch,
+                className:
+                    'text-xs font-medium text-slate-600 dark:text-slate-400',
+              ),
+            ),
+          ],
+        ),
+
+        // Row 2: Mount path + last synced.
+        WDiv(
+          className: 'flex flex-row items-center gap-4',
+          children: [
+            WDiv(
+              className: 'flex flex-row items-center gap-1',
+              children: [
+                WIcon(
+                  Icons.folder_outlined,
+                  className: 'text-xs text-slate-400 dark:text-slate-500',
+                ),
+                WText(
+                  repo.mountPath,
+                  className: 'text-xs text-slate-500 dark:text-slate-400',
+                ),
+              ],
+            ),
+            if (repo.lastSyncedAt != null)
+              WText(
+                repo.lastSyncedAt!,
+                className: 'text-xs text-slate-400 dark:text-slate-500',
+              ),
+          ],
+        ),
+
+        // Row 3: Action buttons.
+        WDiv(
+          className: 'flex flex-row items-center gap-2',
+          children: [
+            // SSH Key toggle.
             WAnchor(
-              onTap: _checkingStatus ? null : _checkStatus,
+              onTap: () {
+                setState(() {
+                  _expandedSshRepoId = isExpanded ? null : repo.id;
+                });
+              },
               child: WDiv(
                 className: '''
-                  flex flex-row items-center gap-2
-                  px-4 py-2 rounded-lg
+                  flex flex-row items-center gap-1
+                  px-3 py-1.5 rounded-lg
                   bg-white dark:bg-gray-700
                   border border-slate-200 dark:border-gray-600
                 ''',
                 children: [
-                  if (_checkingStatus)
-                    const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
+                  WIcon(
+                    Icons.vpn_key_outlined,
+                    className: 'text-xs text-slate-500 dark:text-slate-400',
+                  ),
                   WText(
-                    trans('projects.check_status'),
+                    trans('projects.ssh_deploy_key'),
                     className:
-                        'text-sm font-medium text-slate-600 dark:text-slate-300',
+                        'text-xs font-medium text-slate-600 dark:text-slate-300',
+                  ),
+                ],
+              ),
+            ),
+            // Clone button.
+            WAnchor(
+              onTap: () => _cloneRepository(repo),
+              child: WDiv(
+                className: '''
+                  flex flex-row items-center gap-1
+                  px-3 py-1.5 rounded-lg
+                  bg-white dark:bg-gray-700
+                  border border-slate-200 dark:border-gray-600
+                ''',
+                children: [
+                  WIcon(
+                    Icons.download_outlined,
+                    className: 'text-xs text-slate-500 dark:text-slate-400',
+                  ),
+                  WText(
+                    trans('projects.clone_repo'),
+                    className:
+                        'text-xs font-medium text-slate-600 dark:text-slate-300',
+                  ),
+                ],
+              ),
+            ),
+            // Delete button.
+            WAnchor(
+              onTap: () => _confirmDeleteRepository(repo),
+              child: WDiv(
+                className: '''
+                  flex flex-row items-center gap-1
+                  px-3 py-1.5 rounded-lg
+                  bg-white dark:bg-gray-700
+                  border border-red-200 dark:border-red-800
+                ''',
+                children: [
+                  WIcon(
+                    Icons.delete_outlined,
+                    className: 'text-xs text-red-500 dark:text-red-400',
+                  ),
+                  WText(
+                    trans('projects.delete_repo'),
+                    className:
+                        'text-xs font-medium text-red-500 dark:text-red-400',
                   ),
                 ],
               ),
             ),
           ],
         ),
+
+        // Expanded SSH key section.
+        if (isExpanded)
+          WDiv(
+            className: '''
+              rounded-xl
+              bg-slate-50 dark:bg-gray-900
+              border border-slate-200 dark:border-gray-700
+              p-4
+            ''',
+            children: [
+              if (repo.sshPublicKey != null &&
+                  repo.sshPublicKey!.isNotEmpty) ...[
+                WDiv(
+                  className: 'flex flex-row items-start gap-2',
+                  children: [
+                    WDiv(
+                      className: 'flex-1 min-w-0',
+                      // SelectableText + TextStyle allowed exception (CLAUDE.md).
+                      child: SelectableText(
+                        repo.sshPublicKey!,
+                        style: const TextStyle(
+                          fontFamily: 'JetBrains Mono',
+                          fontSize: 12,
+                          color: Color(0xFF475569),
+                        ),
+                      ),
+                    ),
+                    WAnchor(
+                      onTap: () => Clipboard.setData(
+                        ClipboardData(text: repo.sshPublicKey!),
+                      ),
+                      child: WIcon(
+                        Icons.copy,
+                        className: 'text-sm text-slate-400 dark:text-slate-500',
+                      ),
+                    ),
+                  ],
+                ),
+              ] else ...[
+                WText(
+                  trans('projects.no_ssh_key'),
+                  className: 'text-sm text-slate-500 dark:text-slate-400',
+                ),
+              ],
+              const WSpacer(className: 'h-3'),
+              // Generate key button.
+              WAnchor(
+                onTap: () => _generateSshKey(repo),
+                child: WDiv(
+                  className: '''
+                    flex flex-row items-center gap-2
+                    px-4 py-2 rounded-lg
+                    bg-white dark:bg-gray-700
+                    border border-slate-200 dark:border-gray-600
+                  ''',
+                  children: [
+                    WText(
+                      trans('projects.generate_new_key'),
+                      className: '''
+                        text-sm font-medium
+                        text-slate-600 dark:text-slate-300
+                      ''',
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
       ],
     );
   }
 
   // ---------------------------------------------------------------------------
-  // 4. Recent Tasks Section (placeholder)
+  // 3. Recent Tasks Section
   // ---------------------------------------------------------------------------
 
   /// Builds the recent tasks section showing the latest 5 tasks.
@@ -631,7 +939,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   }
 
   // ---------------------------------------------------------------------------
-  // 5. Knowledge Section
+  // 4. Knowledge Section
   // ---------------------------------------------------------------------------
 
   /// Builds the knowledge base link section.
@@ -669,7 +977,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   }
 
   // ---------------------------------------------------------------------------
-  // 6. Debug Chat Section
+  // 5. Debug Chat Section
   // ---------------------------------------------------------------------------
 
   /// Builds the debug chat link section for real-time conversation testing.
@@ -707,7 +1015,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   }
 
   // ---------------------------------------------------------------------------
-  // 7. Settings Section
+  // 6. Settings Section
   // ---------------------------------------------------------------------------
 
   /// Builds the settings section with edit form and delete button.
@@ -739,20 +1047,9 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                 maxLines: 3,
               ),
               _buildField(
-                label: trans('projects.repo_url'),
-                hint: trans('projects.repo_url_placeholder'),
-                controller: _repositoryUrlController,
-                keyboardType: TextInputType.url,
-              ),
-              _buildField(
                 label: trans('projects.tech_stack'),
                 hint: trans('projects.tech_stack_placeholder'),
                 controller: _techStackController,
-              ),
-              _buildField(
-                label: trans('projects.default_branch'),
-                hint: trans('projects.default_branch_placeholder'),
-                controller: _defaultBranchController,
               ),
               const WSpacer(className: 'h-1'),
 
@@ -840,7 +1137,6 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
     required TextEditingController controller,
     bool required = false,
     int maxLines = 1,
-    TextInputType? keyboardType,
     String? Function(String?)? validator,
   }) {
     return WFormInput(

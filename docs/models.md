@@ -1,6 +1,6 @@
 # Models
 
-Complete inventory of 21 model classes. Two patterns: Magic ORM and Immutable Value Objects.
+Complete inventory of 22 model classes. Two patterns: Magic ORM and Immutable Value Objects.
 
 ## Magic ORM Models
 
@@ -10,7 +10,7 @@ Extend `Model with HasTimestamps, InteractsWithPersistence`. All use `incrementi
 |-------|------|-------|----------------|---------------|
 | `User` | `user.dart` | `users` | name, email, phone, timezone, language | `find`, `all`, `fromMap`, `fromJson` |
 | `Team` | `team.dart` | `teams` | name | `find`, `all`, `fromMap`, `fromJson` |
-| `Project` | `project.dart` | `projects` | team_id, name, slug, description, repository_url, default_branch, tech_stack, ssh_public_key, execution_mode, settings | `find`, `all`, `fromMap`, `fromJson` |
+| `Project` | `project.dart` | `projects` | team_id, name, slug, description, tech_stack, execution_mode, settings | `find`, `all`, `fromMap`, `fromJson` |
 | `Task` | `task.dart` | `tasks` | project_id, parent_task_id, title, type, priority, status, estimated_complexity, assigned_agent_role_id, created_by_user_id, source, design_needed, retry_count, branch_name, total_cost_usd, description, acceptance_criteria | `find`, `all`, `fromMap`, `fromJson` |
 
 ### Special Mixins
@@ -24,6 +24,7 @@ Plain Dart classes with `const` constructors, `fromMap` factory, and optional `c
 
 | Model | File | Key Fields | copyWith | API Source |
 |-------|------|-----------|----------|-----------|
+| `ProjectRepository` | `project_repository.dart` | id, projectId, name, repositoryUrl, defaultBranch, sshPublicKey, repoStatus, repoError, lastSyncedAt, mountPath | No | `/projects/{id}/repositories` |
 | `DashboardData` | `dashboard_data.dart` | activeRuns, tasksSummary, recentRuns, balance, monthlyUsage | No | `/teams/{id}/dashboard` |
 | `ActiveRun` | `dashboard_data.dart` | taskRunId, taskId, taskTitle, agentRole, status, costUsd | No | Nested in DashboardData |
 | `TasksSummary` | `dashboard_data.dart` | total, byStatus (Map) | No | Nested in DashboardData |

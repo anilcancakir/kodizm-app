@@ -343,20 +343,22 @@ class _ProjectCard extends StatelessWidget {
           ),
 
           // ---------------------------------------------------------------
-          // Repo URL
+          // Repositories count badge
           // ---------------------------------------------------------------
           WDiv(
             className: 'flex flex-row items-center gap-2',
             children: [
               WIcon(
-                Icons.link,
+                Icons.folder_copy_outlined,
                 className: 'text-sm text-slate-400 dark:text-slate-500',
               ),
               WText(
-                project.repositoryUrl ?? trans('projects.no_repo_connected'),
-                className: '''
-                  text-sm text-slate-500 dark:text-slate-400
-                ''',
+                project.repositoriesCount > 0
+                    ? trans('projects.repo_count', {
+                        'count': project.repositoriesCount.toString(),
+                      })
+                    : trans('projects.no_repositories'),
+                className: 'text-sm text-slate-500 dark:text-slate-400',
               ),
             ],
           ),

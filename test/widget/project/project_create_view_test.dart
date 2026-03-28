@@ -24,8 +24,8 @@ void main() {
       await tester.pumpWidget(buildSubject());
       await tester.pump();
 
-      // Five WFormInputs: name, description, repo URL, tech stack, branch.
-      expect(find.byType(WFormInput), findsNWidgets(5));
+      // Three WFormInputs: name, description, tech stack.
+      expect(find.byType(WFormInput), findsNWidgets(3));
     });
 
     testWidgets('shows validation error when name is empty on submit', (
@@ -91,19 +91,13 @@ void main() {
       await tester.pump();
     });
 
-    testWidgets('default branch field is pre-filled with "main"', (
-      tester,
-    ) async {
+    testWidgets('tech stack field is the third form field', (tester) async {
       await tester.pumpWidget(buildSubject());
       await tester.pump();
 
-      // The fifth WFormInput is the default branch field.
-      final branchField = find.byType(WFormInput).at(4);
-      final editableText = tester.widget<EditableText>(
-        find.descendant(of: branchField, matching: find.byType(EditableText)),
-      );
-
-      expect(editableText.controller.text, equals('main'));
+      // The third WFormInput is the tech stack field.
+      final techStackField = find.byType(WFormInput).at(2);
+      expect(techStackField, findsOneWidget);
     });
   });
 }

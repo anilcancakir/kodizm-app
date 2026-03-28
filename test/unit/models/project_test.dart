@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
 
 import 'package:app/app/models/project.dart';
+import 'package:app/app/models/project_repository.dart';
 
 void main() {
   group('Project', () {
@@ -17,12 +18,27 @@ void main() {
       'name': 'Kodizm Backend',
       'slug': 'kodizm-backend',
       'description': 'Laravel API powering the Kodizm platform.',
-      'repository_url': 'git@github.com:acme/kodizm-api.git',
-      'default_branch': 'main',
       'tech_stack': 'Laravel, PostgreSQL, Redis',
-      'ssh_public_key': 'ssh-ed25519 AAAAC3... agent@kodizm',
       'execution_mode': 'auto',
       'settings': {'timeout': 300, 'retries': 3},
+      'repositories': [
+        {
+          'id': 'repo-uuid-001',
+          'project_id': 'proj-uuid-001',
+          'name': 'kodizm-api',
+          'repository_url': 'git@github.com:acme/kodizm-api.git',
+          'default_branch': 'main',
+          'ssh_public_key': 'ssh-ed25519 AAAAC3... agent@kodizm',
+          'repo_status': 'synced',
+          'repo_error': null,
+          'last_synced_at': '2024-06-20T12:00:00.000Z',
+          'mount_path': '/workspace',
+          'has_ssh_key': true,
+          'created_at': '2024-01-15T10:30:00.000Z',
+          'updated_at': '2024-06-20T14:00:00.000Z',
+        },
+      ],
+      'repositories_count': 1,
       'created_at': '2024-01-15T10:30:00.000Z',
       'updated_at': '2024-06-20T14:00:00.000Z',
       'task_count': 42,
@@ -49,22 +65,33 @@ void main() {
         project.description,
         equals('Laravel API powering the Kodizm platform.'),
       );
-      expect(
-        project.repositoryUrl,
-        equals('git@github.com:acme/kodizm-api.git'),
-      );
       expect(project.techStack, equals('Laravel, PostgreSQL, Redis'));
-      expect(
-        project.sshPublicKey,
-        equals('ssh-ed25519 AAAAC3... agent@kodizm'),
-      );
     });
 
-    test('fromMap hydrates defaultBranch and executionMode', () {
+    test('fromMap hydrates executionMode', () {
       final project = Project.fromMap(kApiPayload);
 
-      expect(project.defaultBranch, equals('main'));
       expect(project.executionMode, equals('auto'));
+    });
+
+    test('fromMap hydrates nested repositories list', () {
+      final project = Project.fromMap(kApiPayload);
+
+      expect(project.repositories, isA<List<ProjectRepository>>());
+      expect(project.repositories, hasLength(1));
+      expect(project.repositories.first.id, equals('repo-uuid-001'));
+      expect(
+        project.repositories.first.repositoryUrl,
+        equals('git@github.com:acme/kodizm-api.git'),
+      );
+      expect(project.repositories.first.defaultBranch, equals('main'));
+      expect(project.repositories.first.hasSshKey, isTrue);
+    });
+
+    test('repositoriesCount returns API-provided count', () {
+      final project = Project.fromMap(kApiPayload);
+
+      expect(project.repositoriesCount, equals(1));
     });
 
     test('fromMap hydrates settings as Map', () {
@@ -120,7 +147,6 @@ void main() {
         'team_id': 'team-uuid-001',
         'name': 'Minimal Project',
         'slug': 'minimal-project',
-        'default_branch': 'main',
         'execution_mode': 'manual',
         'created_at': '2024-01-01T00:00:00.000Z',
         'updated_at': '2024-01-01T00:00:00.000Z',
@@ -129,12 +155,27 @@ void main() {
       final project = Project.fromMap(minimal);
 
       expect(project.description, isNull);
-      expect(project.repositoryUrl, isNull);
       expect(project.techStack, isNull);
-      expect(project.sshPublicKey, isNull);
       expect(project.settings, isNull);
       expect(project.taskCount, isNull);
       expect(project.activeRunCount, isNull);
+    });
+
+    test('repositories returns empty list when not loaded', () {
+      final minimal = {
+        'id': 'proj-uuid-002',
+        'team_id': 'team-uuid-001',
+        'name': 'Minimal Project',
+        'slug': 'minimal-project',
+        'execution_mode': 'manual',
+        'created_at': '2024-01-01T00:00:00.000Z',
+        'updated_at': '2024-01-01T00:00:00.000Z',
+      };
+
+      final project = Project.fromMap(minimal);
+
+      expect(project.repositories, isEmpty);
+      expect(project.repositoriesCount, equals(0));
     });
 
     // ---------------------------------------------------------------------------
@@ -161,11 +202,11 @@ void main() {
 
       project.name = 'Renamed Project';
       project.description = 'Updated description.';
-      project.defaultBranch = 'develop';
+      project.executionMode = 'manual';
 
       expect(project.name, equals('Renamed Project'));
       expect(project.description, equals('Updated description.'));
-      expect(project.defaultBranch, equals('develop'));
+      expect(project.executionMode, equals('manual'));
     });
 
     // ---------------------------------------------------------------------------

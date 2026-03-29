@@ -123,6 +123,47 @@ class Project extends Model with HasTimestamps, InteractsWithPersistence {
   /// Falls back to `false` when not set on the model.
   bool get hasSshKey => getAttribute('has_ssh_key') as bool? ?? false;
 
+  // -- Environment --
+
+  /// Get the project-level environment configuration map.
+  ///
+  /// Contains per-service runtime version overrides defined for this project.
+  /// Returns `null` when not set on the model.
+  Map<String, dynamic>? get environment =>
+      getAttribute('environment') as Map<String, dynamic>?;
+
+  /// Set the project-level environment configuration map.
+  set environment(Map<String, dynamic>? value) =>
+      setAttribute('environment', value);
+
+  /// Get the resolved environment map, merging project and team-level settings.
+  ///
+  /// Populated by the API and reflects the effective runtime versions after
+  /// inheritance resolution. Returns `null` when not included in the response.
+  Map<String, dynamic>? get resolvedEnvironment =>
+      getAttribute('resolved_environment') as Map<String, dynamic>?;
+
+  /// Get the resolved runtime version for a specific service key.
+  ///
+  /// Reads from [resolvedEnvironment] and returns the value as a [String],
+  /// or `null` when the key is absent or [resolvedEnvironment] is not loaded.
+  ///
+  /// ```dart
+  /// final nodeVersion = project.runtimeVersion('node'); // e.g. '20'
+  /// ```
+  String? runtimeVersion(String key) => resolvedEnvironment?[key]?.toString();
+
+  /// Whether a specific service is enabled in the resolved environment.
+  ///
+  /// Reads the boolean flag for [key] from [resolvedEnvironment].
+  /// Defaults to `true` when the key is absent or [resolvedEnvironment] is
+  /// not loaded.
+  ///
+  /// ```dart
+  /// final postgresEnabled = project.serviceEnabled('pg'); // true/false
+  /// ```
+  bool serviceEnabled(String key) => resolvedEnvironment?[key] as bool? ?? true;
+
   // ---------------------------------------------------------------------------
   // Relationship Accessors
   // ---------------------------------------------------------------------------

@@ -11,6 +11,7 @@ import '../../../app/state/project_state.dart';
 import '../../../app/state/task_state.dart';
 import '../../widgets/atoms/priority_badge.dart';
 import '../../widgets/atoms/status_badge.dart';
+import '../../widgets/organisms/environment_config_section.dart';
 
 /// Project detail view — displays a single project's full information.
 ///
@@ -103,6 +104,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
         widget.projectId,
       ),
       TaskState.instance.fetchTasks(teamId, widget.projectId),
+      ProjectState.instance.fetchRuntimes(),
     ]);
 
     _populateForm();
@@ -160,6 +162,12 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   /// Whether the current user can manage project settings (owner or admin).
   bool get _canManageProject =>
       Auth.user<User>()?.currentTeam?.canManageMembers ?? false;
+
+  /// Whether runtime configuration data is available for the environment section.
+  bool get _hasRuntimeData {
+    final r = ProjectState.instance.runtimes;
+    return r != null && r.containsKey('runtimes');
+  }
 
   /// Returns a Tailwind className for the status dot based on the repo status string.
   static String _statusDotClassName(String? status) => switch (status) {
@@ -542,6 +550,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
             _buildInfoSection(project),
             _buildSshKeySection(project),
             _buildRepositoriesSection(),
+            if (_hasRuntimeData) _buildEnvironmentSection(project),
             _buildRecentTasksSection(),
             _buildDebugChatSection(),
             if (_canManageProject) _buildSettingsSection(project),
@@ -1026,7 +1035,41 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   }
 
   // ---------------------------------------------------------------------------
-  // 3. Recent Tasks Section
+  // 3. Environment Config Section
+  // ---------------------------------------------------------------------------
+
+  /// Builds the environment configuration section for runtime version overrides.
+  ///
+  /// Displays [EnvironmentConfigSection] wired to [ProjectState] for data and
+  /// save operations. The [teamEnvironment] is not yet available from the
+  /// project detail API response — the widget handles a null value gracefully.
+  Widget _buildEnvironmentSection(Project project) {
+    final teamId = _teamId;
+    final raw = ProjectState.instance.runtimes ?? {};
+    final runtimesMap = raw['runtimes'] as Map<String, dynamic>? ?? {};
+
+    // Flatten {'python': {'versions': [...], ...}} → {'python': [...versions]}
+    final flatRuntimes = <String, dynamic>{
+      for (final entry in runtimesMap.entries)
+        if (entry.value is Map<String, dynamic>)
+          entry.key: (entry.value as Map<String, dynamic>)['versions'] ?? [],
+    };
+
+    return EnvironmentConfigSection(
+      environment: project.environment,
+      resolvedEnvironment: project.resolvedEnvironment,
+      runtimes: flatRuntimes,
+      onChanged: (updatedEnv) {
+        if (teamId == null) return;
+        ProjectState.instance.updateProject(teamId, widget.projectId, {
+          'environment': updatedEnv,
+        });
+      },
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // 4. Recent Tasks Section
   // ---------------------------------------------------------------------------
 
   /// Builds the recent tasks section showing the latest 5 tasks.

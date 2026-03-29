@@ -538,7 +538,28 @@
     "set_as_main": "Set as main",
     "clone_in_progress": "Cloning...",
     "clone_complete": "Cloned",
-    "clone_failed": "Clone failed"
+    "clone_failed": "Clone failed",
+    "environment": {
+      "title": "Environment",
+      "subtitle": "Configure runtime versions and services for this project",
+      "runtime_section": "Language Runtimes",
+      "services_section": "Services",
+      "inherited": "Team default",
+      "reset_to_default": "Reset to team default",
+      "python": "Python",
+      "node": "Node.js",
+      "php": "PHP",
+      "ruby": "Ruby",
+      "go": "Go",
+      "rust": "Rust",
+      "java": "Java",
+      "pg": "PostgreSQL",
+      "redis": "Redis",
+      "pg_description": "Enable PostgreSQL database in the container",
+      "redis_description": "Enable Redis cache in the container",
+      "version_placeholder": "Select version",
+      "using_default": "Using default (:version)"
+    }
   },
   "teams": {
     "accept_invitation": "Accept Invitation",

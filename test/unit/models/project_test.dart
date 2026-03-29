@@ -269,5 +269,95 @@ void main() {
 
       expect(project.resource, equals('projects'));
     });
+
+    // ---------------------------------------------------------------------------
+    // Environment
+    // ---------------------------------------------------------------------------
+
+    group('Environment', () {
+      test('environment accessor returns map from attributes', () {
+        final project = Project.fromMap({
+          ...kApiPayload,
+          'environment': {'python': '3.12', 'node': '22'},
+        });
+
+        expect(project.environment, isA<Map<String, dynamic>>());
+        expect(project.environment!['python'], equals('3.12'));
+        expect(project.environment!['node'], equals('22'));
+      });
+
+      test('resolvedEnvironment accessor returns map from attributes', () {
+        final project = Project.fromMap({
+          ...kApiPayload,
+          'resolved_environment': {'python': '3.13', 'node': '20', 'pg': true},
+        });
+
+        expect(project.resolvedEnvironment, isA<Map<String, dynamic>>());
+        expect(project.resolvedEnvironment!['python'], equals('3.13'));
+        expect(project.resolvedEnvironment!['node'], equals('20'));
+      });
+
+      test('runtimeVersion returns version string for key', () {
+        final project = Project.fromMap({
+          ...kApiPayload,
+          'resolved_environment': {'python': '3.11', 'node': '22'},
+        });
+
+        expect(project.runtimeVersion('python'), equals('3.11'));
+        expect(project.runtimeVersion('node'), equals('22'));
+      });
+
+      test(
+        'runtimeVersion returns null when key absent from resolvedEnvironment',
+        () {
+          final project = Project.fromMap({
+            ...kApiPayload,
+            'resolved_environment': {'python': '3.13'},
+          });
+
+          expect(project.runtimeVersion('ruby'), isNull);
+        },
+      );
+
+      test('serviceEnabled returns true by default when key absent', () {
+        final project = Project.fromMap({
+          ...kApiPayload,
+          'resolved_environment': {'python': '3.13'},
+        });
+
+        expect(project.serviceEnabled('pg'), isTrue);
+      });
+
+      test(
+        'serviceEnabled returns true by default when resolvedEnvironment null',
+        () {
+          final project = Project.fromMap(kApiPayload);
+
+          expect(project.serviceEnabled('pg'), isTrue);
+          expect(project.serviceEnabled('redis'), isTrue);
+        },
+      );
+
+      test('serviceEnabled returns false when set to false', () {
+        final project = Project.fromMap({
+          ...kApiPayload,
+          'resolved_environment': {'pg': false, 'python': '3.13'},
+        });
+
+        expect(project.serviceEnabled('pg'), isFalse);
+      });
+
+      test('environment returns null when not set', () {
+        final project = Project.fromMap(kApiPayload);
+
+        expect(project.environment, isNull);
+      });
+
+      test('resolvedEnvironment returns null when not set', () {
+        final project = Project.fromMap(kApiPayload);
+
+        expect(project.resolvedEnvironment, isNull);
+      });
+    });
   });
 }

@@ -134,6 +134,13 @@ class ProjectState extends MagicController with MagicStateMixin<List<Project>> {
   /// The currently selected project (set by [fetchProject]).
   Project? get selectedProject => _selectedProject;
 
+  Map<String, dynamic>? _runtimes;
+
+  /// Cached runtimes response from [fetchRuntimes].
+  ///
+  /// Returns `null` until the first successful [fetchRuntimes] call.
+  Map<String, dynamic>? get runtimes => _runtimes;
+
   // ---------------------------------------------------------------------------
   // Project list operations
   // ---------------------------------------------------------------------------
@@ -254,6 +261,33 @@ class ProjectState extends MagicController with MagicStateMixin<List<Project>> {
       final key = data['ssh_public_key'] as String?;
       await fetchProject(teamId, projectId);
       return key;
+    }
+
+    return null;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Runtimes
+  // ---------------------------------------------------------------------------
+
+  /// Fetch available language runtimes from the API.
+  ///
+  /// Calls `GET /api/v1/environment/runtimes` and caches the result in
+  /// [_runtimes]. Subsequent calls return the cached value without hitting
+  /// the network.
+  ///
+  /// Returns the runtimes map on success, or `null` on failure.
+  Future<Map<String, dynamic>?> fetchRuntimes() async {
+    if (_runtimes != null) {
+      return _runtimes;
+    }
+
+    final response = await _http.get('/environment/runtimes');
+
+    if (response.successful) {
+      _runtimes = response.data as Map<String, dynamic>?;
+      refreshUI();
+      return _runtimes;
     }
 
     return null;

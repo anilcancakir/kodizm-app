@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
+import 'package:magic_starter/magic_starter.dart';
 
 import 'package:app/app/state/task_state.dart';
 import 'package:app/resources/views/task/task_create_view.dart';
@@ -164,12 +165,15 @@ Future<void> _pumpTestWidget(WidgetTester tester) async {
   await tester.pump();
 }
 
-/// Pumps the widget and navigates past the creation method picker
+/// Pumps the widget and navigates past the creation method modal
 /// by tapping "Create Manually" to reach the form.
 Future<void> _pumpAndSelectManual(WidgetTester tester) async {
   await _pumpTestWidget(tester);
 
-  // Tap "Create Manually" card to reveal the form.
+  // Let the postFrameCallback fire to show the modal.
+  await tester.pump();
+
+  // Tap "Create Manually" option in the modal.
   await tester.tap(find.text(trans('tasks.create_manually')));
   await tester.pump();
 }
@@ -186,6 +190,9 @@ void main() {
     TestWidgetsFlutterBinding.ensureInitialized();
     Translator.instance.setLoader(_TestAssetLoader());
     await Translator.instance.setLocale(const Locale('en'));
+
+    Magic.singleton('magic_starter', () => MagicStarterManager());
+    MagicStarter.useModalTheme(const MagicStarterModalTheme(maxWidth: 560));
   });
 
   setUp(() {

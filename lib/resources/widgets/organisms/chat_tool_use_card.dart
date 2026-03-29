@@ -45,7 +45,7 @@ class _ChatToolUseCardState extends State<ChatToolUseCard> {
   @override
   Widget build(BuildContext context) {
     return WDiv(
-      className: 'rounded-lg border border-slate-200 dark:border-slate-700',
+      className: 'rounded-lg border border-blue-200 dark:border-blue-700/50',
       children: [
         // Header — always visible, tappable
         WAnchor(
@@ -53,19 +53,19 @@ class _ChatToolUseCardState extends State<ChatToolUseCard> {
           child: WDiv(
             className: '''
               flex flex-row items-center gap-2
-              px-3 py-2 bg-slate-50 dark:bg-slate-800
+              px-3 py-2 bg-blue-50 dark:bg-blue-900/10
               rounded-lg cursor-pointer
             ''',
             children: [
               WIcon(
                 _expanded ? Icons.expand_less : Icons.expand_more,
-                className: 'text-sm text-slate-400',
+                className: 'text-sm text-blue-400',
               ),
-              WIcon(Icons.build_outlined, className: 'text-sm text-slate-500'),
+              WIcon(Icons.build_outlined, className: 'text-sm text-blue-500'),
               WText(
                 trans('conversation_chat.tool_name', {'name': widget.toolName}),
                 className:
-                    'text-xs font-medium font-mono text-slate-600 dark:text-slate-300',
+                    'text-xs font-medium font-mono text-blue-600 dark:text-blue-300',
               ),
             ],
           ),
@@ -80,7 +80,7 @@ class _ChatToolUseCardState extends State<ChatToolUseCard> {
               children: [
                 WText(
                   trans('conversation_chat.tool_input'),
-                  className: 'text-[11px] font-semibold text-slate-400 mb-1',
+                  className: 'text-[11px] font-semibold text-blue-400 mb-1',
                 ),
                 WDiv(
                   className: '''
@@ -105,7 +105,7 @@ class _ChatToolUseCardState extends State<ChatToolUseCard> {
               children: [
                 WText(
                   trans('conversation_chat.tool_result'),
-                  className: 'text-[11px] font-semibold text-slate-400 mb-1',
+                  className: 'text-[11px] font-semibold text-blue-400 mb-1',
                 ),
                 WDiv(
                   className: '''

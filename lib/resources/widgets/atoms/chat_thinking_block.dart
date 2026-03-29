@@ -79,7 +79,7 @@ class _ChatThinkingBlockState extends State<ChatThinkingBlock> {
   @override
   Widget build(BuildContext context) {
     return WDiv(
-      className: 'bg-slate-50 dark:bg-slate-800 rounded-lg px-3 py-2',
+      className: 'bg-violet-50 dark:bg-violet-900/10 rounded-lg px-3 py-2',
       children: [
         _buildHeader(),
         if (_expanded && _isExpandable) _buildContent(),
@@ -92,15 +92,15 @@ class _ChatThinkingBlockState extends State<ChatThinkingBlock> {
     final header = WDiv(
       className: 'flex flex-row items-center gap-2',
       children: [
-        WText('✻', className: 'text-sm text-slate-400'),
+        WText('✻', className: 'text-sm text-violet-400'),
         WText(
           _headerLabel,
-          className: 'text-sm text-slate-500 dark:text-slate-400',
+          className: 'text-sm text-violet-500 dark:text-violet-400',
         ),
         if (_isExpandable)
           WIcon(
             _expanded ? Icons.expand_less : Icons.expand_more,
-            className: 'text-sm text-slate-400',
+            className: 'text-sm text-violet-400',
           ),
       ],
     );
@@ -117,7 +117,10 @@ class _ChatThinkingBlockState extends State<ChatThinkingBlock> {
   Widget _buildContent() {
     return WDiv(
       className: 'pt-2',
-      child: WText(widget.content!, className: 'text-slate-500 italic text-sm'),
+      child: WText(
+        widget.content!,
+        className: 'text-violet-500/70 italic text-sm',
+      ),
     );
   }
 }

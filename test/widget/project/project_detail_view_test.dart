@@ -519,13 +519,13 @@ void main() {
     await tester.tap(find.text(trans('projects.delete_project')));
     await tester.pumpAndSettle();
 
-    // Confirmation dialog appears.
+    // Password confirmation dialog appears.
     expect(find.text(trans('projects.delete_confirm_title')), findsOneWidget);
     expect(find.text(trans('projects.delete_confirm_body')), findsOneWidget);
 
-    // Cancel and Confirm buttons in the dialog.
+    // Cancel and Confirm buttons in the password dialog.
     expect(find.text(trans('common.cancel')), findsOneWidget);
-    expect(find.text(trans('common.delete')), findsOneWidget);
+    expect(find.text(trans('common.confirm')), findsOneWidget);
   });
 
   // -------------------------------------------------------------------------

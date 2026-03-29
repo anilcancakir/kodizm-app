@@ -196,31 +196,27 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
     await ProjectState.instance.fetchProject(teamId, widget.projectId);
   }
 
-  /// Shows a confirmation dialog and deletes the project.
+  /// Shows a password confirmation dialog and deletes the project.
   Future<void> _confirmDelete() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(trans('projects.delete_confirm_title')),
-        content: Text(trans('projects.delete_confirm_body')),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(trans('common.cancel')),
-          ),
-          // AlertDialog allowed exception — DESIGN.md danger-500.
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFFEF4444),
-            ),
-            child: Text(trans('common.delete')),
-          ),
-        ],
-      ),
+    final confirmed = await MagicStarterPasswordConfirmDialog.show(
+      context,
+      title: trans('projects.delete_confirm_title'),
+      description: trans('projects.delete_confirm_body'),
+      onConfirm: (password) async {
+        final response = await Http.post(
+          '/auth/confirm-password',
+          data: {'password': password},
+        );
+
+        if (!response.successful) {
+          return response.errorMessage ?? trans('errors.invalid_password');
+        }
+
+        return null;
+      },
     );
 
-    if (confirmed != true || !mounted) return;
+    if (!confirmed || !mounted) return;
 
     final teamId = _teamId;
     if (teamId == null) return;
@@ -721,7 +717,6 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
               className: 'text-sm text-slate-500 dark:text-slate-400',
             ),
           ],
-          const WSpacer(className: 'h-3'),
           WAnchor(
             onTap: () => _confirmRegenerateSshKey(),
             child: WDiv(
@@ -1243,11 +1238,9 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
               hint: trans('projects.tech_stack_placeholder'),
               controller: _techStackController,
             ),
-            const WSpacer(className: 'h-1'),
-
-            // Action buttons.
+            // Action buttons — right-aligned.
             WDiv(
-              className: 'flex flex-row items-center justify-between',
+              className: 'w-full flex flex-row items-center justify-end gap-3',
               children: [
                 // Delete button.
                 WAnchor(
@@ -1256,7 +1249,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                     className: '''
                       flex flex-row items-center gap-2
                       px-4 py-2 rounded-lg
-                      bg-red-500 dark:bg-red-600
+                      border border-red-500 dark:border-red-600
                     ''',
                     children: [
                       if (_deleting)
@@ -1266,13 +1259,16 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
                             valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.white,
+                              Color(0xFFEF4444),
                             ),
                           ),
                         ),
                       WText(
                         trans('projects.delete_project'),
-                        className: 'text-sm font-semibold text-white',
+                        className: '''
+                          text-sm font-semibold
+                          text-red-500 dark:text-red-400
+                        ''',
                       ),
                     ],
                   ),

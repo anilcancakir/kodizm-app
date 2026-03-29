@@ -528,10 +528,11 @@ packages:
   magic:
     dependency: "direct main"
     description:
-      path: "/Users/anilcan/Code/fluttersdk/magic"
-      relative: false
-    source: path
-    version: "1.0.0-alpha.3"
+      name: magic
+      sha256: "79580aa1bc9bd7a9c2ebb2b3668a5190bb2c183dca723345847a0b5d480affd1"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.0-alpha.4"
   magic_cli:
     dependency: transitive
     description:
@@ -551,11 +552,10 @@ packages:
   magic_starter:
     dependency: "direct main"
     description:
-      name: magic_starter
-      sha256: ae4386cef07565d8b90980aa681d9fa07b966454d01b8f3add1ffd448853d71d
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.0.1-alpha.3"
+      path: "/Users/anilcan/Code/fluttersdk/magic_starter"
+      relative: false
+    source: path
+    version: "0.0.1-alpha.4"
   markdown:
     dependency: "direct main"
     description:
@@ -1083,4 +1083,4 @@ packages:
     version: "2.2.4"
 sdks:
   dart: ">=3.11.3 <4.0.0"
-  flutter: ">=3.38.4"
+  flutter: ">=3.41.0"

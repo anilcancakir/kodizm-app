@@ -229,7 +229,11 @@ void main() {
       return MagicResponse(data: <String, dynamic>{}, statusCode: 404);
     };
 
-    await state.createConversation(kTeamId, kProjectId);
+    await state.createConversation(
+      kTeamId,
+      kProjectId,
+      agentRoleId: 'role-uuid-001',
+    );
 
     await tester.pumpWidget(_buildTestWidget());
     await tester.pump();

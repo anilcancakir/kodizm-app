@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:magic/magic.dart';
+import 'package:magic_starter/magic_starter.dart';
 
+import '../../../app/models/agent_role.dart';
 import '../../../app/models/user.dart';
 import '../../../app/state/task_state.dart';
-import 'package:magic_starter/magic_starter.dart';
+import '../../widgets/organisms/agent_role_picker_modal.dart';
 
 // ---------------------------------------------------------------------------
 // Segment model
@@ -156,6 +158,17 @@ class _TaskCreateViewState extends State<TaskCreateView> {
   String? _complexity;
 
   // ---------------------------------------------------------------------------
+  // Creation method state
+  // ---------------------------------------------------------------------------
+
+  /// Tracks how the user wants to create the task.
+  ///
+  /// `null` = not yet chosen (shows option picker).
+  /// `'manual'` = show the manual form.
+  /// `'chat'` = trigger agent role picker then navigate to chat.
+  String? _creationMethod;
+
+  // ---------------------------------------------------------------------------
   // Submission state
   // ---------------------------------------------------------------------------
 
@@ -251,6 +264,34 @@ class _TaskCreateViewState extends State<TaskCreateView> {
   }
 
   // ---------------------------------------------------------------------------
+  // Chat with BA handler
+  // ---------------------------------------------------------------------------
+
+  /// Fetches agent roles, shows the [AgentRolePickerModal], then navigates
+  /// to the chat view with the selected role pre-filled.
+  Future<void> _openChatWithBa() async {
+    final teamId = Auth.user<User>()?.currentTeam?.id;
+    if (teamId == null || teamId.isEmpty) return;
+
+    await TaskState.instance.fetchAgentRoles(teamId);
+
+    if (!mounted) return;
+
+    final roles = TaskState.instance.agentRoles;
+    final AgentRole? selected = await AgentRolePickerModal.show(context, roles);
+
+    if (!mounted) return;
+    if (selected == null) {
+      setState(() => _creationMethod = null);
+      return;
+    }
+
+    MagicRoute.to(
+      '/projects/${widget.projectId}/chat?agentRoleId=${selected.id}',
+    );
+  }
+
+  // ---------------------------------------------------------------------------
   // Build
   // ---------------------------------------------------------------------------
 
@@ -265,84 +306,193 @@ class _TaskCreateViewState extends State<TaskCreateView> {
           subtitle: trans('tasks.create_subtitle'),
         ),
 
-        // Form section card.
-        MagicStarterCard(
-          title: trans('tasks.create_task'),
-          child: Form(
-            key: _formKey,
-            child: WDiv(
-              className: 'flex flex-col gap-5',
-              children: [
-                // Title field.
-                _buildTitleField(),
+        // Creation method picker — shown before the form.
+        if (_creationMethod == null) _buildCreationMethodPicker(),
 
-                // Description field.
-                _buildField(
-                  label: trans('tasks.description_label'),
-                  hint: trans('tasks.description_placeholder'),
-                  controller: _descriptionController,
-                  maxLines: 3,
-                ),
+        // Form section card — shown only when manual creation is chosen.
+        if (_creationMethod == 'manual')
+          MagicStarterCard(
+            title: trans('tasks.create_task'),
+            child: Form(
+              key: _formKey,
+              child: WDiv(
+                className: 'flex flex-col gap-5',
+                children: [
+                  // Title field.
+                  _buildTitleField(),
 
-                // Acceptance criteria field.
-                _buildField(
-                  label: trans('tasks.acceptance_criteria_label'),
-                  hint: trans('tasks.acceptance_criteria_placeholder'),
-                  controller: _acceptanceCriteriaController,
-                  maxLines: 3,
-                ),
+                  // Description field.
+                  _buildField(
+                    label: trans('tasks.description_label'),
+                    hint: trans('tasks.description_placeholder'),
+                    controller: _descriptionController,
+                    maxLines: 3,
+                  ),
 
-                // Type segmented control.
-                _SegmentedControl(
-                  label: trans('tasks.type_label'),
-                  options: _typeOptions,
-                  selected: _type,
-                  onChanged: (v) => setState(() => _type = v ?? 'task'),
-                ),
+                  // Acceptance criteria field.
+                  _buildField(
+                    label: trans('tasks.acceptance_criteria_label'),
+                    hint: trans('tasks.acceptance_criteria_placeholder'),
+                    controller: _acceptanceCriteriaController,
+                    maxLines: 3,
+                  ),
 
-                // Priority segmented control.
-                _SegmentedControl(
-                  label: trans('tasks.priority_label'),
-                  options: _priorityOptions,
-                  selected: _priority,
-                  onChanged: (v) => setState(() => _priority = v ?? 'p2'),
-                ),
+                  // Type segmented control.
+                  _SegmentedControl(
+                    label: trans('tasks.type_label'),
+                    options: _typeOptions,
+                    selected: _type,
+                    onChanged: (v) => setState(() => _type = v ?? 'task'),
+                  ),
 
-                // Estimated complexity segmented control.
-                _SegmentedControl(
-                  label: trans('tasks.complexity_label'),
-                  options: _complexityOptions,
-                  selected: _complexity ?? 'none',
-                  onChanged: (v) =>
-                      setState(() => _complexity = (v == 'none') ? null : v),
-                ),
+                  // Priority segmented control.
+                  _SegmentedControl(
+                    label: trans('tasks.priority_label'),
+                    options: _priorityOptions,
+                    selected: _priority,
+                    onChanged: (v) => setState(() => _priority = v ?? 'p2'),
+                  ),
 
-                // Inline error banner.
-                if (_submitError != null)
-                  WDiv(
-                    className: '''
+                  // Estimated complexity segmented control.
+                  _SegmentedControl(
+                    label: trans('tasks.complexity_label'),
+                    options: _complexityOptions,
+                    selected: _complexity ?? 'none',
+                    onChanged: (v) =>
+                        setState(() => _complexity = (v == 'none') ? null : v),
+                  ),
+
+                  // Inline error banner.
+                  if (_submitError != null)
+                    WDiv(
+                      className: '''
                       p-3 rounded-lg
                       bg-red-50 dark:bg-red-900/20
                       border border-red-200 dark:border-red-800
                     ''',
-                    child: WText(
-                      _submitError!,
-                      className: 'text-sm text-red-600 dark:text-red-400',
+                      child: WText(
+                        _submitError!,
+                        className: 'text-sm text-red-600 dark:text-red-400',
+                      ),
                     ),
+
+                  const WSpacer(className: 'h-1'),
+
+                  // Action buttons.
+                  WDiv(
+                    className: 'flex flex-row gap-3 justify-end',
+                    children: [_buildSecondaryButton(), _buildPrimaryButton()],
                   ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
 
-                const WSpacer(className: 'h-1'),
+  // ---------------------------------------------------------------------------
+  // Creation method picker builder
+  // ---------------------------------------------------------------------------
 
-                // Action buttons.
+  /// Builds the two-option entry card for choosing how to create the task.
+  ///
+  /// Presents "Create Manually" and "Chat with BA" as styled option cards.
+  /// Selecting "Create Manually" transitions to the form. Selecting "Chat
+  /// with BA" triggers [_openChatWithBa].
+  Widget _buildCreationMethodPicker() {
+    return MagicStarterCard(
+      title: trans('tasks.creation_method'),
+      child: WDiv(
+        className: 'flex flex-col gap-3',
+        children: [
+          // -------
+          // Create Manually option
+          // -------
+          WAnchor(
+            onTap: () => setState(() => _creationMethod = 'manual'),
+            child: WDiv(
+              className: '''
+                p-4 rounded-xl border
+                bg-white dark:bg-gray-800
+                border-slate-200 dark:border-slate-700
+                flex flex-row items-start gap-3
+              ''',
+              children: [
                 WDiv(
-                  className: 'flex flex-row gap-3 justify-end',
-                  children: [_buildSecondaryButton(), _buildPrimaryButton()],
+                  className: '''
+                    w-10 h-10 rounded-lg flex-shrink-0
+                    bg-slate-100 dark:bg-slate-700
+                    flex items-center justify-center
+                  ''',
+                  child: WIcon(
+                    Icons.edit_note_outlined,
+                    className: 'text-xl text-slate-500 dark:text-slate-400',
+                  ),
+                ),
+                WDiv(
+                  className: 'flex-1 flex flex-col gap-0.5',
+                  children: [
+                    WText(
+                      trans('tasks.create_manually'),
+                      className:
+                          'text-sm font-semibold text-slate-800 dark:text-slate-100',
+                    ),
+                    WText(
+                      trans('tasks.create_manually_desc'),
+                      className:
+                          'text-xs text-slate-500 dark:text-slate-400 leading-relaxed',
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-        ),
-      ],
+
+          // -------
+          // Chat with BA option
+          // -------
+          WAnchor(
+            onTap: _openChatWithBa,
+            child: WDiv(
+              className: '''
+                p-4 rounded-xl border
+                bg-amber-400/10 dark:bg-amber-400/10
+                border-amber-400/30 dark:border-amber-400/30
+                flex flex-row items-start gap-3
+              ''',
+              children: [
+                WDiv(
+                  className: '''
+                    w-10 h-10 rounded-lg flex-shrink-0
+                    bg-amber-400/20 dark:bg-amber-400/20
+                    flex items-center justify-center
+                  ''',
+                  child: WIcon(
+                    Icons.smart_toy_outlined,
+                    className: 'text-xl text-amber-600 dark:text-amber-400',
+                  ),
+                ),
+                WDiv(
+                  className: 'flex-1 flex flex-col gap-0.5',
+                  children: [
+                    WText(
+                      trans('tasks.chat_with_ba'),
+                      className:
+                          'text-sm font-semibold text-amber-600 dark:text-amber-400',
+                    ),
+                    WText(
+                      trans('tasks.chat_with_ba_desc'),
+                      className:
+                          'text-xs text-slate-500 dark:text-slate-400 leading-relaxed',
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 

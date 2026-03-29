@@ -164,6 +164,16 @@ Future<void> _pumpTestWidget(WidgetTester tester) async {
   await tester.pump();
 }
 
+/// Pumps the widget and navigates past the creation method picker
+/// by tapping "Create Manually" to reach the form.
+Future<void> _pumpAndSelectManual(WidgetTester tester) async {
+  await _pumpTestWidget(tester);
+
+  // Tap "Create Manually" card to reveal the form.
+  await tester.tap(find.text(trans('tasks.create_manually')));
+  await tester.pump();
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -199,7 +209,7 @@ void main() {
   testWidgets(
     'renders form fields for title, description, and acceptance criteria',
     (tester) async {
-      await _pumpTestWidget(tester);
+      await _pumpAndSelectManual(tester);
 
       // All three WFormInput widgets must be present.
       expect(find.byType(WFormInput), findsNWidgets(3));
@@ -223,7 +233,7 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('validates empty title on submit', (tester) async {
-    await _pumpTestWidget(tester);
+    await _pumpAndSelectManual(tester);
 
     // Tap the primary button without entering a title.
     await tester.tap(find.byKey(const ValueKey('btn_create_task')));
@@ -238,7 +248,7 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('type segmented control renders all options', (tester) async {
-    await _pumpTestWidget(tester);
+    await _pumpAndSelectManual(tester);
 
     // All four type options must be visible.
     expect(find.text('Story'), findsOneWidget);
@@ -252,7 +262,7 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('priority segmented control renders all options', (tester) async {
-    await _pumpTestWidget(tester);
+    await _pumpAndSelectManual(tester);
 
     // All four priority options must be visible.
     expect(find.text('Critical'), findsOneWidget);
@@ -266,7 +276,7 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('cancel button is visible', (tester) async {
-    await _pumpTestWidget(tester);
+    await _pumpAndSelectManual(tester);
 
     // The cancel button should be rendered with the i18n key text.
     expect(find.text(trans('common.cancel')), findsOneWidget);
@@ -279,7 +289,7 @@ void main() {
   testWidgets('complexity segmented control renders None option by default', (
     tester,
   ) async {
-    await _pumpTestWidget(tester);
+    await _pumpAndSelectManual(tester);
 
     // The "None" complexity option should be rendered.
     expect(find.text(trans('tasks.complexity_none')), findsOneWidget);

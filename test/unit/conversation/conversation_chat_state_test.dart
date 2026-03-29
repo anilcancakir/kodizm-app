@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
 
 import 'package:app/app/events/websocket_event.dart';
+import 'package:app/app/models/agent_role.dart';
 import 'package:app/app/models/chat_item.dart';
 import 'package:app/app/state/conversation_chat_state.dart';
 
@@ -196,33 +197,32 @@ void main() {
     // -----------------------------------------------------------------------
 
     test(
-      'createConversation fetches agent role and creates conversation',
+      'createConversation posts with agentRoleId and creates conversation',
       () async {
-        http.whenAny((url) {
-          if (url.contains('/agent-roles')) {
-            return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
-          }
-          return MagicResponse(data: kConversationResponse, statusCode: 201);
-        });
+        http.alwaysReturn(
+          MagicResponse(data: kConversationResponse, statusCode: 201),
+        );
 
-        await state.createConversation('team-uuid-001', 'proj-uuid-001');
+        await state.createConversation(
+          'team-uuid-001',
+          'proj-uuid-001',
+          agentRoleId: 'role-uuid-001',
+        );
 
         expect(state.conversation, isNotNull);
         expect(state.conversation!.id, equals('conv-uuid-001'));
         expect(state.conversation!.status, equals('active'));
         expect(state.error, isNull);
 
-        // Verify HTTP calls: GET agent-roles, POST conversations.
-        expect(http.calls.length, equals(2));
-        expect(http.calls[0].method, equals('GET'));
-        expect(http.calls[0].url, equals('/teams/team-uuid-001/agent-roles'));
-        expect(http.calls[1].method, equals('POST'));
+        // Verify HTTP call: single POST to conversations endpoint.
+        expect(http.calls.length, equals(1));
+        expect(http.calls[0].method, equals('POST'));
         expect(
-          http.calls[1].url,
+          http.calls[0].url,
           equals('/teams/team-uuid-001/projects/proj-uuid-001/conversations'),
         );
         expect(
-          (http.calls[1].data as Map<String, dynamic>)['agent_role_id'],
+          (http.calls[0].data as Map<String, dynamic>)['agent_role_id'],
           equals('role-uuid-001'),
         );
 
@@ -235,37 +235,23 @@ void main() {
     );
 
     // -----------------------------------------------------------------------
-    // 3. createConversation — no agent roles sets error
+    // 3. createConversation — POST failure sets error
     // -----------------------------------------------------------------------
 
-    test('createConversation sets error when no agent roles found', () async {
-      http.alwaysReturn(
-        MagicResponse(
-          data: {'data': <Map<String, dynamic>>[]},
-          statusCode: 200,
-        ),
-      );
-
-      await state.createConversation('team-uuid-001', 'proj-uuid-001');
-
-      expect(state.conversation, isNull);
-      expect(state.error, isNotNull);
-      expect(http.calls.length, equals(1));
-    });
-
-    // -----------------------------------------------------------------------
-    // 4. createConversation — agent roles API failure sets error
-    // -----------------------------------------------------------------------
-
-    test('createConversation sets error on agent roles API failure', () async {
+    test('createConversation sets error on POST failure', () async {
       http.alwaysReturn(
         MagicResponse(data: {'message': 'Forbidden'}, statusCode: 403),
       );
 
-      await state.createConversation('team-uuid-001', 'proj-uuid-001');
+      await state.createConversation(
+        'team-uuid-001',
+        'proj-uuid-001',
+        agentRoleId: 'role-uuid-001',
+      );
 
       expect(state.conversation, isNull);
       expect(state.error, isNotNull);
+      expect(http.calls.length, equals(1));
     });
 
     // -----------------------------------------------------------------------
@@ -284,7 +270,11 @@ void main() {
         return MagicResponse(data: kConversationResponse, statusCode: 201);
       });
 
-      await state.createConversation('team-uuid-001', 'proj-uuid-001');
+      await state.createConversation(
+        'team-uuid-001',
+        'proj-uuid-001',
+        agentRoleId: 'role-uuid-001',
+      );
       http.calls.clear();
 
       await state.sendMessage('Hello agent');
@@ -335,7 +325,11 @@ void main() {
         return MagicResponse(data: kConversationResponse, statusCode: 201);
       });
 
-      await state.createConversation('team-uuid-001', 'proj-uuid-001');
+      await state.createConversation(
+        'team-uuid-001',
+        'proj-uuid-001',
+        agentRoleId: 'role-uuid-001',
+      );
       http.calls.clear();
 
       // Send two messages concurrently — second should be ignored.
@@ -360,7 +354,11 @@ void main() {
         }
         return MagicResponse(data: kConversationResponse, statusCode: 201);
       });
-      await state.createConversation('team-uuid-001', 'proj-uuid-001');
+      await state.createConversation(
+        'team-uuid-001',
+        'proj-uuid-001',
+        agentRoleId: 'role-uuid-001',
+      );
 
       final wsEvent = WebSocketEvent(
         id: 'ws:msg:1',
@@ -423,7 +421,11 @@ void main() {
           }
           return MagicResponse(data: kConversationResponse, statusCode: 201);
         });
-        await state.createConversation('team-uuid-001', 'proj-uuid-001');
+        await state.createConversation(
+          'team-uuid-001',
+          'proj-uuid-001',
+          agentRoleId: 'role-uuid-001',
+        );
         expect(state.conversation!.status, equals('active'));
 
         final wsEvent = WebSocketEvent(
@@ -485,7 +487,11 @@ void main() {
         return MagicResponse(data: kConversationResponse, statusCode: 201);
       });
 
-      await state.createConversation('team-uuid-001', 'proj-uuid-001');
+      await state.createConversation(
+        'team-uuid-001',
+        'proj-uuid-001',
+        agentRoleId: 'role-uuid-001',
+      );
       http.calls.clear();
 
       await state.completeConversation();
@@ -518,7 +524,11 @@ void main() {
         return MagicResponse(data: kConversationResponse, statusCode: 201);
       });
 
-      await state.createConversation('team-uuid-001', 'proj-uuid-001');
+      await state.createConversation(
+        'team-uuid-001',
+        'proj-uuid-001',
+        agentRoleId: 'role-uuid-001',
+      );
       http.calls.clear();
 
       await state.loadMessages();
@@ -551,7 +561,11 @@ void main() {
         return MagicResponse(data: kConversationResponse, statusCode: 201);
       });
 
-      await state.createConversation('team-uuid-001', 'proj-uuid-001');
+      await state.createConversation(
+        'team-uuid-001',
+        'proj-uuid-001',
+        agentRoleId: 'role-uuid-001',
+      );
       expect(state.conversation, isNotNull);
 
       state.reset();
@@ -580,7 +594,11 @@ void main() {
         return MagicResponse(data: kConversationResponse, statusCode: 201);
       });
 
-      await state.createConversation('team-uuid-001', 'proj-uuid-001');
+      await state.createConversation(
+        'team-uuid-001',
+        'proj-uuid-001',
+        agentRoleId: 'role-uuid-001',
+      );
 
       // Simulate WS event via the fake service.
       ws.simulateEvent(
@@ -620,7 +638,11 @@ void main() {
       int notifyCount = 0;
       state.addListener(() => notifyCount++);
 
-      await state.createConversation('team-uuid-001', 'proj-uuid-001');
+      await state.createConversation(
+        'team-uuid-001',
+        'proj-uuid-001',
+        agentRoleId: 'role-uuid-001',
+      );
 
       expect(notifyCount, greaterThan(0));
     });
@@ -735,7 +757,11 @@ void main() {
           return MagicResponse(data: kConversationResponse, statusCode: 201);
         });
 
-        await state.createConversation('team-uuid-001', 'proj-uuid-001');
+        await state.createConversation(
+          'team-uuid-001',
+          'proj-uuid-001',
+          agentRoleId: 'role-uuid-001',
+        );
 
         expect(state.sessionId, isNull);
 
@@ -776,7 +802,11 @@ void main() {
         return MagicResponse(data: kConversationResponse, statusCode: 201);
       });
 
-      await state.createConversation('team-uuid-001', 'proj-uuid-001');
+      await state.createConversation(
+        'team-uuid-001',
+        'proj-uuid-001',
+        agentRoleId: 'role-uuid-001',
+      );
 
       // Trigger session subscription via status event.
       state.addEvent(
@@ -839,7 +869,11 @@ void main() {
           return MagicResponse(data: kConversationResponse, statusCode: 201);
         });
 
-        await state.createConversation('team-uuid-001', 'proj-uuid-001');
+        await state.createConversation(
+          'team-uuid-001',
+          'proj-uuid-001',
+          agentRoleId: 'role-uuid-001',
+        );
 
         state.addEvent(
           WebSocketEvent(
@@ -881,7 +915,11 @@ void main() {
         }
         return MagicResponse(data: kConversationResponse, statusCode: 201);
       });
-      await state.createConversation('team-uuid-001', 'proj-uuid-001');
+      await state.createConversation(
+        'team-uuid-001',
+        'proj-uuid-001',
+        agentRoleId: 'role-uuid-001',
+      );
 
       ws.simulateEvent(
         'private-conversation.conv-uuid-001',
@@ -922,7 +960,11 @@ void main() {
         }
         return MagicResponse(data: kConversationResponse, statusCode: 201);
       });
-      await state.createConversation('team-uuid-001', 'proj-uuid-001');
+      await state.createConversation(
+        'team-uuid-001',
+        'proj-uuid-001',
+        agentRoleId: 'role-uuid-001',
+      );
 
       ws.simulateEvent(
         'private-conversation.conv-uuid-001',
@@ -960,7 +1002,11 @@ void main() {
           }
           return MagicResponse(data: kConversationResponse, statusCode: 201);
         });
-        await state.createConversation('team-uuid-001', 'proj-uuid-001');
+        await state.createConversation(
+          'team-uuid-001',
+          'proj-uuid-001',
+          agentRoleId: 'role-uuid-001',
+        );
 
         // Start
         ws.simulateEvent(
@@ -1027,7 +1073,11 @@ void main() {
         }
         return MagicResponse(data: kConversationResponse, statusCode: 201);
       });
-      await state.createConversation('team-uuid-001', 'proj-uuid-001');
+      await state.createConversation(
+        'team-uuid-001',
+        'proj-uuid-001',
+        agentRoleId: 'role-uuid-001',
+      );
 
       ws.simulateEvent(
         'private-conversation.conv-uuid-001',
@@ -1072,7 +1122,11 @@ void main() {
         }
         return MagicResponse(data: kConversationResponse, statusCode: 201);
       });
-      await state.createConversation('team-uuid-001', 'proj-uuid-001');
+      await state.createConversation(
+        'team-uuid-001',
+        'proj-uuid-001',
+        agentRoleId: 'role-uuid-001',
+      );
 
       ws.simulateEvent(
         'private-conversation.conv-uuid-001',
@@ -1108,7 +1162,11 @@ void main() {
         }
         return MagicResponse(data: kConversationResponse, statusCode: 201);
       });
-      await state.createConversation('team-uuid-001', 'proj-uuid-001');
+      await state.createConversation(
+        'team-uuid-001',
+        'proj-uuid-001',
+        agentRoleId: 'role-uuid-001',
+      );
 
       ws.simulateEvent(
         'private-conversation.conv-uuid-001',
@@ -1147,7 +1205,11 @@ void main() {
         }
         return MagicResponse(data: kConversationResponse, statusCode: 201);
       });
-      await state.createConversation('team-uuid-001', 'proj-uuid-001');
+      await state.createConversation(
+        'team-uuid-001',
+        'proj-uuid-001',
+        agentRoleId: 'role-uuid-001',
+      );
 
       expect(
         () => state.chatItems.add(
@@ -1173,7 +1235,11 @@ void main() {
           }
           return MagicResponse(data: kConversationResponse, statusCode: 201);
         });
-        await state.createConversation('team-uuid-001', 'proj-uuid-001');
+        await state.createConversation(
+          'team-uuid-001',
+          'proj-uuid-001',
+          agentRoleId: 'role-uuid-001',
+        );
         await state.loadMessages();
 
         // loadMessages creates ChatMessageItems.
@@ -1200,7 +1266,11 @@ void main() {
         }
         return MagicResponse(data: kConversationResponse, statusCode: 201);
       });
-      await state.createConversation('team-uuid-001', 'proj-uuid-001');
+      await state.createConversation(
+        'team-uuid-001',
+        'proj-uuid-001',
+        agentRoleId: 'role-uuid-001',
+      );
 
       await state.sendMessage('Hello');
 
@@ -1222,7 +1292,11 @@ void main() {
         }
         return MagicResponse(data: kConversationResponse, statusCode: 201);
       });
-      await state.createConversation('team-uuid-001', 'proj-uuid-001');
+      await state.createConversation(
+        'team-uuid-001',
+        'proj-uuid-001',
+        agentRoleId: 'role-uuid-001',
+      );
 
       ws.simulateEvent(
         'private-conversation.conv-uuid-001',
@@ -1245,6 +1319,139 @@ void main() {
       state.reset();
 
       expect(state.chatItems, isEmpty);
+    });
+
+    // -----------------------------------------------------------------------
+    // 33. createConversation — POST body includes agentRoleId
+    // -----------------------------------------------------------------------
+
+    test(
+      'createConversation sends provided agentRoleId in POST body',
+      () async {
+        http.alwaysReturn(
+          MagicResponse(data: kConversationResponse, statusCode: 201),
+        );
+
+        await state.createConversation(
+          'team-uuid-001',
+          'proj-uuid-001',
+          agentRoleId: 'role-uuid-001',
+        );
+
+        expect(http.calls.length, equals(1));
+        expect(http.calls[0].method, equals('POST'));
+        expect(
+          (http.calls[0].data as Map<String, dynamic>)['agent_role_id'],
+          equals('role-uuid-001'),
+        );
+      },
+    );
+
+    // -----------------------------------------------------------------------
+    // 34. createConversation — POST body includes title when provided
+    // -----------------------------------------------------------------------
+
+    test('createConversation sends title in POST body when provided', () async {
+      http.alwaysReturn(
+        MagicResponse(data: kConversationResponse, statusCode: 201),
+      );
+
+      await state.createConversation(
+        'team-uuid-001',
+        'proj-uuid-001',
+        agentRoleId: 'role-uuid-001',
+        title: 'My Chat',
+      );
+
+      expect(http.calls.length, equals(1));
+      expect(
+        (http.calls[0].data as Map<String, dynamic>)['title'],
+        equals('My Chat'),
+      );
+    });
+
+    // -----------------------------------------------------------------------
+    // 35. createConversation — POST body omits title when not provided
+    // -----------------------------------------------------------------------
+
+    test(
+      'createConversation omits title key from POST body when not provided',
+      () async {
+        http.alwaysReturn(
+          MagicResponse(data: kConversationResponse, statusCode: 201),
+        );
+
+        await state.createConversation(
+          'team-uuid-001',
+          'proj-uuid-001',
+          agentRoleId: 'role-uuid-001',
+        );
+
+        expect(http.calls.length, equals(1));
+        expect(
+          (http.calls[0].data as Map<String, dynamic>).containsKey('title'),
+          isFalse,
+        );
+      },
+    );
+
+    // -----------------------------------------------------------------------
+    // 36. fetchAgentRoles — returns parsed List<AgentRole> on success
+    // -----------------------------------------------------------------------
+
+    test('fetchAgentRoles returns parsed List<AgentRole> on success', () async {
+      http.alwaysReturn(
+        MagicResponse(
+          data: {
+            'data': [
+              {
+                'id': 'role-uuid-001',
+                'name': 'Business Analyst',
+                'scope': 'analysis',
+                'slug': 'ba',
+                'team_id': 'team-uuid-001',
+              },
+              {
+                'id': 'role-uuid-002',
+                'name': 'Lead Developer',
+                'scope': 'implementation',
+                'slug': 'lead',
+                'team_id': 'team-uuid-001',
+              },
+            ],
+          },
+          statusCode: 200,
+        ),
+      );
+
+      final roles = await state.fetchAgentRoles('team-uuid-001');
+
+      expect(roles, isA<List<AgentRole>>());
+      expect(roles.length, equals(2));
+      expect(roles[0].id, equals('role-uuid-001'));
+      expect(roles[0].name, equals('Business Analyst'));
+      expect(roles[0].scope, equals('analysis'));
+      expect(roles[1].id, equals('role-uuid-002'));
+      expect(roles[1].name, equals('Lead Developer'));
+
+      expect(http.calls.length, equals(1));
+      expect(http.calls[0].method, equals('GET'));
+      expect(http.calls[0].url, equals('/teams/team-uuid-001/agent-roles'));
+    });
+
+    // -----------------------------------------------------------------------
+    // 37. fetchAgentRoles — returns empty list on failure
+    // -----------------------------------------------------------------------
+
+    test('fetchAgentRoles returns empty list on API failure', () async {
+      http.alwaysReturn(
+        MagicResponse(data: {'message': 'Forbidden'}, statusCode: 403),
+      );
+
+      final roles = await state.fetchAgentRoles('team-uuid-001');
+
+      expect(roles, isEmpty);
+      expect(roles, isA<List<AgentRole>>());
     });
   });
 }

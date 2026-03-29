@@ -5,11 +5,13 @@ import 'package:flutter/services.dart';
 import 'package:magic/magic.dart';
 
 import '../../../app/events/websocket_event.dart';
+import '../../../app/models/agent_role.dart';
 import '../../../app/models/conversation.dart';
 import '../../../app/models/user.dart';
 import '../../../app/services/websocket_service.dart';
 import '../../../app/state/conversation_chat_state.dart';
 import '../../widgets/atoms/streaming_indicator.dart';
+import '../../widgets/organisms/agent_role_picker_modal.dart';
 import '../../widgets/organisms/chat_header.dart';
 import '../../widgets/organisms/chat_input_bar.dart';
 import '../../widgets/organisms/chat_question_card.dart';
@@ -117,10 +119,30 @@ class _ConversationChatViewState extends State<ConversationChatView> {
       if (conversationId != null && conversationId.isNotEmpty) {
         _isLoadingExisting = true;
         _state.loadConversation(_teamId, widget.projectId, conversationId);
+        return;
+      }
+
+      final agentRoleId = MagicRouter.instance.queryParameter('agentRoleId');
+      if (agentRoleId != null && agentRoleId.isNotEmpty) {
+        _autoCreateWithAgentRole(agentRoleId);
       }
     } catch (_) {
       // Query params not available in tests — silently ignore.
     }
+  }
+
+  /// Auto-creates a conversation with the given [agentRoleId] — used when
+  /// navigating from a task's "Chat with BA" button.
+  Future<void> _autoCreateWithAgentRole(String agentRoleId) async {
+    if (_teamId.isEmpty) return;
+
+    setState(() => _isCreating = true);
+    await _state.createConversation(
+      _teamId,
+      widget.projectId,
+      agentRoleId: agentRoleId,
+    );
+    if (mounted) setState(() => _isCreating = false);
   }
 
   // -----------------------------------------------------------------------
@@ -152,8 +174,22 @@ class _ConversationChatViewState extends State<ConversationChatView> {
   Future<void> _handleStartChat() async {
     if (_teamId.isEmpty) return;
 
+    // Fetch agent roles first, then show picker modal.
     setState(() => _isCreating = true);
-    await _state.createConversation(_teamId, widget.projectId);
+    final roles = await _state.fetchAgentRoles(_teamId);
+    if (!mounted) return;
+    setState(() => _isCreating = false);
+
+    final AgentRole? selected = await AgentRolePickerModal.show(context, roles);
+    if (selected == null || !mounted) return;
+
+    setState(() => _isCreating = true);
+    await _state.createConversation(
+      _teamId,
+      widget.projectId,
+      agentRoleId: selected.id,
+      title: selected.name,
+    );
     if (mounted) setState(() => _isCreating = false);
   }
 
@@ -205,7 +241,7 @@ class _ConversationChatViewState extends State<ConversationChatView> {
   Widget _buildWelcome() {
     return Center(
       child: WDiv(
-        className: 'flex flex-col items-center gap-4',
+        className: 'w-full flex flex-col items-center gap-4',
         children: [
           // Agent monogram circle
           WDiv(

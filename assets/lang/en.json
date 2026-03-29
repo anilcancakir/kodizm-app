@@ -246,13 +246,19 @@
     "event_result_error": "Completed with error"
   },
   "conversations": {
+    "chat_with_role": "Chat with :role",
     "confirm_delete": "Are you sure you want to delete this conversation?",
     "deleted": "Conversation deleted",
     "empty_subtitle": "Start a new conversation to begin",
     "empty_title": "No Conversations",
     "last_active": "Last active :time",
+    "loading_roles": "Loading agent roles...",
     "messages_count": ":count messages",
     "new": "New Conversation",
+    "no_roles_available": "No agent roles available. Please configure agent roles first.",
+    "select_agent": "Select an Agent",
+    "select_agent_subtitle": "Choose an agent role to start your conversation",
+    "start_conversation": "Start Conversation",
     "status_active": "Active",
     "status_completed": "Completed",
     "status_failed": "Failed",
@@ -662,6 +668,11 @@
     "write": "Write"
   },
   "tasks": {
+    "chat_with_ba": "Chat with BA",
+    "chat_with_ba_desc": "Describe your task in a conversation with the Business Analyst",
+    "create_manually": "Create Manually",
+    "create_manually_desc": "Fill in task details using the form",
+    "creation_method": "How would you like to create this task?",
     "status_draft": "Draft",
     "status_analysis": "Analysis",
     "status_planning": "Planning",

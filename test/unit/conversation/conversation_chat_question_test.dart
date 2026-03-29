@@ -239,7 +239,11 @@ Future<ConversationChatState> _setupWithConversation(
   });
 
   final state = ConversationChatState(httpClient: http, webSocket: ws);
-  await state.createConversation('team-uuid-001', 'proj-uuid-001');
+  await state.createConversation(
+    'team-uuid-001',
+    'proj-uuid-001',
+    agentRoleId: 'role-uuid-001',
+  );
   http.calls.clear();
 
   return state;

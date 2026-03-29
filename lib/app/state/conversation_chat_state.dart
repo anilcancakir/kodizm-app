@@ -1,6 +1,7 @@
 import 'package:magic/magic.dart';
 
 import '../events/websocket_event.dart';
+import '../models/agent_role.dart';
 import '../models/chat_item.dart';
 import '../models/conversation.dart';
 import '../models/conversation_message.dart';
@@ -83,8 +84,16 @@ abstract class ConversationChatWebSocket {
 /// ```dart
 /// final chatState = ConversationChatState.instance;
 ///
-/// // Create a new conversation (auto-fetches first agent role).
-/// await chatState.createConversation('team-1', 'proj-1');
+/// // Fetch available agent roles for display in a selection modal.
+/// final roles = await chatState.fetchAgentRoles('team-1');
+///
+/// // Create a new conversation with the selected agent role.
+/// await chatState.createConversation(
+///   'team-1',
+///   'proj-1',
+///   agentRoleId: roles.first.id,
+///   title: roles.first.name,
+/// );
 ///
 /// // Send a user message (optimistic append, API call, WS response).
 /// await chatState.sendMessage('Explain the auth flow.');
@@ -213,25 +222,24 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
 
   /// Create a new conversation for the given team and project.
   ///
-  /// Fetches the first available agent role via [_fetchFirstAgentRoleId],
-  /// then POST-creates the conversation, stores the result, and subscribes
-  /// to the WebSocket channel for live events.
-  Future<void> createConversation(String teamId, String projectId) async {
+  /// POSTs to the conversations endpoint with the provided [agentRoleId].
+  /// An optional [title] may be supplied (defaults to the agent role name on
+  /// the caller side). Stores the created conversation and subscribes to the
+  /// WebSocket channel for live events.
+  Future<void> createConversation(
+    String teamId,
+    String projectId, {
+    required String agentRoleId,
+    String? title,
+  }) async {
     _error = null;
     _teamId = teamId;
     _projectId = projectId;
 
-    // -- Resolve agent role --
-    final agentRoleId = await _fetchFirstAgentRoleId(teamId);
-    if (agentRoleId == null) {
-      refreshUI();
-      return;
-    }
-
     // -- Create conversation --
     final response = await _http.post(
       '/teams/$teamId/projects/$projectId/conversations',
-      data: {'agent_role_id': agentRoleId},
+      data: {'agent_role_id': agentRoleId, 'title': ?title},
     );
 
     if (!response.successful) {
@@ -482,32 +490,31 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   }
 
   // ---------------------------------------------------------------------------
-  // Private helpers
+  // fetchAgentRoles
   // ---------------------------------------------------------------------------
 
-  /// Fetch the first agent role ID for the given team.
+  /// Fetch the available agent roles for the given [teamId].
   ///
-  /// Returns `null` and sets [_error] if no agent roles are available or
-  /// the API call fails.
-  Future<String?> _fetchFirstAgentRoleId(String teamId) async {
+  /// Returns the parsed list directly — the caller owns the list (e.g. for
+  /// modal display). No internal state is stored.
+  Future<List<AgentRole>> fetchAgentRoles(String teamId) async {
     final response = await _http.get('/teams/$teamId/agent-roles');
 
     if (!response.successful) {
-      _error = response.errorMessage ?? 'Failed to fetch agent roles';
-      return null;
+      return [];
     }
 
-    final Map<String, dynamic> body = response.data as Map<String, dynamic>;
-    final List<dynamic> items = body['data'] as List<dynamic>;
+    final List<dynamic> items =
+        (response.data as Map<String, dynamic>)['data'] as List<dynamic>;
 
-    if (items.isEmpty) {
-      _error = 'No agent roles available';
-      return null;
-    }
-
-    final first = items.first as Map<String, dynamic>;
-    return first['id'] as String;
+    return items
+        .map((item) => AgentRole.fromMap(item as Map<String, dynamic>))
+        .toList();
   }
+
+  // ---------------------------------------------------------------------------
+  // Private helpers
+  // ---------------------------------------------------------------------------
 
   /// Handle `.conversation.message` — route by event type.
   ///

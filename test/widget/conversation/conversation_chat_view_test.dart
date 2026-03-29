@@ -161,11 +161,7 @@ Widget _buildTestWidget({String projectId = kProjectId}) {
   return WindTheme(
     data: WindThemeData(),
     child: MaterialApp(
-      home: Scaffold(
-        body: SingleChildScrollView(
-          child: ConversationChatView(projectId: projectId),
-        ),
-      ),
+      home: Scaffold(body: ConversationChatView(projectId: projectId)),
     ),
   );
 }
@@ -247,13 +243,13 @@ void main() {
   });
 
   // -----------------------------------------------------------------------
-  // 2. Title renders from i18n
+  // 2. Welcome title renders from i18n
   // -----------------------------------------------------------------------
 
-  testWidgets('title renders from i18n', (tester) async {
+  testWidgets('welcome title renders from i18n', (tester) async {
     await pumpInitialState(tester);
 
-    expect(find.text(trans('conversation_chat.title')), findsOneWidget);
+    expect(find.text(trans('conversation_chat.welcome_title')), findsOneWidget);
   });
 
   // -----------------------------------------------------------------------
@@ -266,8 +262,8 @@ void main() {
     // Input field placeholder should be present.
     expect(find.text(trans('conversation_chat.placeholder')), findsOneWidget);
 
-    // Send button should be present.
-    expect(find.text(trans('conversation_chat.send')), findsOneWidget);
+    // Send icon should be present (ChatInputBar uses WIcon(Icons.send)).
+    expect(find.byIcon(Icons.send), findsOneWidget);
   });
 
   // -----------------------------------------------------------------------
@@ -291,9 +287,9 @@ void main() {
     // Conversation title from fixture.
     expect(find.text('Test Conversation'), findsOneWidget);
 
-    // Cost display.
+    // Cost display — ChatHeader formats with 4 decimal places.
     expect(
-      find.text(trans('conversation_chat.cost_format', {'amount': '0.12'})),
+      find.text(trans('conversation_chat.cost_format', {'amount': '0.1200'})),
       findsWidgets,
     );
   });
@@ -334,8 +330,8 @@ void main() {
     await tester.enterText(inputFinder, 'Hello agent!');
     await tester.pump();
 
-    // Tap send button.
-    final sendFinder = find.text(trans('conversation_chat.send'));
+    // Tap send button (icon-based).
+    final sendFinder = find.byIcon(Icons.send);
     await tester.tap(sendFinder);
     await tester.pump();
     await tester.pump();
@@ -404,7 +400,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Open debug panel to see the raw events count.
-    final debugToggle = find.byIcon(Icons.bug_report_outlined);
+    final debugToggle = find.byIcon(Icons.settings_outlined);
     await tester.tap(debugToggle.first);
     await tester.pump();
 
@@ -424,8 +420,8 @@ void main() {
     // Debug panel should be hidden initially (raw events section not visible).
     expect(find.text(trans('conversation_chat.raw_events')), findsNothing);
 
-    // Find and tap the debug toggle button (first icon — header button).
-    final debugToggle = find.byIcon(Icons.bug_report_outlined).first;
+    // Find and tap the debug toggle button (settings icon from ChatHeader).
+    final debugToggle = find.byIcon(Icons.settings_outlined).first;
 
     await tester.tap(debugToggle);
     await tester.pump();
@@ -436,8 +432,8 @@ void main() {
       findsOneWidget,
     );
 
-    // Tap header toggle again to hide — it's now the first of two.
-    await tester.tap(find.byIcon(Icons.bug_report_outlined).first);
+    // Tap header toggle again to hide.
+    await tester.tap(find.byIcon(Icons.settings_outlined).first);
     await tester.pump();
 
     // Should be hidden again.
@@ -461,7 +457,7 @@ void main() {
     await tester.enterText(inputFinder, 'Test message');
     await tester.pump();
 
-    final sendFinder = find.text(trans('conversation_chat.send'));
+    final sendFinder = find.byIcon(Icons.send);
     await tester.tap(sendFinder);
     await tester.pump();
     await tester.pump();
@@ -560,8 +556,8 @@ void main() {
     // Session Info should not be visible by default.
     expect(find.text(trans('conversation_chat.session_info')), findsNothing);
 
-    // Activate debug (first icon — header button).
-    await tester.tap(find.byIcon(Icons.bug_report_outlined).first);
+    // Activate debug (settings icon from ChatHeader).
+    await tester.tap(find.byIcon(Icons.settings_outlined).first);
     await tester.pump();
 
     // Session Info should now be visible in the debug panel.
@@ -569,7 +565,7 @@ void main() {
   });
 
   // -----------------------------------------------------------------------
-  // 17. Streaming indicator shown when sending
+  // 17. Streaming indicator not shown when not sending
   // -----------------------------------------------------------------------
 
   testWidgets('streaming indicator not shown when not sending', (tester) async {

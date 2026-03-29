@@ -10,8 +10,12 @@ import '../../../app/models/user.dart';
 import '../../../app/services/websocket_service.dart';
 import '../../../app/state/conversation_chat_state.dart';
 import '../../widgets/atoms/streaming_indicator.dart';
-import 'package:magic_starter/magic_starter.dart';
+import '../../widgets/organisms/chat_header.dart';
+import '../../widgets/organisms/chat_input_bar.dart';
 import '../../widgets/organisms/chat_message_bubble.dart';
+import '../../widgets/organisms/chat_question_card.dart';
+import '../../widgets/organisms/chat_permission_card.dart';
+import 'package:magic_starter/magic_starter.dart';
 
 // ---------------------------------------------------------------------------
 // WebSocket adapter — bridges WebSocketService to ConversationChatWebSocket
@@ -43,19 +47,14 @@ class _WebSocketAdapter implements ConversationChatWebSocket {
 /// messages with styled bubbles, a header bar with metadata, and a
 /// collapsible debug panel behind [_rawEventsExpanded] toggle.
 ///
-/// Supports both creating new conversations and loading existing ones
-/// via an optional `conversationId` query parameter.
-///
 /// ## Usage
 ///
 /// ```dart
 /// ConversationChatView(projectId: 'proj-uuid-001')
 /// ```
 class ConversationChatView extends StatefulWidget {
-  /// Creates a [ConversationChatView] for the given [projectId].
   const ConversationChatView({super.key, required this.projectId});
 
-  /// The ID of the project to create conversations in.
   final String projectId;
 
   @override
@@ -68,9 +67,11 @@ class _ConversationChatViewState extends State<ConversationChatView> {
   final TextEditingController _inputController = TextEditingController();
   final TextEditingController _answerController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final FocusNode _inputFocusNode = FocusNode();
   bool _autoScroll = true;
   bool _rawEventsExpanded = false;
   bool _isCreating = false;
+  bool _isLoadingExisting = false;
 
   // -----------------------------------------------------------------------
   // Lifecycle
@@ -94,8 +95,6 @@ class _ConversationChatViewState extends State<ConversationChatView> {
     _teamId = Auth.user<User>()?.currentTeam?.id ?? '';
 
     _scrollController.addListener(_onScrollChanged);
-
-    // Load existing conversation if query param present.
     _maybeLoadConversation();
   }
 
@@ -105,18 +104,18 @@ class _ConversationChatViewState extends State<ConversationChatView> {
     _answerController.dispose();
     _scrollController.removeListener(_onScrollChanged);
     _scrollController.dispose();
+    _inputFocusNode.dispose();
     _state.reset();
     super.dispose();
   }
 
-  /// Checks for a `conversationId` query parameter and loads that
-  /// conversation if present.
   void _maybeLoadConversation() {
     try {
       final conversationId = MagicRouter.instance.queryParameter(
         'conversationId',
       );
       if (conversationId != null && conversationId.isNotEmpty) {
+        _isLoadingExisting = true;
         _state.loadConversation(_teamId, widget.projectId, conversationId);
       }
     } catch (_) {
@@ -154,12 +153,8 @@ class _ConversationChatViewState extends State<ConversationChatView> {
     if (_teamId.isEmpty) return;
 
     setState(() => _isCreating = true);
-
     await _state.createConversation(_teamId, widget.projectId);
-
-    if (mounted) {
-      setState(() => _isCreating = false);
-    }
+    if (mounted) setState(() => _isCreating = false);
   }
 
   Future<void> _handleSendMessage() async {
@@ -169,8 +164,11 @@ class _ConversationChatViewState extends State<ConversationChatView> {
     _inputController.clear();
     await _state.sendMessage(text);
 
-    if (mounted && _autoScroll) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+    if (mounted) {
+      if (_autoScroll) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
+      }
+      _inputFocusNode.requestFocus();
     }
   }
 
@@ -184,228 +182,140 @@ class _ConversationChatViewState extends State<ConversationChatView> {
 
   @override
   Widget build(BuildContext context) {
+    // The chat view runs inside _FullscreenLayout (bare Scaffold + SafeArea)
+    // so we have bounded height — Column + Expanded works naturally.
     return ListenableBuilder(
       listenable: _state,
       builder: (context, _) {
         if (_state.conversation == null) {
-          return _buildStartChat();
+          if (_isLoadingExisting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          return _buildWelcome();
         }
-        return _buildContent();
+        return _buildChat();
       },
     );
   }
 
   // -----------------------------------------------------------------------
-  // Start Chat (no conversation yet)
+  // Welcome state (no conversation yet)
   // -----------------------------------------------------------------------
 
-  Widget _buildStartChat() {
-    return WDiv(
-      className: 'p-4 lg:p-6 flex flex-col gap-4',
-      children: [
-        // Title bar
-        WDiv(
-          className: 'flex flex-row items-center gap-3',
-          children: [
-            WText(
-              trans('conversation_chat.title'),
-              className: 'text-lg font-semibold text-slate-900 dark:text-white',
-            ),
-          ],
-        ),
+  Widget _buildWelcome() {
+    return Center(
+      child: WDiv(
+        className: 'flex flex-col items-center gap-4',
+        children: [
+          // Agent monogram circle
+          WDiv(
+            className:
+                'w-12 h-12 rounded-full bg-amber-400 flex items-center justify-center',
+            child: WText('A', className: 'text-lg font-bold text-white'),
+          ),
 
-        // Centered start button or loading
-        WDiv(
-          className: 'w-full flex flex-col items-center justify-center py-16',
-          child: _isCreating
-              ? WDiv(
-                  className: 'flex flex-col items-center gap-3',
-                  children: [
-                    SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: const CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                    WText(
-                      trans('conversation_chat.starting'),
-                      className: 'text-sm text-slate-500 dark:text-slate-400',
-                    ),
-                  ],
-                )
-              : WDiv(
-                  className: 'flex flex-col items-center gap-4',
-                  children: [
-                    WText(
-                      trans('conversation_chat.subtitle'),
-                      className: 'text-sm text-slate-500 dark:text-slate-400',
-                    ),
-                    WAnchor(
-                      onTap: _handleStartChat,
-                      child: WDiv(
-                        className: '''
-                          px-6 py-3 bg-amber-400 rounded-lg
-                        ''',
-                        child: WText(
-                          trans('conversation_chat.start_chat'),
-                          className: 'text-sm font-semibold text-slate-900',
-                        ),
-                      ),
-                    ),
-                    if (_state.error != null)
-                      WText(_state.error!, className: 'text-sm text-red-500'),
-                  ],
+          WText(
+            trans('conversation_chat.welcome_title'),
+            className: 'text-lg font-semibold text-slate-800',
+          ),
+
+          WText(
+            trans('conversation_chat.welcome_subtitle'),
+            className: 'text-sm text-slate-500',
+          ),
+
+          if (_isCreating)
+            WDiv(
+              className: 'flex flex-col items-center gap-3',
+              children: [
+                SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: const CircularProgressIndicator(strokeWidth: 2),
                 ),
-        ),
-      ],
+                WText(
+                  trans('conversation_chat.starting'),
+                  className: 'text-sm text-slate-500',
+                ),
+              ],
+            )
+          else
+            WAnchor(
+              onTap: _handleStartChat,
+              child: WDiv(
+                className: 'px-6 py-3 bg-amber-400 rounded-lg',
+                child: WText(
+                  trans('conversation_chat.start_chat'),
+                  className: 'text-sm font-semibold text-slate-900',
+                ),
+              ),
+            ),
+
+          if (_state.error != null)
+            WText(_state.error!, className: 'text-sm text-red-500'),
+        ],
+      ),
     );
   }
 
   // -----------------------------------------------------------------------
-  // Content (conversation exists)
+  // Chat content (conversation exists)
   // -----------------------------------------------------------------------
 
-  Widget _buildContent() {
+  Widget _buildChat() {
     final conversation = _state.conversation!;
 
-    // Trigger auto-scroll after build.
     if (_autoScroll && _state.messages.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
     }
 
-    return WDiv(
-      className: 'flex flex-col gap-0',
+    return Column(
       children: [
-        // Header bar
-        _buildHeader(conversation),
+        // Header — fixed at top
+        ChatHeader(
+          conversation: conversation,
+          sessionPhase: _state.sessionPhase,
+          debugExpanded: _rawEventsExpanded,
+          onComplete: _handleComplete,
+          onToggleDebug: () =>
+              setState(() => _rawEventsExpanded = !_rawEventsExpanded),
+        ),
 
-        // Message area
-        _buildMessageArea(),
+        // Message area — expands to fill available space
+        Expanded(child: _buildMessageArea()),
 
-        // Question / permission cards
-        if (_state.pendingQuestion != null) _buildQuestionCard(),
-        if (_state.pendingPermission != null) _buildPermissionCard(),
-
-        // Streaming indicator
+        // Bottom sticky area — streaming, cards, input
         if (_state.isSending) const StreamingIndicator(),
 
-        // Input area
-        if (conversation.status != 'completed') _buildInputArea(),
+        if (_state.pendingQuestion != null)
+          ChatQuestionCard(
+            question: _state.pendingQuestion!,
+            isDisabled: _state.isAnswering,
+            answerController: _answerController,
+            onAnswer: _state.answerQuestion,
+          ),
 
-        // Debug panel (conditionally shown)
-        if (_rawEventsExpanded) _buildDebugPanel(conversation),
+        if (_state.pendingPermission != null)
+          ChatPermissionCard(
+            permission: _state.pendingPermission!,
+            isDisabled: _state.isAnswering,
+            onAnswer: _state.answerQuestion,
+          ),
+
+        if (conversation.status != 'completed')
+          ChatInputBar(
+            controller: _inputController,
+            focusNode: _inputFocusNode,
+            isSending: _state.isSending,
+            onSend: _handleSendMessage,
+          ),
+
+        // Debug panel — scrollable within remaining space
+        if (_rawEventsExpanded)
+          Expanded(
+            child: SingleChildScrollView(child: _buildDebugPanel(conversation)),
+          ),
       ],
-    );
-  }
-
-  // -----------------------------------------------------------------------
-  // Header bar
-  // -----------------------------------------------------------------------
-
-  Widget _buildHeader(Conversation conversation) {
-    return WDiv(
-      className: '''
-        px-4 py-3 border-b border-slate-200 dark:border-slate-700
-        flex flex-row items-center gap-3
-      ''',
-      children: [
-        // Agent role badge
-        if (conversation.agentRoleName != null)
-          WDiv(
-            className:
-                '''
-              px-2 py-0.5 rounded-full
-              ${_agentRoleClassName(conversation.agentRoleSlug)}
-            ''',
-            child: WText(
-              conversation.agentRoleName!,
-              className: 'text-xs font-semibold',
-            ),
-          ),
-
-        // Conversation title
-        WText(
-          conversation.title ?? trans('conversation_chat.title'),
-          className: 'text-sm font-semibold text-slate-900 dark:text-white',
-        ),
-
-        // Status badge
-        _buildConversationStatusBadge(conversation.status),
-
-        // Cost display
-        WText(
-          trans('conversation_chat.cost_format', {
-            'amount': (conversation.totalCostUsd ?? 0.0).toStringAsFixed(2),
-          }),
-          className: 'font-mono text-sm text-slate-500 dark:text-slate-400',
-        ),
-
-        // Session phase (if available)
-        if (_state.sessionPhase != null)
-          WText(
-            trans('conversation_chat.session_phase', {
-              'phase': _state.sessionPhase!,
-            }),
-            className: 'text-xs text-slate-400',
-          ),
-
-        // Spacer
-        WSpacer(className: 'flex-1'),
-
-        // Complete button
-        if (conversation.status == 'active')
-          WAnchor(
-            onTap: _handleComplete,
-            child: WDiv(
-              className: 'px-3 py-1.5 bg-red-500 rounded-lg',
-              child: WText(
-                trans('conversation_chat.complete_chat'),
-                className: 'text-xs text-white font-medium',
-              ),
-            ),
-          ),
-
-        // Debug toggle button
-        WAnchor(
-          onTap: () => setState(() => _rawEventsExpanded = !_rawEventsExpanded),
-          child: WDiv(
-            className:
-                '''
-              p-1.5 rounded-lg
-              ${_rawEventsExpanded ? 'bg-amber-400/15' : 'bg-slate-100 dark:bg-slate-800'}
-            ''',
-            child: WIcon(
-              Icons.bug_report_outlined,
-              className:
-                  '''
-                text-lg
-                ${_rawEventsExpanded ? 'text-amber-600' : 'text-slate-400'}
-              ''',
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // -----------------------------------------------------------------------
-  // Conversation status badge (uses conversation_chat i18n keys)
-  // -----------------------------------------------------------------------
-
-  Widget _buildConversationStatusBadge(String status) {
-    final colorMap = {
-      'active': 'bg-emerald-500/15 text-emerald-500',
-      'paused': 'bg-amber-400/15 text-amber-500',
-      'completed': 'bg-slate-500/15 text-slate-500',
-      'failed': 'bg-red-500/15 text-red-500',
-    };
-
-    return WDiv(
-      className:
-          'px-1.5 py-0.5 rounded ${colorMap[status] ?? colorMap['active']!}',
-      child: WText(
-        trans('conversation_chat.status_$status'),
-        className: 'text-[11px] font-semibold',
-      ),
     );
   }
 
@@ -415,255 +325,63 @@ class _ConversationChatViewState extends State<ConversationChatView> {
 
   Widget _buildMessageArea() {
     final messages = _state.messages;
+    final conversation = _state.conversation!;
 
     if (messages.isEmpty) {
-      return WDiv(
-        className: 'w-full flex items-center justify-center py-16',
-        child: WText(
-          trans('conversation_chat.no_messages'),
-          className: 'text-sm text-slate-400 dark:text-slate-500',
+      return Center(
+        child: WDiv(
+          className: 'flex flex-col items-center gap-3',
+          children: [
+            WDiv(
+              className:
+                  'w-10 h-10 rounded-full flex items-center justify-center ${_avatarBgClassName(conversation.agentRoleSlug)}',
+              child: WText(
+                (conversation.agentRoleName ?? 'A')[0].toUpperCase(),
+                className: 'text-sm font-semibold text-white',
+              ),
+            ),
+            WText(
+              trans('conversation_chat.no_messages'),
+              className: 'text-sm text-slate-400',
+            ),
+          ],
         ),
       );
     }
 
-    return ListView.builder(
-      controller: _scrollController,
-      shrinkWrap: true,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      itemCount: messages.length,
-      itemBuilder: (context, index) =>
-          ChatMessageBubble(message: messages[index]),
-    );
-  }
-
-  // -----------------------------------------------------------------------
-  // Input area
-  // -----------------------------------------------------------------------
-
-  Widget _buildInputArea() {
-    return WDiv(
-      className: '''
-        px-4 py-3 border-t border-slate-200 dark:border-slate-700
-        flex flex-row gap-3 items-center
-      ''',
+    return Stack(
       children: [
-        WDiv(
-          className: 'flex-1',
-          child: WFormInput(
-            controller: _inputController,
-            label: trans('conversation_chat.placeholder'),
+        ListView.builder(
+          controller: _scrollController,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          itemCount: messages.length,
+          itemBuilder: (context, index) => ChatMessageBubble(
+            message: messages[index],
+            agentRoleSlug: conversation.agentRoleSlug,
+            agentRoleName: conversation.agentRoleName,
+            userName: Auth.user<User>()?.name,
           ),
         ),
-        WAnchor(
-          onTap: _state.isSending ? null : _handleSendMessage,
-          child: WDiv(
-            className:
-                '''
-              px-4 py-2 rounded-lg
-              ${_state.isSending ? 'bg-slate-300 dark:bg-slate-600' : 'bg-amber-400'}
-            ''',
-            child: WText(
-              _state.isSending
-                  ? trans('conversation_chat.sending')
-                  : trans('conversation_chat.send'),
-              className: 'text-sm font-medium text-slate-900',
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 
-  // -----------------------------------------------------------------------
-  // Question card
-  // -----------------------------------------------------------------------
-
-  Widget _buildQuestionCard() {
-    final question = _state.pendingQuestion!;
-    final questionId = question['questionId'] as String? ?? '';
-    final message = question['message'] as String? ?? '';
-    final header = question['header'] as String?;
-    final options = question['options'] as List<Map<String, dynamic>>?;
-    final isDisabled = _state.isAnswering;
-
-    return WDiv(
-      className: '''
-        mx-4 p-4 rounded-xl border-2 border-amber-400
-        bg-amber-50 dark:bg-amber-900/10
-      ''',
-      children: [
-        // Header
-        WDiv(
-          className: 'flex flex-row items-center gap-2 mb-3',
-          children: [
-            WIcon(Icons.help_outline, className: 'text-amber-600 text-lg'),
-            WText(
-              trans('conversation_chat.question_title'),
-              className: 'text-sm font-semibold text-amber-700',
-            ),
-          ],
-        ),
-
-        // Optional header text
-        if (header != null)
-          WText(header, className: 'text-base font-medium mb-2'),
-
-        // Question message
-        WText(
-          message,
-          className: 'text-sm text-slate-700 dark:text-slate-300 mb-3',
-        ),
-
-        // Clickable option cards
-        if (options != null)
-          for (final option in options)
-            WAnchor(
-              onTap: isDisabled
-                  ? null
-                  : () => _state.answerQuestion(
-                      questionId,
-                      option['label'] as String? ?? '',
-                    ),
+        // Scroll-to-bottom FAB
+        if (!_autoScroll)
+          Positioned(
+            bottom: 16,
+            right: 16,
+            child: WAnchor(
+              onTap: () {
+                _scrollToBottom();
+                setState(() => _autoScroll = true);
+              },
               child: WDiv(
-                className: '''
-                  p-3 rounded-lg border border-slate-200
-                  hover:border-amber-400 mb-2
-                ''',
-                children: [
-                  WText(
-                    option['label'] as String? ?? '',
-                    className: 'text-sm font-medium',
-                  ),
-                  if (option['description'] != null)
-                    WText(
-                      option['description'] as String,
-                      className: 'text-xs text-slate-500',
-                    ),
-                ],
-              ),
-            ),
-
-        // Free-form fallback input
-        WDiv(
-          className: 'flex flex-row gap-2 mt-2',
-          children: [
-            WDiv(
-              className: 'flex-1',
-              child: WFormInput(
-                controller: _answerController,
-                label: trans('conversation_chat.answer_placeholder'),
-              ),
-            ),
-            WAnchor(
-              onTap: isDisabled
-                  ? null
-                  : () {
-                      final text = _answerController.text.trim();
-                      if (text.isEmpty) return;
-                      _answerController.clear();
-                      _state.answerQuestion(questionId, text);
-                    },
-              child: WDiv(
-                className:
-                    '''
-                  px-4 py-2 rounded-lg
-                  ${isDisabled ? 'bg-slate-300 dark:bg-slate-600' : 'bg-amber-400'}
-                ''',
-                child: WText(
-                  isDisabled
-                      ? trans('conversation_chat.question_submitting')
-                      : trans('conversation_chat.question_submit'),
-                  className: 'text-sm font-medium text-slate-900',
+                className: 'p-2 rounded-full bg-amber-400 shadow-md',
+                child: WIcon(
+                  Icons.keyboard_arrow_down,
+                  className: 'text-lg text-slate-900',
                 ),
               ),
             ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  // -----------------------------------------------------------------------
-  // Permission card
-  // -----------------------------------------------------------------------
-
-  Widget _buildPermissionCard() {
-    final permission = _state.pendingPermission!;
-    final questionId = permission['questionId'] as String? ?? '';
-    final toolName = permission['toolName'] as String? ?? '';
-    final input = permission['input'];
-    final isDisabled = _state.isAnswering;
-
-    return WDiv(
-      className: '''
-        mx-4 p-4 rounded-xl border-2 border-blue-400
-        bg-blue-50 dark:bg-blue-900/10
-      ''',
-      children: [
-        // Header
-        WDiv(
-          className: 'flex flex-row items-center gap-2 mb-3',
-          children: [
-            WIcon(Icons.shield_outlined, className: 'text-blue-600 text-lg'),
-            WText(
-              trans('conversation_chat.permission_title'),
-              className: 'text-sm font-semibold text-blue-700',
-            ),
-          ],
-        ),
-
-        // Tool name
-        WText(
-          trans('conversation_chat.permission_tool', {'tool': toolName}),
-          className: 'font-mono text-sm',
-        ),
-
-        // Input display
-        if (input != null)
-          WDiv(
-            className: '''
-              bg-slate-100 dark:bg-slate-800
-              p-3 rounded-lg overflow-hidden mt-2
-            ''',
-            child: SelectableText(
-              jsonEncode(input),
-              style: const TextStyle(
-                fontSize: 13,
-                fontFamily: 'JetBrains Mono',
-              ),
-            ),
           ),
-
-        // Approve / Deny buttons
-        WDiv(
-          className: 'flex flex-row gap-3 mt-3',
-          children: [
-            WAnchor(
-              onTap: isDisabled
-                  ? null
-                  : () => _state.answerQuestion(questionId, 'approve'),
-              child: WDiv(
-                className: 'px-4 py-2 bg-emerald-500 rounded-lg',
-                child: WText(
-                  trans('conversation_chat.permission_approve'),
-                  className: 'text-white text-sm font-medium',
-                ),
-              ),
-            ),
-            WAnchor(
-              onTap: isDisabled
-                  ? null
-                  : () => _state.answerQuestion(questionId, 'deny'),
-              child: WDiv(
-                className: 'px-4 py-2 bg-red-500 rounded-lg',
-                child: WText(
-                  trans('conversation_chat.permission_deny'),
-                  className: 'text-white text-sm font-medium',
-                ),
-              ),
-            ),
-          ],
-        ),
       ],
     );
   }
@@ -895,19 +613,17 @@ class _ConversationChatViewState extends State<ConversationChatView> {
   // Helpers
   // -----------------------------------------------------------------------
 
-  /// Returns agent role badge className based on slug.
-  String _agentRoleClassName(String? slug) {
+  String _avatarBgClassName(String? slug) {
     return switch (slug) {
-      'ba' => 'bg-indigo-500/10 text-indigo-500',
-      'lead' => 'bg-primary-500/10 text-primary-500',
-      'dev' => 'bg-teal-500/10 text-teal-500',
-      'reviewer' => 'bg-violet-500/10 text-violet-500',
-      'qa' => 'bg-emerald-500/10 text-emerald-500',
-      _ => 'bg-slate-500/10 text-slate-500',
+      'ba' => 'bg-indigo-500',
+      'lead' => 'bg-primary-500',
+      'dev' => 'bg-teal-500',
+      'reviewer' => 'bg-violet-500',
+      'qa' => 'bg-emerald-500',
+      _ => 'bg-slate-500',
     };
   }
 
-  /// Truncates a UUID to first 8 characters with ellipsis.
   String _truncateId(String id) {
     if (id.length <= 12) return id;
     return '${id.substring(0, 8)}...';

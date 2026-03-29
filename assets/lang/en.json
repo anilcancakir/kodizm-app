@@ -188,6 +188,7 @@
     "model_cost": ":model — $:cost",
     "model_label": "Model",
     "no_messages": "No messages yet",
+    "new_messages": "New messages",
     "output_tokens": "Output Tokens",
     "permission_approve": "Approve",
     "permission_deny": "Deny",
@@ -210,11 +211,14 @@
     "starting": "Starting...",
     "status_active": "Active",
     "status_completed": "Completed",
+    "status_failed": "Failed",
     "status_paused": "Paused",
     "streaming": "Thinking...",
     "subtitle": "Real-time conversation debug tool",
+    "time_ago": ":time",
     "title": "Debug Chat",
     "toggle_debug": "Toggle Debug",
+    "typing": "Typing...",
     "tokens_label": "Tokens",
     "tool_input": "Input",
     "tool_name": "Tool: :name",
@@ -223,8 +227,11 @@
     "user_role": "You",
     "waiting_for_input": "Waiting for your input...",
     "warm_until": "Container warm until :time",
+    "welcome_subtitle": "Start a conversation with your AI agent",
+    "welcome_title": "How can I help?",
     "cost_duration": "$:cost · :duration ms",
-    "tokens_usage": ":input in / :output out"
+    "tokens_usage": ":input in / :output out",
+    "attach_file": "Attach file"
   },
   "conversations": {
     "confirm_delete": "Are you sure you want to delete this conversation?",
@@ -262,7 +269,8 @@
   "errors": {
     "unexpected": "An unexpected error occurred. Please try again.",
     "network_error": "Network connection failed. Please check your internet connection and try again.",
-    "network_timeout": "Request timed out. Please try again later."
+    "network_timeout": "Request timed out. Please try again later.",
+    "invalid_password": "The password you entered is incorrect."
   },
   "fields": {
     "email_placeholder": "you@example.com",

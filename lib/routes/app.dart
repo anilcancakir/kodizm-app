@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:magic/magic.dart';
 import 'package:magic_starter/magic_starter.dart';
 
@@ -61,11 +62,6 @@ void registerAppRoutes() {
         (String projectId, String taskId, String runId) =>
             AgentRunView(projectId: projectId, taskId: taskId, runId: runId),
       );
-      MagicRoute.page(
-        '/projects/:projectId/chat',
-        (String projectId) => ConversationChatView(projectId: projectId),
-      );
-
       // Top-level nav redirects — check current project and redirect.
       MagicRoute.page(
         '/tasks',
@@ -114,5 +110,39 @@ void registerAppRoutes() {
     },
   );
 
-  // MagicRoute.page('/', () => const WelcomeView()); // Replaced by DashboardView
+  // Fullscreen routes — clean layout with no app header, sidebar, or bottom nav.
+  // The chat page provides its own header (ChatHeader) and input bar.
+  MagicRoute.group(
+    layout: (child) => _FullscreenLayout(child: child),
+    middleware: ['auth'],
+    layoutId: 'app.fullscreen',
+    routes: () {
+      MagicRoute.page(
+        '/projects/:projectId/chat',
+        (String projectId) => ConversationChatView(projectId: projectId),
+      );
+    },
+  );
+}
+
+/// Minimal fullscreen layout — just a dark [Scaffold] with no app bar,
+/// sidebar, or bottom navigation. Used for immersive views like chat.
+class _FullscreenLayout extends StatelessWidget {
+  const _FullscreenLayout({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: wColor(
+        context,
+        'gray',
+        shade: 50,
+        darkColorName: 'gray',
+        darkShade: 950,
+      ),
+      body: SafeArea(child: child),
+    );
+  }
 }

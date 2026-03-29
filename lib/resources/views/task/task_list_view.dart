@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:magic/magic.dart';
 
+import '../../../app/models/agent_role.dart';
 import '../../../app/models/task.dart';
 import '../../../app/models/user.dart';
 import '../../../app/state/task_state.dart';
 import '../../widgets/atoms/priority_badge.dart';
 import '../../widgets/atoms/status_badge.dart';
 import '../../widgets/atoms/task_type_icon.dart';
+import '../../widgets/organisms/agent_role_picker_modal.dart';
+import '../../widgets/organisms/task_creation_method_modal.dart';
 import 'package:magic_starter/magic_starter.dart';
 
 /// Task list view — displays all tasks for a given project.
@@ -133,6 +136,45 @@ class _TaskListViewState extends State<TaskListView> {
     _fetchTasks();
   }
 
+  // -----------------------------------------------------------------------
+  // Create task flow
+  // -----------------------------------------------------------------------
+
+  /// Shows the creation method modal and routes accordingly.
+  ///
+  /// `'manual'` → navigates to the form page.
+  /// `'chat'`   → fetches agent roles, shows picker, navigates to chat.
+  Future<void> _handleCreateTask() async {
+    final result = await TaskCreationMethodModal.show(context);
+    if (!mounted || result == null) return;
+
+    switch (result) {
+      case 'manual':
+        MagicRoute.to('/projects/${widget.projectId}/tasks/create');
+      case 'chat':
+        _openChatWithBa();
+    }
+  }
+
+  /// Fetches agent roles, shows the [AgentRolePickerModal], then navigates
+  /// to the chat view with the selected role.
+  Future<void> _openChatWithBa() async {
+    final teamId = Auth.user<User>()?.currentTeam?.id;
+    if (teamId == null || teamId.isEmpty) return;
+
+    await TaskState.instance.fetchAgentRoles(teamId);
+    if (!mounted) return;
+
+    final roles = TaskState.instance.agentRoles;
+    final AgentRole? selected = await AgentRolePickerModal.show(context, roles);
+
+    if (!mounted || selected == null) return;
+
+    MagicRoute.to(
+      '/projects/${widget.projectId}/chat?agentRoleId=${selected.id}',
+    );
+  }
+
   /// Whether any filter chip is currently active.
   bool get _hasActiveFilters =>
       _statusFilter.isNotEmpty ||
@@ -168,8 +210,7 @@ class _TaskListViewState extends State<TaskListView> {
           ),
           actions: [
             WAnchor(
-              onTap: () =>
-                  MagicRoute.to('/projects/${widget.projectId}/tasks/create'),
+              onTap: _handleCreateTask,
               child: WDiv(
                 className: '''
                   flex flex-row items-center gap-2
@@ -284,10 +325,7 @@ class _TaskListViewState extends State<TaskListView> {
             ),
             onLoading: const _LoadingView(),
             onError: (msg) => _ErrorView(message: msg),
-            onEmpty: _EmptyView(
-              onCreateTap: () =>
-                  MagicRoute.to('/projects/${widget.projectId}/tasks/create'),
-            ),
+            onEmpty: _EmptyView(onCreateTap: _handleCreateTask),
           ),
         ),
       ],

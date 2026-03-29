@@ -1453,5 +1453,166 @@ void main() {
       expect(roles, isEmpty);
       expect(roles, isA<List<AgentRole>>());
     });
+
+    // -----------------------------------------------------------------------
+    // 38. tool_use with toolUseId → ChatToolUseItem.toolUseId forwarded
+    // -----------------------------------------------------------------------
+
+    test('tool_use event forwards toolUseId to ChatToolUseItem', () async {
+      http.whenAny((url) {
+        if (url.contains('/agent-roles')) {
+          return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
+        }
+        return MagicResponse(data: kConversationResponse, statusCode: 201);
+      });
+      await state.createConversation(
+        'team-uuid-001',
+        'proj-uuid-001',
+        agentRoleId: 'role-uuid-001',
+      );
+
+      ws.simulateEvent(
+        'private-conversation.conv-uuid-001',
+        WebSocketEvent(
+          id: 'ws:tool:38',
+          channel: 'private-conversation.conv-uuid-001',
+          eventName: '.conversation.message',
+          data: {
+            'type': 'tool_use',
+            'content': null,
+            'metadata': {
+              'data': {
+                'toolName': 'Bash',
+                'input': {'command': 'ls -la'},
+                'toolUseId': 'toolu_abc123',
+              },
+            },
+            'occurred_at': '2026-03-27T10:05:00.000Z',
+          },
+          receivedAt: DateTime.now(),
+        ),
+      );
+
+      final item = state.chatItems.last as ChatToolUseItem;
+      expect(item.toolName, equals('Bash'));
+      expect(item.toolUseId, equals('toolu_abc123'));
+      expect(item.result, isNull);
+    });
+
+    // -----------------------------------------------------------------------
+    // 39. tool_result event populates result on matching ChatToolUseItem
+    // -----------------------------------------------------------------------
+
+    test(
+      'tool_result event finds parent ChatToolUseItem and populates result',
+      () async {
+        http.whenAny((url) {
+          if (url.contains('/agent-roles')) {
+            return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
+          }
+          return MagicResponse(data: kConversationResponse, statusCode: 201);
+        });
+        await state.createConversation(
+          'team-uuid-001',
+          'proj-uuid-001',
+          agentRoleId: 'role-uuid-001',
+        );
+
+        // First: emit the tool_use that creates the card.
+        ws.simulateEvent(
+          'private-conversation.conv-uuid-001',
+          WebSocketEvent(
+            id: 'ws:tool:39a',
+            channel: 'private-conversation.conv-uuid-001',
+            eventName: '.conversation.message',
+            data: {
+              'type': 'tool_use',
+              'content': null,
+              'metadata': {
+                'data': {
+                  'toolName': 'Read',
+                  'input': {'file_path': '/tmp/out.txt'},
+                  'toolUseId': 'toolu_xyz789',
+                },
+              },
+              'occurred_at': '2026-03-27T10:06:00.000Z',
+            },
+            receivedAt: DateTime.now(),
+          ),
+        );
+
+        // Confirm the card has no result yet.
+        final before = state.chatItems.last as ChatToolUseItem;
+        expect(before.toolUseId, equals('toolu_xyz789'));
+        expect(before.result, isNull);
+
+        // Then: emit the tool_result that should populate the card.
+        ws.simulateEvent(
+          'private-conversation.conv-uuid-001',
+          WebSocketEvent(
+            id: 'ws:tool:39b',
+            channel: 'private-conversation.conv-uuid-001',
+            eventName: '.conversation.message',
+            data: {
+              'type': 'tool_result',
+              'content': 'file contents here',
+              'metadata': {
+                'data': {'toolUseId': 'toolu_xyz789'},
+              },
+              'occurred_at': '2026-03-27T10:06:01.000Z',
+            },
+            receivedAt: DateTime.now(),
+          ),
+        );
+
+        // The list length must not grow — tool_result replaces, not appends.
+        final after = state.chatItems.last as ChatToolUseItem;
+        expect(after.toolUseId, equals('toolu_xyz789'));
+        expect(after.result, equals('file contents here'));
+      },
+    );
+
+    // -----------------------------------------------------------------------
+    // 40. tool_result with no matching toolUseId — silently ignored
+    // -----------------------------------------------------------------------
+
+    test(
+      'tool_result with unknown toolUseId does not mutate chatItems',
+      () async {
+        http.whenAny((url) {
+          if (url.contains('/agent-roles')) {
+            return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
+          }
+          return MagicResponse(data: kConversationResponse, statusCode: 201);
+        });
+        await state.createConversation(
+          'team-uuid-001',
+          'proj-uuid-001',
+          agentRoleId: 'role-uuid-001',
+        );
+
+        final lengthBefore = state.chatItems.length;
+
+        ws.simulateEvent(
+          'private-conversation.conv-uuid-001',
+          WebSocketEvent(
+            id: 'ws:tool:40',
+            channel: 'private-conversation.conv-uuid-001',
+            eventName: '.conversation.message',
+            data: {
+              'type': 'tool_result',
+              'content': 'orphan result',
+              'metadata': {
+                'data': {'toolUseId': 'toolu_nonexistent'},
+              },
+              'occurred_at': '2026-03-27T10:07:00.000Z',
+            },
+            receivedAt: DateTime.now(),
+          ),
+        );
+
+        expect(state.chatItems.length, equals(lengthBefore));
+      },
+    );
   });
 }

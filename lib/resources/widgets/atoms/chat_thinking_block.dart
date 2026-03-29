@@ -119,7 +119,7 @@ class _ChatThinkingBlockState extends State<ChatThinkingBlock> {
       className: 'pt-2',
       child: WText(
         widget.content!,
-        className: 'text-violet-500/70 italic text-sm',
+        className: 'text-violet-500/70 dark:text-violet-400/70 italic text-sm',
       ),
     );
   }

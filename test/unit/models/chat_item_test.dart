@@ -65,6 +65,62 @@ void main() {
 
         expect(item.input, isNull);
       });
+
+      test('toolUseId defaults to null when not provided', () {
+        final item = ChatToolUseItem(
+          id: 'evt_789',
+          occurredAt: DateTime.utc(2026, 3, 29),
+          toolName: 'Edit',
+        );
+
+        expect(item.toolUseId, isNull);
+      });
+
+      test('toolUseId stores the correlation id for tool_result matching', () {
+        final item = ChatToolUseItem(
+          id: 'evt_790',
+          occurredAt: DateTime.utc(2026, 3, 29),
+          toolName: 'Bash',
+          toolUseId: 'toolu_abc123',
+        );
+
+        expect(item.toolUseId, 'toolu_abc123');
+      });
+
+      test('result defaults to null when not provided', () {
+        final item = ChatToolUseItem(
+          id: 'evt_791',
+          occurredAt: DateTime.utc(2026, 3, 29),
+          toolName: 'Read',
+        );
+
+        expect(item.result, isNull);
+      });
+
+      test('result stores the tool output payload', () {
+        final item = ChatToolUseItem(
+          id: 'evt_792',
+          occurredAt: DateTime.utc(2026, 3, 29),
+          toolName: 'Read',
+          result: 'file contents here',
+        );
+
+        expect(item.result, 'file contents here');
+      });
+
+      test('result accepts a Map payload', () {
+        final payload = {'exit_code': 0, 'stdout': 'ok'};
+        final item = ChatToolUseItem(
+          id: 'evt_793',
+          occurredAt: DateTime.utc(2026, 3, 29),
+          toolName: 'Bash',
+          toolUseId: 'toolu_def456',
+          result: payload,
+        );
+
+        expect(item.toolUseId, 'toolu_def456');
+        expect(item.result, payload);
+      });
     });
 
     // -------

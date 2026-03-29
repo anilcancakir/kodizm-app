@@ -553,8 +553,29 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
             occurredAt: occurredAt,
             toolName: toolName ?? 'Unknown',
             input: metaData?['input'],
+            toolUseId: metaData?['toolUseId'] as String?,
           ),
         ];
+
+      case 'tool_result':
+        final toolUseId = metaData?['toolUseId'] as String?;
+        if (toolUseId != null) {
+          final index = _chatItems.lastIndexWhere(
+            (item) => item is ChatToolUseItem && item.toolUseId == toolUseId,
+          );
+          if (index != -1) {
+            final existing = _chatItems[index] as ChatToolUseItem;
+            final updated = ChatToolUseItem(
+              id: existing.id,
+              occurredAt: existing.occurredAt,
+              toolName: existing.toolName,
+              input: existing.input,
+              toolUseId: existing.toolUseId,
+              result: content ?? metaData?['content'] as String?,
+            );
+            _chatItems = List.of(_chatItems)..[index] = updated;
+          }
+        }
 
       case 'thinking':
         _chatItems = [

@@ -66,8 +66,9 @@ final class ChatMessageItem extends ChatItem {
 
 /// A chat item representing a tool invocation by the agent.
 ///
-/// Rendered as a one-shot event showing the tool name and optional input.
-/// No tool_result correlation is available from the sidecar bridge.
+/// Rendered as a collapsible card showing the tool name, optional input, and
+/// the tool output once a matching `tool_result` event is correlated via
+/// [toolUseId].
 ///
 /// ## Usage
 /// ```dart
@@ -76,15 +77,19 @@ final class ChatMessageItem extends ChatItem {
 ///   occurredAt: DateTime.now().toUtc(),
 ///   toolName: 'Read',
 ///   input: {'file_path': '/tmp/test.dart'},
+///   toolUseId: 'toolu_abc123',
 /// );
 /// ```
 final class ChatToolUseItem extends ChatItem {
-  /// Creates a [ChatToolUseItem] with the given [toolName] and optional [input].
+  /// Creates a [ChatToolUseItem] with the given [toolName], optional [input],
+  /// optional [toolUseId] for `tool_result` correlation, and optional [result].
   ChatToolUseItem({
     required this.id,
     required this.occurredAt,
     required this.toolName,
     this.input,
+    this.toolUseId,
+    this.result,
   });
 
   @override
@@ -98,6 +103,14 @@ final class ChatToolUseItem extends ChatItem {
 
   /// The input payload passed to the tool. May be null when input is not provided.
   final dynamic input;
+
+  /// The sidecar-assigned tool use identifier used to correlate an incoming
+  /// `tool_result` event back to this card. Null until the bridge emits the id.
+  final String? toolUseId;
+
+  /// The output payload returned by the tool. Null until the matching
+  /// `tool_result` event is received and correlated via [toolUseId].
+  final dynamic result;
 }
 
 // -------

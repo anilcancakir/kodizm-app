@@ -186,6 +186,43 @@ void main() {
       );
       expect(wrapperDivs, isNotEmpty);
     });
+
+    testWidgets('passes result to ChatToolUseCard', (tester) async {
+      _setViewport(tester);
+
+      final item = ChatToolUseItem(
+        id: 'evt-tool-2',
+        occurredAt: _now,
+        toolName: 'Read',
+        input: {'file_path': '/tmp/test.dart'},
+        result: {'content': 'file contents here'},
+      );
+
+      await tester.pumpWidget(_wrap(ChatStreamEventRenderer(item: item)));
+      await tester.pump();
+
+      final card = tester.widget<ChatToolUseCard>(find.byType(ChatToolUseCard));
+      expect(card.result, {'content': 'file contents here'});
+    });
+
+    testWidgets('passes null result to ChatToolUseCard when not provided', (
+      tester,
+    ) async {
+      _setViewport(tester);
+
+      final item = ChatToolUseItem(
+        id: 'evt-tool-3',
+        occurredAt: _now,
+        toolName: 'Write',
+        input: {'path': '/tmp/out.dart'},
+      );
+
+      await tester.pumpWidget(_wrap(ChatStreamEventRenderer(item: item)));
+      await tester.pump();
+
+      final card = tester.widget<ChatToolUseCard>(find.byType(ChatToolUseCard));
+      expect(card.result, isNull);
+    });
   });
 
   // -------------------------------------------------------------------------

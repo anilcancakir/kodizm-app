@@ -69,7 +69,10 @@ class ChatSubagentBlock extends StatelessWidget {
           children: [
             _buildBadge(),
             if (description != null)
-              WText(description!, className: 'text-xs text-slate-600'),
+              WText(
+                description!,
+                className: 'text-xs text-slate-600 dark:text-slate-400',
+              ),
           ],
         ),
         WSpacer(className: 'h-1'),

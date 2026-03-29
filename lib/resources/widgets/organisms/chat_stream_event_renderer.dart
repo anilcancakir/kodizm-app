@@ -64,9 +64,13 @@ class ChatStreamEventRenderer extends StatelessWidget {
         agentRoleName: agentRoleName,
         userName: userName,
       ),
-      ChatToolUseItem(:final toolName, :final input) => WDiv(
+      ChatToolUseItem(:final toolName, :final input, :final result) => WDiv(
         className: 'pl-9 mb-2',
-        child: ChatToolUseCard(toolName: toolName, input: input),
+        child: ChatToolUseCard(
+          toolName: toolName,
+          input: input,
+          result: result,
+        ),
       ),
       ChatThinkingItem(:final content, :final durationMs) => WDiv(
         className: 'pl-9 mb-2',

@@ -129,7 +129,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
 
     return WDiv(
       className:
-          'w-full bg-white dark:bg-slate-900 px-4 py-3 border-t border-slate-200 dark:border-slate-700',
+          'w-full bg-white dark:bg-slate-900 px-3 py-3.5 border-t border-slate-200 dark:border-slate-700',
       children: [
         WDiv(
           className: 'flex flex-row gap-3 items-center axis-max',

@@ -1,6 +1,7 @@
 import 'package:magic/magic.dart';
 
 import '../events/websocket_event.dart';
+import '../models/chat_item.dart';
 import '../models/conversation.dart';
 import '../models/conversation_message.dart';
 
@@ -125,7 +126,8 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   // ---------------------------------------------------------------------------
 
   Conversation? _conversation;
-  List<ConversationMessage> _messages = [];
+  List<ChatItem> _chatItems = [];
+  Map<String, int> _activeSubagents = {};
   List<WebSocketEvent> _rawEvents = [];
   bool _isSending = false;
   String? _error;
@@ -153,8 +155,17 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   /// The current conversation, or `null` if not yet created.
   Conversation? get conversation => _conversation;
 
-  /// All messages in the conversation, ordered chronologically.
-  List<ConversationMessage> get messages => List.unmodifiable(_messages);
+  /// All renderable items in the conversation timeline, ordered chronologically.
+  List<ChatItem> get chatItems => List.unmodifiable(_chatItems);
+
+  /// All conversation messages (backwards-compatible accessor).
+  ///
+  /// Filters [chatItems] to only [ChatMessageItem] instances and extracts
+  /// the wrapped [ConversationMessage].
+  List<ConversationMessage> get messages => _chatItems
+      .whereType<ChatMessageItem>()
+      .map((item) => item.message)
+      .toList();
 
   /// All raw WebSocket events received, for debug display.
   List<WebSocketEvent> get rawEvents => List.unmodifiable(_rawEvents);
@@ -307,7 +318,10 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
       content: text,
       createdAt: DateTime.now().toUtc(),
     );
-    _messages = [..._messages, optimisticMessage];
+    _chatItems = [
+      ..._chatItems,
+      ChatMessageItem.fromConversationMessage(optimisticMessage),
+    ];
     refreshUI();
 
     final response = await _http.post(
@@ -415,9 +429,11 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
     if (response.successful) {
       final Map<String, dynamic> body = response.data as Map<String, dynamic>;
       final List<dynamic> items = body['data'] as List<dynamic>;
-      _messages = items
+      _chatItems = items
           .map(
-            (item) => ConversationMessage.fromMap(item as Map<String, dynamic>),
+            (item) => ChatMessageItem.fromConversationMessage(
+              ConversationMessage.fromMap(item as Map<String, dynamic>),
+            ),
           )
           .toList();
     }
@@ -446,7 +462,8 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
     }
 
     _conversation = null;
-    _messages = [];
+    _chatItems = [];
+    _activeSubagents = {};
     _rawEvents = [];
     _isSending = false;
     _error = null;
@@ -495,66 +512,164 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   /// Handle `.conversation.message` — route by event type.
   ///
   /// Detects `tool_use` (AskUserQuestion options), `question` (answerable),
-  /// and `permission` events before falling through to text message handling.
+  /// and `permission` events. All other recognized types are appended as
+  /// typed [ChatItem] subclasses to [_chatItems].
   void _handleMessageEvent(WebSocketEvent wsEvent) {
     final eventType = wsEvent.data['type'] as String?;
+    final content = wsEvent.data['content'] as String?;
     final metadata = wsEvent.data['metadata'] as Map<String, dynamic>?;
     final metaData = metadata?['data'] as Map<String, dynamic>?;
+    final occurredAt = wsEvent.data['occurred_at'] != null
+        ? DateTime.parse(wsEvent.data['occurred_at'] as String)
+        : DateTime.now().toUtc();
 
-    // -- AskUserQuestion tool_use: store options for later correlation --
-    if (eventType == 'tool_use' && metaData != null) {
-      final toolName = metaData['toolName'] as String?;
-      if (toolName == 'AskUserQuestion') {
-        final input = metaData['input'] as Map<String, dynamic>?;
-        final questions = input?['questions'] as List<dynamic>?;
-        if (questions != null && questions.isNotEmpty) {
-          final first = questions.first as Map<String, dynamic>;
-          _pendingOptions = (first['options'] as List<dynamic>?)
-              ?.map((o) => Map<String, dynamic>.from(o as Map))
-              .toList();
+    switch (eventType) {
+      // -- AskUserQuestion tool_use: store options for later question correlation --
+      case 'tool_use':
+        final toolName = metaData?['toolName'] as String?;
+        if (toolName == 'AskUserQuestion') {
+          final input = metaData?['input'] as Map<String, dynamic>?;
+          final questions = input?['questions'] as List<dynamic>?;
+          if (questions != null && questions.isNotEmpty) {
+            final first = questions.first as Map<String, dynamic>;
+            _pendingOptions = (first['options'] as List<dynamic>?)
+                ?.map((o) => Map<String, dynamic>.from(o as Map))
+                .toList();
+          }
+          return;
+        }
+        // Non-AskUserQuestion tool_use → append ChatToolUseItem
+        _chatItems = [
+          ..._chatItems,
+          ChatToolUseItem(
+            id: 'evt_${DateTime.now().microsecondsSinceEpoch}',
+            occurredAt: occurredAt,
+            toolName: toolName ?? 'Unknown',
+            input: metaData?['input'],
+          ),
+        ];
+
+      case 'thinking':
+        _chatItems = [
+          ..._chatItems,
+          ChatThinkingItem(
+            id: 'evt_${DateTime.now().microsecondsSinceEpoch}',
+            occurredAt: occurredAt,
+            content: content,
+          ),
+        ];
+
+      case 'subagent_start':
+        final subagentId = metaData?['agentId'] as String? ?? '';
+        final index = _chatItems.length;
+        _chatItems = [
+          ..._chatItems,
+          ChatSubagentItem(
+            id: 'evt_${DateTime.now().microsecondsSinceEpoch}',
+            occurredAt: occurredAt,
+            subagentId: subagentId,
+            description: metaData?['agentType'] as String?,
+            isComplete: false,
+            toolUseCount: 0,
+          ),
+        ];
+        _activeSubagents[subagentId] = index;
+
+      case 'subagent_stop':
+        final subagentId = metaData?['agentId'] as String? ?? '';
+        final index = _activeSubagents.remove(subagentId);
+        if (index != null && index < _chatItems.length) {
+          final existing = _chatItems[index];
+          if (existing is ChatSubagentItem) {
+            final updated = ChatSubagentItem(
+              id: existing.id,
+              occurredAt: existing.occurredAt,
+              subagentId: existing.subagentId,
+              description: existing.description,
+              isComplete: true,
+              toolUseCount: 0,
+              durationMs: metaData?['durationMs'] as int?,
+            );
+            _chatItems = List.of(_chatItems)..[index] = updated;
+          }
+        }
+
+      case 'file_change':
+        _chatItems = [
+          ..._chatItems,
+          ChatFileChangeItem(
+            id: 'evt_${DateTime.now().microsecondsSinceEpoch}',
+            occurredAt: occurredAt,
+            operation: _inferFileOperation(metaData?['toolName'] as String?),
+            filePath: (metaData?['filePath'] as String?) ?? '',
+          ),
+        ];
+
+      case 'error':
+        _chatItems = [
+          ..._chatItems,
+          ChatErrorItem(
+            id: 'evt_${DateTime.now().microsecondsSinceEpoch}',
+            occurredAt: occurredAt,
+            errorText: content ?? '',
+          ),
+        ];
+
+      case 'result':
+        _chatItems = [
+          ..._chatItems,
+          ChatResultItem(
+            id: 'evt_${DateTime.now().microsecondsSinceEpoch}',
+            occurredAt: occurredAt,
+            isError: metaData?['isError'] == true,
+            content: content,
+          ),
+        ];
+
+      case 'question':
+        if (metaData != null) {
+          _pendingQuestion = {
+            'questionId': metaData['questionId'] as String?,
+            'message': metaData['message'] as String?,
+            'options': _pendingOptions,
+          };
+          _pendingOptions = null;
         }
         return;
-      }
+
+      case 'permission':
+        if (metaData != null) {
+          _pendingPermission = {
+            'questionId': metaData['questionId'] as String?,
+            'toolName': metaData['toolName'] as String?,
+            'input': metaData['input'],
+          };
+        }
+        return;
+
+      case 'text' || 'assistant':
+        if (content == null) return;
+        _chatItems = [
+          ..._chatItems,
+          ChatMessageItem.fromConversationMessage(
+            ConversationMessage(
+              id: 'ws_${DateTime.now().microsecondsSinceEpoch}_${_chatItems.length}',
+              conversationId:
+                  wsEvent.data['conversation_id'] as String? ??
+                  _conversation?.id ??
+                  '',
+              role: 'assistant',
+              content: content,
+              metadata: metadata,
+              createdAt: occurredAt,
+            ),
+          ),
+        ];
+
+      default:
+        // Unknown types silently ignored (already in _rawEvents).
+        break;
     }
-
-    // -- Question event: store pending question with correlated options --
-    if (eventType == 'question' && metaData != null) {
-      _pendingQuestion = {
-        'questionId': metaData['questionId'] as String?,
-        'message': metaData['message'] as String?,
-        'options': _pendingOptions,
-      };
-      _pendingOptions = null;
-      return;
-    }
-
-    // -- Permission event: store pending permission --
-    if (eventType == 'permission' && metaData != null) {
-      _pendingPermission = {
-        'questionId': metaData['questionId'] as String?,
-        'toolName': metaData['toolName'] as String?,
-        'input': metaData['input'],
-      };
-      return;
-    }
-
-    // -- Text messages: append to message list --
-    final content = wsEvent.data['content'];
-    if (content == null) return;
-
-    final message = ConversationMessage(
-      id: 'ws_${DateTime.now().microsecondsSinceEpoch}_${_messages.length}',
-      conversationId:
-          wsEvent.data['conversation_id'] as String? ?? _conversation?.id ?? '',
-      role: wsEvent.data['type'] as String? ?? 'assistant',
-      content: content as String,
-      metadata: wsEvent.data['metadata'] as Map<String, dynamic>?,
-      createdAt: wsEvent.data['occurred_at'] != null
-          ? DateTime.parse(wsEvent.data['occurred_at'] as String)
-          : DateTime.now().toUtc(),
-    );
-
-    _messages = [..._messages, message];
   }
 
   /// Handle `.conversation.status` — update conversation status,
@@ -592,5 +707,18 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
     }
 
     refreshUI();
+  }
+
+  /// Infer file operation type from the sidecar tool name.
+  ///
+  /// The bridge emits `toolName` (e.g. `'Write'`, `'Edit'`) but no explicit
+  /// operation code. Maps known tool names to Git-style single-letter codes.
+  String _inferFileOperation(String? toolName) {
+    return switch (toolName) {
+      'Write' => 'A',
+      'Edit' => 'M',
+      'MultiEdit' => 'M',
+      _ => 'M',
+    };
   }
 }

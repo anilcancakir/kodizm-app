@@ -9,7 +9,10 @@ import 'package:app/app/events/websocket_event.dart';
 import 'package:app/app/state/conversation_chat_state.dart';
 import 'package:app/resources/views/conversation/conversation_chat_view.dart';
 import 'package:app/resources/widgets/atoms/streaming_indicator.dart';
+import 'package:app/app/models/chat_item.dart';
+import 'package:app/app/models/conversation_message.dart';
 import 'package:app/resources/widgets/organisms/chat_message_bubble.dart';
+import 'package:app/resources/widgets/organisms/chat_stream_event_renderer.dart';
 import 'package:app/resources/widgets/organisms/chat_tool_use_card.dart';
 
 // ---------------------------------------------------------------------------
@@ -574,4 +577,80 @@ void main() {
     // StreamingIndicator should NOT be present when not sending.
     expect(find.byType(StreamingIndicator), findsNothing);
   });
+
+  // -----------------------------------------------------------------------
+  // 18. ChatStreamEventRenderer renders for mixed ChatItem types
+  // -----------------------------------------------------------------------
+
+  testWidgets(
+    'ChatStreamEventRenderer renders for message, tool_use, and thinking items',
+    (tester) async {
+      await pumpWithConversation(tester);
+
+      // 1. Send a user message (creates ChatMessageItem).
+      state.addEvent(
+        WebSocketEvent(
+          id: 'ws-mixed-1',
+          channel: 'private-conversation.$kConversationId',
+          eventName: '.conversation.message',
+          data: {
+            'conversation_id': kConversationId,
+            'type': 'text',
+            'content': 'Here is the analysis',
+            'metadata': null,
+            'occurred_at': '2026-03-27T10:01:00.000Z',
+          },
+          receivedAt: DateTime.utc(2026, 3, 27, 10, 1),
+        ),
+      );
+
+      // 2. Add a tool_use event (creates ChatToolUseItem).
+      state.addEvent(
+        WebSocketEvent(
+          id: 'ws-mixed-2',
+          channel: 'private-conversation.$kConversationId',
+          eventName: '.conversation.message',
+          data: {
+            'conversation_id': kConversationId,
+            'type': 'tool_use',
+            'content': null,
+            'metadata': {
+              'data': {
+                'toolName': 'Read',
+                'input': {'file_path': '/tmp/test.dart'},
+              },
+            },
+            'occurred_at': '2026-03-27T10:01:01.000Z',
+          },
+          receivedAt: DateTime.utc(2026, 3, 27, 10, 1, 1),
+        ),
+      );
+
+      // 3. Add a thinking event (creates ChatThinkingItem).
+      state.addEvent(
+        WebSocketEvent(
+          id: 'ws-mixed-3',
+          channel: 'private-conversation.$kConversationId',
+          eventName: '.conversation.message',
+          data: {
+            'conversation_id': kConversationId,
+            'type': 'thinking',
+            'content': 'Analyzing the code...',
+            'metadata': null,
+            'occurred_at': '2026-03-27T10:01:02.000Z',
+          },
+          receivedAt: DateTime.utc(2026, 3, 27, 10, 1, 2),
+        ),
+      );
+
+      await tester.pump();
+
+      // Verify 3 ChatStreamEventRenderer widgets are rendered.
+      expect(find.byType(ChatStreamEventRenderer), findsNWidgets(3));
+
+      // Verify each routes to the correct sub-widget.
+      expect(find.byType(ChatMessageBubble), findsOneWidget);
+      expect(find.byType(ChatToolUseCard), findsOneWidget);
+    },
+  );
 }

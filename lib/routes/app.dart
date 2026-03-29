@@ -110,12 +110,13 @@ void registerAppRoutes() {
     },
   );
 
-  // Fullscreen routes — clean layout with no app header, sidebar, or bottom nav.
-  // The chat page provides its own header (ChatHeader) and input bar.
+  // Chat routes — responsive layout:
+  // Desktop: AppLayout shell (sidebar + header) with bounded content area.
+  // Mobile: bare fullscreen (chat provides its own header + input bar).
   MagicRoute.group(
-    layout: (child) => _FullscreenLayout(child: child),
+    layout: (child) => _ChatLayout(child: child),
     middleware: ['auth'],
-    layoutId: 'app.fullscreen',
+    layoutId: 'app.chat',
     routes: () {
       MagicRoute.page(
         '/projects/:projectId/chat',
@@ -125,15 +126,35 @@ void registerAppRoutes() {
   );
 }
 
-/// Minimal fullscreen layout — just a dark [Scaffold] with no app bar,
-/// sidebar, or bottom navigation. Used for immersive views like chat.
-class _FullscreenLayout extends StatelessWidget {
-  const _FullscreenLayout({required this.child});
+// ---------------------------------------------------------------------------
+// Chat Layout — responsive desktop/mobile shell
+// ---------------------------------------------------------------------------
+
+/// Responsive chat layout.
+///
+/// - **Desktop** (`lg`+): delegates to [MagicStarterAppLayout] via
+///   `layout.app` so the sidebar and header are visible. The child is wrapped
+///   in [_BoundedContent] to provide bounded height inside AppLayout's
+///   `SingleChildScrollView`.
+/// - **Mobile**: bare [Scaffold] + [SafeArea] — identical to the previous
+///   fullscreen layout so the chat remains immersive.
+class _ChatLayout extends StatelessWidget {
+  const _ChatLayout({required this.child});
 
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
+    final isDesktop = wScreenIs(context, 'lg');
+
+    if (isDesktop) {
+      return MagicStarter.view.makeLayout(
+        'layout.app',
+        child: _BoundedContent(child: child),
+      );
+    }
+
+    // Mobile — bare fullscreen.
     return Scaffold(
       backgroundColor: wColor(
         context,
@@ -144,5 +165,25 @@ class _FullscreenLayout extends StatelessWidget {
       ),
       body: SafeArea(child: child),
     );
+  }
+}
+
+/// Provides bounded height inside AppLayout's scrollable content area.
+///
+/// AppLayout wraps children in `WDiv(className: 'flex-1 overflow-y-auto',
+/// scrollPrimary: true)` which resolves to a [SingleChildScrollView] —
+/// giving children unbounded vertical constraints. The chat view's
+/// `Column` + `Expanded` layout requires bounded height, so this widget
+/// constrains itself to the viewport height (screen minus top safe area,
+/// since AppLayout's desktop header is `SizedBox.shrink`).
+class _BoundedContent extends StatelessWidget {
+  const _BoundedContent({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    return SizedBox(height: mq.size.height - mq.padding.top, child: child);
   }
 }

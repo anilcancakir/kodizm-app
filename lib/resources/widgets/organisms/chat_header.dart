@@ -86,7 +86,7 @@ class ChatHeader extends StatelessWidget {
 
     return WDiv(
       className:
-          'w-full px-4 py-2.5 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex flex-row items-center gap-3 axis-max',
+          'w-full h-14 px-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700 flex flex-row items-center gap-3 axis-max',
       children: [
         // Back button
         WAnchor(
@@ -107,14 +107,15 @@ class ChatHeader extends StatelessWidget {
           ),
         ),
 
-        // Title
-        WText(
-          conversation.title ?? trans('conversation_chat.title'),
-          className: 'text-sm font-semibold text-slate-800 dark:text-white',
+        // Title — flex-1 absorbs remaining space, min-w-0 + truncate prevents overflow
+        WDiv(
+          className: 'flex-1 min-w-0',
+          child: WText(
+            conversation.title ?? trans('conversation_chat.title'),
+            className:
+                'text-sm font-semibold text-slate-800 dark:text-white truncate',
+          ),
         ),
-
-        // Spacer — pushes everything after title to the right
-        WDiv(className: 'flex-1'),
 
         // Status badge
         WDiv(

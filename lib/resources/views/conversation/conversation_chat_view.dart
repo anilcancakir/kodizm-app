@@ -12,9 +12,9 @@ import '../../../app/state/conversation_chat_state.dart';
 import '../../widgets/atoms/streaming_indicator.dart';
 import '../../widgets/organisms/chat_header.dart';
 import '../../widgets/organisms/chat_input_bar.dart';
-import '../../widgets/organisms/chat_message_bubble.dart';
 import '../../widgets/organisms/chat_question_card.dart';
 import '../../widgets/organisms/chat_permission_card.dart';
+import '../../widgets/organisms/chat_stream_event_renderer.dart';
 import 'package:magic_starter/magic_starter.dart';
 
 // ---------------------------------------------------------------------------
@@ -265,7 +265,7 @@ class _ConversationChatViewState extends State<ConversationChatView> {
   Widget _buildChat() {
     final conversation = _state.conversation!;
 
-    if (_autoScroll && _state.messages.isNotEmpty) {
+    if (_autoScroll && _state.chatItems.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
     }
 
@@ -324,10 +324,10 @@ class _ConversationChatViewState extends State<ConversationChatView> {
   // -----------------------------------------------------------------------
 
   Widget _buildMessageArea() {
-    final messages = _state.messages;
+    final chatItems = _state.chatItems;
     final conversation = _state.conversation!;
 
-    if (messages.isEmpty) {
+    if (chatItems.isEmpty) {
       return Center(
         child: WDiv(
           className: 'flex flex-col items-center gap-3',
@@ -354,9 +354,9 @@ class _ConversationChatViewState extends State<ConversationChatView> {
         ListView.builder(
           controller: _scrollController,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          itemCount: messages.length,
-          itemBuilder: (context, index) => ChatMessageBubble(
-            message: messages[index],
+          itemCount: chatItems.length,
+          itemBuilder: (context, index) => ChatStreamEventRenderer(
+            item: chatItems[index],
             agentRoleSlug: conversation.agentRoleSlug,
             agentRoleName: conversation.agentRoleName,
             userName: Auth.user<User>()?.name,

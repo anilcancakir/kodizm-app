@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
 
 import 'package:app/app/events/websocket_event.dart';
+import 'package:app/app/models/chat_item.dart';
 import 'package:app/app/state/conversation_chat_state.dart';
 
 // ---------------------------------------------------------------------------
@@ -868,5 +869,382 @@ void main() {
         );
       },
     );
+
+    // -----------------------------------------------------------------------
+    // 23. tool_use WS event → ChatToolUseItem in chatItems
+    // -----------------------------------------------------------------------
+
+    test('tool_use event appends ChatToolUseItem to chatItems', () async {
+      http.whenAny((url) {
+        if (url.contains('/agent-roles')) {
+          return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
+        }
+        return MagicResponse(data: kConversationResponse, statusCode: 201);
+      });
+      await state.createConversation('team-uuid-001', 'proj-uuid-001');
+
+      ws.simulateEvent(
+        'private-conversation.conv-uuid-001',
+        WebSocketEvent(
+          id: 'ws:tool:1',
+          channel: 'private-conversation.conv-uuid-001',
+          eventName: '.conversation.message',
+          data: {
+            'type': 'tool_use',
+            'content': null,
+            'metadata': {
+              'data': {
+                'toolName': 'Read',
+                'input': {'file_path': '/tmp/test.dart'},
+              },
+            },
+            'occurred_at': '2026-03-27T10:03:00.000Z',
+          },
+          receivedAt: DateTime.now(),
+        ),
+      );
+
+      expect(state.chatItems.last, isA<ChatToolUseItem>());
+      expect(
+        (state.chatItems.last as ChatToolUseItem).toolName,
+        equals('Read'),
+      );
+    });
+
+    // -----------------------------------------------------------------------
+    // 24. thinking event → ChatThinkingItem
+    // -----------------------------------------------------------------------
+
+    test('thinking event appends ChatThinkingItem to chatItems', () async {
+      http.whenAny((url) {
+        if (url.contains('/agent-roles')) {
+          return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
+        }
+        return MagicResponse(data: kConversationResponse, statusCode: 201);
+      });
+      await state.createConversation('team-uuid-001', 'proj-uuid-001');
+
+      ws.simulateEvent(
+        'private-conversation.conv-uuid-001',
+        WebSocketEvent(
+          id: 'ws:think:1',
+          channel: 'private-conversation.conv-uuid-001',
+          eventName: '.conversation.message',
+          data: {
+            'type': 'thinking',
+            'content': 'Analyzing the code...',
+            'metadata': null,
+            'occurred_at': '2026-03-27T10:03:00.000Z',
+          },
+          receivedAt: DateTime.now(),
+        ),
+      );
+
+      expect(state.chatItems.last, isA<ChatThinkingItem>());
+      expect(
+        (state.chatItems.last as ChatThinkingItem).content,
+        equals('Analyzing the code...'),
+      );
+    });
+
+    // -----------------------------------------------------------------------
+    // 25. subagent_start then subagent_stop → updated ChatSubagentItem
+    // -----------------------------------------------------------------------
+
+    test(
+      'subagent_start then subagent_stop updates ChatSubagentItem',
+      () async {
+        http.whenAny((url) {
+          if (url.contains('/agent-roles')) {
+            return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
+          }
+          return MagicResponse(data: kConversationResponse, statusCode: 201);
+        });
+        await state.createConversation('team-uuid-001', 'proj-uuid-001');
+
+        // Start
+        ws.simulateEvent(
+          'private-conversation.conv-uuid-001',
+          WebSocketEvent(
+            id: 'ws:sub:start',
+            channel: 'private-conversation.conv-uuid-001',
+            eventName: '.conversation.message',
+            data: {
+              'type': 'subagent_start',
+              'content': null,
+              'metadata': {
+                'data': {'agentId': 'sub-001', 'agentType': 'Researching'},
+              },
+              'occurred_at': '2026-03-27T10:03:00.000Z',
+            },
+            receivedAt: DateTime.now(),
+          ),
+        );
+
+        expect(state.chatItems.last, isA<ChatSubagentItem>());
+        expect((state.chatItems.last as ChatSubagentItem).isComplete, isFalse);
+
+        final startIndex = state.chatItems.length - 1;
+
+        // Stop
+        ws.simulateEvent(
+          'private-conversation.conv-uuid-001',
+          WebSocketEvent(
+            id: 'ws:sub:stop',
+            channel: 'private-conversation.conv-uuid-001',
+            eventName: '.conversation.message',
+            data: {
+              'type': 'subagent_stop',
+              'content': null,
+              'metadata': {
+                'data': {
+                  'agentId': 'sub-001',
+                  'agentType': 'Researching',
+                  'durationMs': 3200,
+                },
+              },
+              'occurred_at': '2026-03-27T10:03:05.000Z',
+            },
+            receivedAt: DateTime.now(),
+          ),
+        );
+
+        final updated = state.chatItems[startIndex] as ChatSubagentItem;
+        expect(updated.isComplete, isTrue);
+        expect(updated.toolUseCount, equals(0));
+        expect(updated.durationMs, equals(3200));
+      },
+    );
+
+    // -----------------------------------------------------------------------
+    // 26. file_change event → ChatFileChangeItem
+    // -----------------------------------------------------------------------
+
+    test('file_change event appends ChatFileChangeItem', () async {
+      http.whenAny((url) {
+        if (url.contains('/agent-roles')) {
+          return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
+        }
+        return MagicResponse(data: kConversationResponse, statusCode: 201);
+      });
+      await state.createConversation('team-uuid-001', 'proj-uuid-001');
+
+      ws.simulateEvent(
+        'private-conversation.conv-uuid-001',
+        WebSocketEvent(
+          id: 'ws:file:1',
+          channel: 'private-conversation.conv-uuid-001',
+          eventName: '.conversation.message',
+          data: {
+            'type': 'file_change',
+            'content': null,
+            'metadata': {
+              'data': {
+                'toolName': 'Edit',
+                'filePath': 'lib/app/models/task.dart',
+              },
+            },
+            'occurred_at': '2026-03-27T10:03:00.000Z',
+          },
+          receivedAt: DateTime.now(),
+        ),
+      );
+
+      expect(state.chatItems.last, isA<ChatFileChangeItem>());
+      expect(
+        (state.chatItems.last as ChatFileChangeItem).operation,
+        equals('M'),
+      );
+      expect(
+        (state.chatItems.last as ChatFileChangeItem).filePath,
+        equals('lib/app/models/task.dart'),
+      );
+    });
+
+    // -----------------------------------------------------------------------
+    // 27. error event → ChatErrorItem
+    // -----------------------------------------------------------------------
+
+    test('error event appends ChatErrorItem', () async {
+      http.whenAny((url) {
+        if (url.contains('/agent-roles')) {
+          return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
+        }
+        return MagicResponse(data: kConversationResponse, statusCode: 201);
+      });
+      await state.createConversation('team-uuid-001', 'proj-uuid-001');
+
+      ws.simulateEvent(
+        'private-conversation.conv-uuid-001',
+        WebSocketEvent(
+          id: 'ws:err:1',
+          channel: 'private-conversation.conv-uuid-001',
+          eventName: '.conversation.message',
+          data: {
+            'type': 'error',
+            'content': 'Rate limit exceeded',
+            'metadata': null,
+            'occurred_at': '2026-03-27T10:03:00.000Z',
+          },
+          receivedAt: DateTime.now(),
+        ),
+      );
+
+      expect(state.chatItems.last, isA<ChatErrorItem>());
+      expect(
+        (state.chatItems.last as ChatErrorItem).errorText,
+        equals('Rate limit exceeded'),
+      );
+    });
+
+    // -----------------------------------------------------------------------
+    // 28. result event → ChatResultItem
+    // -----------------------------------------------------------------------
+
+    test('result event appends ChatResultItem', () async {
+      http.whenAny((url) {
+        if (url.contains('/agent-roles')) {
+          return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
+        }
+        return MagicResponse(data: kConversationResponse, statusCode: 201);
+      });
+      await state.createConversation('team-uuid-001', 'proj-uuid-001');
+
+      ws.simulateEvent(
+        'private-conversation.conv-uuid-001',
+        WebSocketEvent(
+          id: 'ws:result:1',
+          channel: 'private-conversation.conv-uuid-001',
+          eventName: '.conversation.message',
+          data: {
+            'type': 'result',
+            'content': 'Task completed',
+            'metadata': {
+              'data': {'isError': false},
+            },
+            'occurred_at': '2026-03-27T10:03:00.000Z',
+          },
+          receivedAt: DateTime.now(),
+        ),
+      );
+
+      expect(state.chatItems.last, isA<ChatResultItem>());
+      expect((state.chatItems.last as ChatResultItem).isError, isFalse);
+      expect(
+        (state.chatItems.last as ChatResultItem).content,
+        equals('Task completed'),
+      );
+    });
+
+    // -----------------------------------------------------------------------
+    // 29. chatItems getter returns unmodifiable list
+    // -----------------------------------------------------------------------
+
+    test('chatItems getter returns unmodifiable list', () async {
+      http.whenAny((url) {
+        if (url.contains('/agent-roles')) {
+          return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
+        }
+        return MagicResponse(data: kConversationResponse, statusCode: 201);
+      });
+      await state.createConversation('team-uuid-001', 'proj-uuid-001');
+
+      expect(
+        () => state.chatItems.add(
+          ChatErrorItem(id: 'x', occurredAt: DateTime.now(), errorText: 'test'),
+        ),
+        throwsUnsupportedError,
+      );
+    });
+
+    // -----------------------------------------------------------------------
+    // 30. messages getter backward compat filters ChatMessageItems only
+    // -----------------------------------------------------------------------
+
+    test(
+      'messages getter returns only ConversationMessages from chatItems',
+      () async {
+        http.whenAny((url) {
+          if (url.contains('/agent-roles')) {
+            return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
+          }
+          if (url.contains('/messages')) {
+            return MagicResponse(data: kMessagesResponse, statusCode: 200);
+          }
+          return MagicResponse(data: kConversationResponse, statusCode: 201);
+        });
+        await state.createConversation('team-uuid-001', 'proj-uuid-001');
+        await state.loadMessages();
+
+        // loadMessages creates ChatMessageItems.
+        expect(state.chatItems.length, equals(2));
+        expect(state.chatItems.every((e) => e is ChatMessageItem), isTrue);
+
+        // messages getter extracts ConversationMessage.
+        expect(state.messages.length, equals(2));
+        expect(state.messages[0].id, equals('msg-uuid-001'));
+      },
+    );
+
+    // -----------------------------------------------------------------------
+    // 31. sendMessage optimistic append uses ChatMessageItem
+    // -----------------------------------------------------------------------
+
+    test('sendMessage optimistic append creates ChatMessageItem', () async {
+      http.whenAny((url) {
+        if (url.contains('/agent-roles')) {
+          return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
+        }
+        if (url.contains('/messages')) {
+          return MagicResponse(data: {}, statusCode: 202);
+        }
+        return MagicResponse(data: kConversationResponse, statusCode: 201);
+      });
+      await state.createConversation('team-uuid-001', 'proj-uuid-001');
+
+      await state.sendMessage('Hello');
+
+      expect(state.chatItems.last, isA<ChatMessageItem>());
+      expect(
+        (state.chatItems.last as ChatMessageItem).message.content,
+        equals('Hello'),
+      );
+    });
+
+    // -----------------------------------------------------------------------
+    // 32. reset clears chatItems and activeSubagents
+    // -----------------------------------------------------------------------
+
+    test('reset clears chatItems', () async {
+      http.whenAny((url) {
+        if (url.contains('/agent-roles')) {
+          return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
+        }
+        return MagicResponse(data: kConversationResponse, statusCode: 201);
+      });
+      await state.createConversation('team-uuid-001', 'proj-uuid-001');
+
+      ws.simulateEvent(
+        'private-conversation.conv-uuid-001',
+        WebSocketEvent(
+          id: 'ws:think:reset',
+          channel: 'private-conversation.conv-uuid-001',
+          eventName: '.conversation.message',
+          data: {
+            'type': 'thinking',
+            'content': 'Some thought',
+            'metadata': null,
+            'occurred_at': '2026-03-27T10:03:00.000Z',
+          },
+          receivedAt: DateTime.now(),
+        ),
+      );
+
+      expect(state.chatItems, isNotEmpty);
+
+      state.reset();
+
+      expect(state.chatItems, isEmpty);
+    });
   });
 }

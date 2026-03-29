@@ -231,7 +231,19 @@
     "welcome_title": "How can I help?",
     "cost_duration": "$:cost · :duration ms",
     "tokens_usage": ":input in / :output out",
-    "attach_file": "Attach file"
+    "attach_file": "Attach file",
+    "event_thinking": "Thinking",
+    "event_thinking_duration": "Thinking (:duration)",
+    "event_tool_use": "Using :tool",
+    "event_subagent_start": ":name",
+    "event_subagent_done": "Done (:tools tool uses · :duration)",
+    "event_subagent_running": "Running...",
+    "event_file_created": "Created",
+    "event_file_modified": "Modified",
+    "event_file_deleted": "Deleted",
+    "event_error": "Error",
+    "event_result_success": "Completed successfully",
+    "event_result_error": "Completed with error"
   },
   "conversations": {
     "confirm_delete": "Are you sure you want to delete this conversation?",

@@ -356,25 +356,6 @@
       }
     }
   },
-  "knowledge": {
-    "title": "Knowledge Base",
-    "subtitle": "Project documents and guidelines",
-    "empty_title": "No Knowledge Documents",
-    "empty_subtitle": "Documents are created by agents during task execution.",
-    "last_updated": "Updated :time",
-    "created_by": "Created by :name",
-    "category_label": "Category",
-    "detail_title": "Document",
-    "back_to_list": "Back to Knowledge",
-    "metadata": "Metadata",
-    "category_architecture": "Architecture",
-    "category_api": "API",
-    "category_guide": "Guide",
-    "category_convention": "Convention",
-    "category_runbook": "Runbook",
-    "category_agent_output": "Agent Output",
-    "category_other": "Other"
-  },
   "nav": {
     "dashboard": "Dashboard",
     "projects": "Projects",
@@ -382,7 +363,6 @@
     "settings": "Settings",
     "system": "System",
     "tasks": "Tasks",
-    "knowledge": "Knowledge",
     "select_project": "Select a Project",
     "select_project_subtitle": "Choose a project to view :target",
     "billing": "Billing",
@@ -668,8 +648,8 @@
     "write": "Write"
   },
   "tasks": {
-    "chat_with_ba": "Chat with BA",
-    "chat_with_ba_desc": "Describe your task in a conversation with the Business Analyst",
+    "chat_with_ba": "Chat with Agent",
+    "chat_with_ba_desc": "Describe your task in a conversation with an AI agent",
     "create_manually": "Create Manually",
     "create_manually_desc": "Fill in task details using the form",
     "creation_method": "How would you like to create this task?",

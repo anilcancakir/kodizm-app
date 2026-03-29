@@ -6,8 +6,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
 import 'package:magic_starter/magic_starter.dart';
 
-import 'package:app/resources/widgets/atoms/app_dialog.dart';
-
 // ---------------------------------------------------------------------------
 // Test-safe translation loader
 // ---------------------------------------------------------------------------
@@ -71,22 +69,22 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // AppDialog.theme
+  // MagicStarter.modalTheme
   // -------------------------------------------------------------------------
 
-  group('AppDialog.theme', () {
-    test('returns MagicStarterModalTheme from MagicStarter.modalTheme', () {
-      final theme = AppDialog.theme;
+  group('MagicStarter.modalTheme', () {
+    test('returns MagicStarterModalTheme', () {
+      final theme = MagicStarter.modalTheme;
       expect(theme, isA<MagicStarterModalTheme>());
       expect(theme.containerClassName, isNotEmpty);
     });
   });
 
   // -------------------------------------------------------------------------
-  // AppDialog widget rendering
+  // MagicStarterDialogShell widget rendering
   // -------------------------------------------------------------------------
 
-  group('AppDialog rendering', () {
+  group('MagicStarterDialogShell rendering', () {
     testWidgets('renders body content', (tester) async {
       tester.view.physicalSize = const Size(1440, 900);
       tester.view.devicePixelRatio = 1.0;
@@ -98,7 +96,8 @@ void main() {
             builder: (context) => ElevatedButton(
               onPressed: () => showDialog<void>(
                 context: context,
-                builder: (_) => AppDialog(body: WText('Body content')),
+                builder: (_) =>
+                    MagicStarterDialogShell(body: WText('Body content')),
               ),
               child: const Text('Open'),
             ),
@@ -109,7 +108,7 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      expect(find.byType(AppDialog), findsOneWidget);
+      expect(find.byType(MagicStarterDialogShell), findsOneWidget);
       expect(find.text('Body content'), findsOneWidget);
     });
 
@@ -124,7 +123,7 @@ void main() {
             builder: (context) => ElevatedButton(
               onPressed: () => showDialog<void>(
                 context: context,
-                builder: (_) => AppDialog(
+                builder: (_) => MagicStarterDialogShell(
                   title: 'Dialog Title',
                   body: WText('Body content'),
                 ),
@@ -152,7 +151,7 @@ void main() {
             builder: (context) => ElevatedButton(
               onPressed: () => showDialog<void>(
                 context: context,
-                builder: (_) => AppDialog(
+                builder: (_) => MagicStarterDialogShell(
                   title: 'Title',
                   description: 'A helpful description',
                   body: WText('Body content'),
@@ -170,9 +169,7 @@ void main() {
       expect(find.text('A helpful description'), findsOneWidget);
     });
 
-    testWidgets('hides header WDiv when no title or description', (
-      tester,
-    ) async {
+    testWidgets('hides header when no title or description', (tester) async {
       tester.view.physicalSize = const Size(1440, 900);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -183,7 +180,8 @@ void main() {
             builder: (context) => ElevatedButton(
               onPressed: () => showDialog<void>(
                 context: context,
-                builder: (_) => AppDialog(body: WText('Body only')),
+                builder: (_) =>
+                    MagicStarterDialogShell(body: WText('Body only')),
               ),
               child: const Text('Open'),
             ),
@@ -197,10 +195,10 @@ void main() {
       // No title or description text should appear.
       expect(find.text('Body only'), findsOneWidget);
       // Confirm dialog renders without throwing.
-      expect(find.byType(AppDialog), findsOneWidget);
+      expect(find.byType(MagicStarterDialogShell), findsOneWidget);
     });
 
-    testWidgets('renders footer when provided', (tester) async {
+    testWidgets('renders footer when footerBuilder provided', (tester) async {
       tester.view.physicalSize = const Size(1440, 900);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -211,10 +209,10 @@ void main() {
             builder: (context) => ElevatedButton(
               onPressed: () => showDialog<void>(
                 context: context,
-                builder: (_) => AppDialog(
+                builder: (_) => MagicStarterDialogShell(
                   title: 'Title',
                   body: WText('Body content'),
-                  footer: WText('Footer content'),
+                  footerBuilder: (dialogContext) => WText('Footer content'),
                 ),
               ),
               child: const Text('Open'),
@@ -229,9 +227,7 @@ void main() {
       expect(find.text('Footer content'), findsOneWidget);
     });
 
-    testWidgets('uses modalTheme containerClassName on WDiv shell', (
-      tester,
-    ) async {
+    testWidgets('uses modalTheme containerClassName on shell', (tester) async {
       tester.view.physicalSize = const Size(1440, 900);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -242,7 +238,8 @@ void main() {
             builder: (context) => ElevatedButton(
               onPressed: () => showDialog<void>(
                 context: context,
-                builder: (_) => AppDialog(body: WText('Body content')),
+                builder: (_) =>
+                    MagicStarterDialogShell(body: WText('Body content')),
               ),
               child: const Text('Open'),
             ),
@@ -254,7 +251,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // The outer WDiv should include the modal theme containerClassName.
-      final expectedClassName = AppDialog.theme.containerClassName;
+      final expectedClassName = MagicStarter.modalTheme.containerClassName;
       final wDivs = tester.widgetList<WDiv>(find.byType(WDiv));
       final hasContainerClass = wDivs.any(
         (w) => w.className?.contains(expectedClassName) == true,
@@ -264,11 +261,11 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // AppDialog.show<T>()
+  // showDialog with MagicStarterDialogShell
   // -------------------------------------------------------------------------
 
-  group('AppDialog.show()', () {
-    testWidgets('presents AppDialog and resolves with value on pop', (
+  group('showDialog with MagicStarterDialogShell', () {
+    testWidgets('presents dialog and resolves with value on pop', (
       tester,
     ) async {
       tester.view.physicalSize = const Size(1440, 900);
@@ -282,13 +279,15 @@ void main() {
           Builder(
             builder: (context) => ElevatedButton(
               onPressed: () async {
-                result = await AppDialog.show<String>(
+                result = await showDialog<String>(
                   context: context,
-                  title: 'Pick',
-                  body: Builder(
-                    builder: (inner) => ElevatedButton(
-                      onPressed: () => Navigator.of(inner).pop('selected'),
-                      child: const Text('Select'),
+                  builder: (_) => MagicStarterDialogShell(
+                    title: 'Pick',
+                    body: Builder(
+                      builder: (inner) => ElevatedButton(
+                        onPressed: () => Navigator.of(inner).pop('selected'),
+                        child: const Text('Select'),
+                      ),
                     ),
                   ),
                 );
@@ -302,14 +301,14 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      expect(find.byType(AppDialog), findsOneWidget);
+      expect(find.byType(MagicStarterDialogShell), findsOneWidget);
       expect(find.text('Pick'), findsOneWidget);
 
       // Tap the inner button to pop with a value.
       await tester.tap(find.text('Select'));
       await tester.pumpAndSettle();
 
-      expect(find.byType(AppDialog), findsNothing);
+      expect(find.byType(MagicStarterDialogShell), findsNothing);
       expect(result, equals('selected'));
     });
 
@@ -325,10 +324,12 @@ void main() {
           Builder(
             builder: (context) => ElevatedButton(
               onPressed: () async {
-                result = await AppDialog.show<String>(
+                result = await showDialog<String>(
                   context: context,
-                  title: 'Dismissible',
-                  body: WText('Content'),
+                  builder: (_) => MagicStarterDialogShell(
+                    title: 'Dismissible',
+                    body: WText('Content'),
+                  ),
                 );
               },
               child: const Text('Open'),
@@ -340,17 +341,17 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      expect(find.byType(AppDialog), findsOneWidget);
+      expect(find.byType(MagicStarterDialogShell), findsOneWidget);
 
       // Tap outside the dialog to dismiss it.
       await tester.tapAt(const Offset(10, 10));
       await tester.pumpAndSettle();
 
-      expect(find.byType(AppDialog), findsNothing);
+      expect(find.byType(MagicStarterDialogShell), findsNothing);
       expect(result, isNull);
     });
 
-    testWidgets('renders with no footer when footer is omitted', (
+    testWidgets('renders with no footer when footerBuilder is omitted', (
       tester,
     ) async {
       tester.view.physicalSize = const Size(1440, 900);
@@ -361,9 +362,10 @@ void main() {
         _wrap(
           Builder(
             builder: (context) => ElevatedButton(
-              onPressed: () => AppDialog.show<void>(
+              onPressed: () => showDialog<void>(
                 context: context,
-                body: WText('No footer'),
+                builder: (_) =>
+                    MagicStarterDialogShell(body: WText('No footer')),
               ),
               child: const Text('Open'),
             ),
@@ -374,7 +376,7 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      expect(find.byType(AppDialog), findsOneWidget);
+      expect(find.byType(MagicStarterDialogShell), findsOneWidget);
       expect(find.text('No footer'), findsOneWidget);
     });
   });

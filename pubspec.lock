@@ -529,10 +529,10 @@ packages:
     dependency: "direct main"
     description:
       name: magic
-      sha256: "79580aa1bc9bd7a9c2ebb2b3668a5190bb2c183dca723345847a0b5d480affd1"
+      sha256: a8e8cd364308e74acbefd27eb671fdcf379a2195ea94f5e961bff8a749930603
       url: "https://pub.dev"
     source: hosted
-    version: "1.0.0-alpha.4"
+    version: "1.0.0-alpha.5"
   magic_cli:
     dependency: transitive
     description:
@@ -553,10 +553,10 @@ packages:
     dependency: "direct main"
     description:
       name: magic_starter
-      sha256: d59b5307b515b137215fb96ab2973793ab49fd9243b69e72facdf3cb2f7f50d1
+      sha256: "0ed27e93a6b1074f4cbbdc3db8639c3ade9c84f89071eaa6b9d1fa84d6529f31"
       url: "https://pub.dev"
     source: hosted
-    version: "0.0.1-alpha.4"
+    version: "0.0.1-alpha.5"
   markdown:
     dependency: "direct main"
     description:

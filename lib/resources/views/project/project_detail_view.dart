@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:magic/magic.dart';
+import 'package:magic_starter/magic_starter.dart';
 
 import '../../../app/models/project.dart';
 import '../../../app/models/project_repository.dart';
@@ -8,10 +9,8 @@ import '../../../app/models/user.dart';
 import '../../../app/state/project_repository_state.dart';
 import '../../../app/state/project_state.dart';
 import '../../../app/state/task_state.dart';
-import '../../widgets/atoms/app_dialog.dart';
 import '../../widgets/atoms/priority_badge.dart';
 import '../../widgets/atoms/status_badge.dart';
-import 'package:magic_starter/magic_starter.dart';
 
 /// Project detail view — displays a single project's full information.
 ///
@@ -295,122 +294,124 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
 
     _repoUrlController.addListener(_onRepoUrlChanged);
 
-    final result = await AppDialog.show<bool>(
+    final result = await showDialog<bool>(
       context: context,
-      title: trans('projects.add_repository'),
-      body: Form(
-        key: _addRepoFormKey,
-        child: WDiv(
-          className: 'flex flex-col gap-4',
+      builder: (_) => MagicStarterDialogShell(
+        title: trans('projects.add_repository'),
+        body: Form(
+          key: _addRepoFormKey,
+          child: WDiv(
+            className: 'flex flex-col gap-4',
+            children: [
+              WFormInput(
+                controller: _repoNameController,
+                label: trans('projects.repo_name'),
+                labelClassName: '''
+                    text-sm font-medium mb-2
+                    text-slate-600 dark:text-slate-300
+                  ''',
+                placeholder: trans('projects.repo_name_placeholder'),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return trans('validation.required');
+                  }
+                  return null;
+                },
+                className: '''
+                    p-3 border border-slate-200 dark:border-gray-600
+                    rounded-lg bg-white dark:bg-gray-900
+                    text-sm text-slate-800 dark:text-slate-200
+                    focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20
+                    error:border-red-500 error:ring-2 error:ring-red-200
+                  ''',
+                errorClassName: 'text-red-500 text-xs mt-1',
+              ),
+              WFormInput(
+                controller: _repoUrlController,
+                label: trans('projects.repo_url'),
+                labelClassName: '''
+                    text-sm font-medium mb-2
+                    text-slate-600 dark:text-slate-300
+                  ''',
+                placeholder: trans('projects.repo_url_placeholder'),
+                className: '''
+                    p-3 border border-slate-200 dark:border-gray-600
+                    rounded-lg bg-white dark:bg-gray-900
+                    text-sm text-slate-800 dark:text-slate-200
+                    focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20
+                    error:border-red-500 error:ring-2 error:ring-red-200
+                  ''',
+                errorClassName: 'text-red-500 text-xs mt-1',
+              ),
+              WFormInput(
+                controller: _repoBranchController,
+                label: trans('projects.default_branch'),
+                labelClassName: '''
+                    text-sm font-medium mb-2
+                    text-slate-600 dark:text-slate-300
+                  ''',
+                placeholder: trans('projects.default_branch_placeholder'),
+                className: '''
+                    p-3 border border-slate-200 dark:border-gray-600
+                    rounded-lg bg-white dark:bg-gray-900
+                    text-sm text-slate-800 dark:text-slate-200
+                    focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20
+                    error:border-red-500 error:ring-2 error:ring-red-200
+                  ''',
+                errorClassName: 'text-red-500 text-xs mt-1',
+              ),
+              WFormInput(
+                controller: _repoMountDirController,
+                label: trans('projects.mount_directory'),
+                labelClassName: '''
+                    text-sm font-medium mb-2
+                    text-slate-600 dark:text-slate-300
+                  ''',
+                placeholder: trans('projects.mount_directory_placeholder'),
+                onChanged: (_) {
+                  _mountDirManuallyEdited = true;
+                },
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return trans('validation.required');
+                  }
+                  return null;
+                },
+                className: '''
+                    p-3 border border-slate-200 dark:border-gray-600
+                    rounded-lg bg-white dark:bg-gray-900
+                    text-sm text-slate-800 dark:text-slate-200
+                    focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20
+                    error:border-red-500 error:ring-2 error:ring-red-200
+                  ''',
+                errorClassName: 'text-red-500 text-xs mt-1',
+              ),
+            ],
+          ),
+        ),
+        footerBuilder: (dialogContext) => WDiv(
+          className: 'flex flex-row gap-2 w-full justify-end',
           children: [
-            WFormInput(
-              controller: _repoNameController,
-              label: trans('projects.repo_name'),
-              labelClassName: '''
-                  text-sm font-medium mb-2
-                  text-slate-600 dark:text-slate-300
-                ''',
-              placeholder: trans('projects.repo_name_placeholder'),
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return trans('validation.required');
+            WAnchor(
+              onTap: () => Navigator.of(dialogContext).pop(false),
+              child: WDiv(
+                className: MagicStarter.modalTheme.secondaryButtonClassName,
+                child: WText(trans('common.cancel'), className: 'text-inherit'),
+              ),
+            ),
+            WAnchor(
+              onTap: () {
+                if (_addRepoFormKey.currentState?.validate() ?? false) {
+                  Navigator.of(dialogContext).pop(true);
                 }
-                return null;
               },
-              className: '''
-                  p-3 border border-slate-200 dark:border-gray-600
-                  rounded-lg bg-white dark:bg-gray-900
-                  text-sm text-slate-800 dark:text-slate-200
-                  focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20
-                  error:border-red-500 error:ring-2 error:ring-red-200
-                ''',
-              errorClassName: 'text-red-500 text-xs mt-1',
-            ),
-            WFormInput(
-              controller: _repoUrlController,
-              label: trans('projects.repo_url'),
-              labelClassName: '''
-                  text-sm font-medium mb-2
-                  text-slate-600 dark:text-slate-300
-                ''',
-              placeholder: trans('projects.repo_url_placeholder'),
-              className: '''
-                  p-3 border border-slate-200 dark:border-gray-600
-                  rounded-lg bg-white dark:bg-gray-900
-                  text-sm text-slate-800 dark:text-slate-200
-                  focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20
-                  error:border-red-500 error:ring-2 error:ring-red-200
-                ''',
-              errorClassName: 'text-red-500 text-xs mt-1',
-            ),
-            WFormInput(
-              controller: _repoBranchController,
-              label: trans('projects.default_branch'),
-              labelClassName: '''
-                  text-sm font-medium mb-2
-                  text-slate-600 dark:text-slate-300
-                ''',
-              placeholder: trans('projects.default_branch_placeholder'),
-              className: '''
-                  p-3 border border-slate-200 dark:border-gray-600
-                  rounded-lg bg-white dark:bg-gray-900
-                  text-sm text-slate-800 dark:text-slate-200
-                  focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20
-                  error:border-red-500 error:ring-2 error:ring-red-200
-                ''',
-              errorClassName: 'text-red-500 text-xs mt-1',
-            ),
-            WFormInput(
-              controller: _repoMountDirController,
-              label: trans('projects.mount_directory'),
-              labelClassName: '''
-                  text-sm font-medium mb-2
-                  text-slate-600 dark:text-slate-300
-                ''',
-              placeholder: trans('projects.mount_directory_placeholder'),
-              onChanged: (_) {
-                _mountDirManuallyEdited = true;
-              },
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return trans('validation.required');
-                }
-                return null;
-              },
-              className: '''
-                  p-3 border border-slate-200 dark:border-gray-600
-                  rounded-lg bg-white dark:bg-gray-900
-                  text-sm text-slate-800 dark:text-slate-200
-                  focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20
-                  error:border-red-500 error:ring-2 error:ring-red-200
-                ''',
-              errorClassName: 'text-red-500 text-xs mt-1',
+              child: WDiv(
+                className: MagicStarter.modalTheme.primaryButtonClassName,
+                child: WText(trans('common.save'), className: 'text-inherit'),
+              ),
             ),
           ],
         ),
-      ),
-      footer: WDiv(
-        className: 'flex flex-row gap-2 w-full justify-end',
-        children: [
-          WAnchor(
-            onTap: () => Navigator.of(context).pop(false),
-            child: WDiv(
-              className: AppDialog.theme.secondaryButtonClassName,
-              child: WText(trans('common.cancel'), className: 'text-inherit'),
-            ),
-          ),
-          WAnchor(
-            onTap: () {
-              if (_addRepoFormKey.currentState?.validate() ?? false) {
-                Navigator.of(context).pop(true);
-              }
-            },
-            child: WDiv(
-              className: AppDialog.theme.primaryButtonClassName,
-              child: WText(trans('common.save'), className: 'text-inherit'),
-            ),
-          ),
-        ],
       ),
     );
 

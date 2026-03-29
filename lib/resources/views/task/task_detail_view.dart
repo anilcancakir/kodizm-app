@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:magic/magic.dart';
+import 'package:magic_starter/magic_starter.dart';
 
 import '../../../app/models/agent_role.dart';
 import '../../../app/models/task.dart';
@@ -7,11 +8,9 @@ import '../../../app/models/task_run.dart';
 import '../../../app/models/task_section.dart';
 import '../../../app/models/user.dart';
 import '../../../app/state/task_state.dart';
-import '../../widgets/atoms/app_dialog.dart';
 import '../../widgets/atoms/priority_badge.dart';
 import '../../widgets/atoms/status_badge.dart';
 import '../../widgets/atoms/task_type_icon.dart';
-import 'package:magic_starter/magic_starter.dart';
 import '../../widgets/organisms/markdown_viewer.dart';
 
 /// Task detail view — displays full task info, status transitions, sections,
@@ -754,7 +753,7 @@ class _StartRunDialogState extends State<_StartRunDialog> {
   Widget build(BuildContext context) {
     final starting = TaskState.instance.startingRun;
 
-    return AppDialog(
+    return MagicStarterDialogShell(
       title: trans('tasks.select_agent_role'),
       body: ListenableBuilder(
         listenable: TaskState.instance,
@@ -802,13 +801,13 @@ class _StartRunDialogState extends State<_StartRunDialog> {
           );
         },
       ),
-      footer: WDiv(
+      footerBuilder: (dialogContext) => WDiv(
         className: 'flex flex-row gap-2 w-full justify-end',
         children: [
           WAnchor(
-            onTap: () => Navigator.of(context).pop(),
+            onTap: () => Navigator.of(dialogContext).pop(),
             child: WDiv(
-              className: AppDialog.theme.secondaryButtonClassName,
+              className: MagicStarter.modalTheme.secondaryButtonClassName,
               child: WText(trans('common.cancel'), className: 'text-inherit'),
             ),
           ),
@@ -816,8 +815,8 @@ class _StartRunDialogState extends State<_StartRunDialog> {
             onTap: (_selectedRole != null && !starting) ? _submit : null,
             child: WDiv(
               className: (_selectedRole != null && !starting)
-                  ? AppDialog.theme.primaryButtonClassName
-                  : '${AppDialog.theme.primaryButtonClassName} opacity-50',
+                  ? MagicStarter.modalTheme.primaryButtonClassName
+                  : '${MagicStarter.modalTheme.primaryButtonClassName} opacity-50',
               child: WText(
                 starting
                     ? trans('tasks.starting_run')

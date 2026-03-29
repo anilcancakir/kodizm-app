@@ -11,8 +11,6 @@ import '../resources/views/task/task_list_view.dart';
 import '../resources/views/task/task_create_view.dart';
 import '../resources/views/task/agent_run_view.dart';
 import '../resources/views/task/task_detail_view.dart';
-import '../resources/views/knowledge/knowledge_list_view.dart';
-import '../resources/views/knowledge/knowledge_detail_view.dart';
 import '../resources/views/billing/billing_view.dart';
 import '../resources/views/billing/usage_history_view.dart';
 import '../resources/views/settings/ai_token_list_view.dart';
@@ -68,10 +66,6 @@ void registerAppRoutes() {
         () => const ProjectScopedNavView(targetPath: 'tasks'),
       );
       MagicRoute.page(
-        '/knowledge',
-        () => const ProjectScopedNavView(targetPath: 'knowledge'),
-      );
-      MagicRoute.page(
         '/conversations',
         () => const ProjectScopedNavView(targetPath: 'conversations'),
       );
@@ -90,17 +84,6 @@ void registerAppRoutes() {
       // Settings routes.
       MagicRoute.page('/settings/ai-tokens', () => const AiTokenListView());
       MagicRoute.page('/settings/app', () => const AppSettingsView());
-
-      // Project-scoped knowledge routes.
-      MagicRoute.page(
-        '/projects/:projectId/knowledge',
-        (String projectId) => KnowledgeListView(projectId: projectId),
-      );
-      MagicRoute.page(
-        '/projects/:projectId/knowledge/:documentId',
-        (String projectId, String documentId) =>
-            KnowledgeDetailView(projectId: projectId, documentId: documentId),
-      );
 
       // Project-scoped conversation routes.
       MagicRoute.page(

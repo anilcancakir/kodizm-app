@@ -47,11 +47,6 @@ class AppServiceProvider extends ServiceProvider {
           path: '/tasks',
         ),
         MagicStarterNavItem(
-          icon: Icons.library_books_outlined,
-          labelKey: 'nav.knowledge',
-          path: '/knowledge',
-        ),
-        MagicStarterNavItem(
           icon: Icons.chat_outlined,
           labelKey: 'nav.conversations',
           path: '/conversations',
@@ -87,11 +82,6 @@ class AppServiceProvider extends ServiceProvider {
           icon: Icons.task_alt_outlined,
           labelKey: 'nav.tasks',
           path: '/tasks',
-        ),
-        MagicStarterNavItem(
-          icon: Icons.library_books_outlined,
-          labelKey: 'nav.knowledge',
-          path: '/knowledge',
         ),
         MagicStarterNavItem(
           icon: Icons.chat_outlined,

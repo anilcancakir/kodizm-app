@@ -543,7 +543,6 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
             _buildSshKeySection(project),
             _buildRepositoriesSection(),
             _buildRecentTasksSection(),
-            _buildKnowledgeSection(),
             _buildDebugChatSection(),
             if (_canManageProject) _buildSettingsSection(project),
           ],
@@ -1109,43 +1108,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   }
 
   // ---------------------------------------------------------------------------
-  // 4. Knowledge Section
-  // ---------------------------------------------------------------------------
-
-  /// Builds the knowledge base link section.
-  Widget _buildKnowledgeSection() {
-    return MagicStarterCard(
-      title: trans('knowledge.title'),
-      child: WAnchor(
-        onTap: () => MagicRoute.to('/projects/${widget.projectId}/knowledge'),
-        child: WDiv(
-          className: '''
-            flex flex-row items-center gap-3
-            p-3 rounded-xl
-            bg-white dark:bg-gray-800
-            border border-slate-200 dark:border-slate-700
-          ''',
-          children: [
-            WIcon(
-              Icons.library_books_outlined,
-              className: 'text-base text-slate-400 dark:text-slate-500',
-            ),
-            WDiv(
-              className: 'flex-1',
-              child: WText(
-                trans('knowledge.subtitle'),
-                className: 'text-sm text-slate-600 dark:text-slate-400',
-              ),
-            ),
-            WIcon(Icons.chevron_right, className: 'text-base text-slate-400'),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // 5. Debug Chat Section
+  // 4. Debug Chat Section
   // ---------------------------------------------------------------------------
 
   /// Builds the debug chat link section for real-time conversation testing.

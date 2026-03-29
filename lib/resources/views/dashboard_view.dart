@@ -5,6 +5,7 @@ import '../../app/models/dashboard_data.dart';
 import '../../app/models/user.dart';
 import '../../app/state/dashboard_state.dart';
 import '../../app/state/project_state.dart';
+import '../widgets/atoms/app_dialog.dart';
 import '../widgets/atoms/status_badge.dart';
 import 'package:magic_starter/magic_starter.dart';
 
@@ -664,41 +665,30 @@ class _QuickActionsSection extends StatelessWidget {
       return;
     }
 
-    showDialog<void>(
+    AppDialog.show<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(trans('dashboard.select_project')),
-        content: WDiv(
-          className: 'w-96',
-          child: ListView.separated(
-            shrinkWrap: true,
-            itemCount: projects.length,
-            separatorBuilder: (_, _) => const WSpacer(className: 'h-1'),
-            itemBuilder: (_, index) {
-              final project = projects[index];
-              return WAnchor(
-                onTap: () {
-                  Navigator.of(ctx).pop();
-                  MagicRoute.to('/projects/${project.id}/tasks/create');
-                },
-                child: WDiv(
-                  className: 'p-3 rounded-lg bg-slate-50 dark:bg-gray-800',
-                  child: WText(
-                    project.name ?? '',
-                    className:
-                        'text-sm font-medium text-slate-800 dark:text-slate-200',
-                  ),
-                ),
-              );
+      title: trans('dashboard.select_project'),
+      body: ListView.separated(
+        shrinkWrap: true,
+        itemCount: projects.length,
+        separatorBuilder: (_, _) => const WSpacer(className: 'h-1'),
+        itemBuilder: (_, index) {
+          final project = projects[index];
+          return WAnchor(
+            onTap: () {
+              Navigator.of(context).pop();
+              MagicRoute.to('/projects/${project.id}/tasks/create');
             },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(trans('common.cancel')),
-          ),
-        ],
+            child: WDiv(
+              className: 'p-3 rounded-lg bg-slate-50 dark:bg-gray-800',
+              child: WText(
+                project.name ?? '',
+                className:
+                    'text-sm font-medium text-slate-800 dark:text-slate-200',
+              ),
+            ),
+          );
+        },
       ),
     );
   }

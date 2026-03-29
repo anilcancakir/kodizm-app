@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
+import 'package:magic_starter/magic_starter.dart';
 
 import 'package:app/app/events/websocket_event.dart';
 import 'package:app/app/models/user.dart';
@@ -371,6 +372,9 @@ void main() {
     TestWidgetsFlutterBinding.ensureInitialized();
     Translator.instance.setLoader(_TestAssetLoader());
     await Translator.instance.setLocale(const Locale('en'));
+    // Register the magic_starter manager singleton so MagicStarter.modalTheme
+    // and MagicStarterPasswordConfirmDialog can resolve the service.
+    Magic.singleton('magic_starter', () => MagicStarterManager());
   });
 
   setUp(() {

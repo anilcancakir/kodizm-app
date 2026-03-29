@@ -5,6 +5,7 @@ import '../../../app/models/project.dart';
 import '../../../app/models/session.dart';
 import '../../../app/state/project_state.dart';
 import '../../../app/state/session_state.dart';
+import '../../widgets/atoms/app_dialog.dart';
 import 'package:magic_starter/magic_starter.dart';
 
 /// Session list view — displays all sessions globally with filters.
@@ -118,38 +119,38 @@ class _SessionListViewState extends State<SessionListView> {
   Future<void> _pickProject() async {
     final projects = ProjectState.instance.rxState ?? const <Project>[];
 
-    final String? picked = await showDialog<String>(
+    final String? picked = await AppDialog.show<String>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: WText(
-          trans('sessions.filter_project'),
-          className: 'text-base font-semibold text-slate-800',
-        ),
-        content: SizedBox(
-          width: 320,
-          child: ListView(
-            shrinkWrap: true,
-            children: [
-              // "All Projects" option
-              ListTile(
-                title: WText(
-                  trans('sessions.all_projects'),
-                  className: 'text-sm text-slate-700',
-                ),
-                onTap: () => Navigator.of(dialogContext).pop(''),
+      title: trans('sessions.filter_project'),
+      body: ListView(
+        shrinkWrap: true,
+        children: [
+          // "All Projects" option
+          WAnchor(
+            onTap: () => Navigator.of(context).pop(''),
+            child: WDiv(
+              className:
+                  'p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-800',
+              child: WText(
+                trans('sessions.all_projects'),
+                className: 'text-sm text-slate-700 dark:text-slate-300',
               ),
-              // Per-project options
-              for (final project in projects)
-                ListTile(
-                  title: WText(
-                    project.name ?? project.id,
-                    className: 'text-sm text-slate-700',
-                  ),
-                  onTap: () => Navigator.of(dialogContext).pop(project.id),
-                ),
-            ],
+            ),
           ),
-        ),
+          // Per-project options
+          for (final project in projects)
+            WAnchor(
+              onTap: () => Navigator.of(context).pop(project.id),
+              child: WDiv(
+                className:
+                    'p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-800',
+                child: WText(
+                  project.name ?? project.id,
+                  className: 'text-sm text-slate-700 dark:text-slate-300',
+                ),
+              ),
+            ),
+        ],
       ),
     );
 
@@ -242,7 +243,7 @@ class _SessionListViewState extends State<SessionListView> {
     return WDiv(
       className: 'p-4 flex flex-wrap gap-3',
       children: [
-        // Project picker — opens AlertDialog
+        // Project picker — opens AppDialog
         WAnchor(
           onTap: _pickProject,
           child: WDiv(
@@ -319,33 +320,36 @@ class _SessionListViewState extends State<SessionListView> {
 
     return WAnchor(
       onTap: () async {
-        final String? picked = await showDialog<String>(
+        final String? picked = await AppDialog.show<String>(
           context: context,
-          builder: (dialogContext) => AlertDialog(
-            title: WText(
-              label,
-              className: 'text-base font-semibold text-slate-800',
-            ),
-            content: SizedBox(
-              width: 260,
-              child: ListView(
-                shrinkWrap: true,
-                children: [
-                  ListTile(
-                    title: WText(allLabel, className: 'text-sm text-slate-700'),
-                    onTap: () => Navigator.of(dialogContext).pop(''),
+          title: label,
+          body: ListView(
+            shrinkWrap: true,
+            children: [
+              WAnchor(
+                onTap: () => Navigator.of(context).pop(''),
+                child: WDiv(
+                  className:
+                      'p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-800',
+                  child: WText(
+                    allLabel,
+                    className: 'text-sm text-slate-700 dark:text-slate-300',
                   ),
-                  for (final option in options)
-                    ListTile(
-                      title: WText(
-                        labelBuilder(option),
-                        className: 'text-sm text-slate-700',
-                      ),
-                      onTap: () => Navigator.of(dialogContext).pop(option),
-                    ),
-                ],
+                ),
               ),
-            ),
+              for (final option in options)
+                WAnchor(
+                  onTap: () => Navigator.of(context).pop(option),
+                  child: WDiv(
+                    className:
+                        'p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-gray-800',
+                    child: WText(
+                      labelBuilder(option),
+                      className: 'text-sm text-slate-700 dark:text-slate-300',
+                    ),
+                  ),
+                ),
+            ],
           ),
         );
         if (picked == null) return;

@@ -613,49 +613,20 @@ class _AgentRunViewState extends State<AgentRunView> {
   }
 
   void _showCancelDialog() {
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: WText(
-          trans('agent_run.cancel_confirm_title'),
-          className: 'text-base font-semibold text-gray-900 dark:text-white',
-        ),
-        content: WText(
-          trans('agent_run.cancel_confirm_message'),
-          className: 'text-sm text-gray-600 dark:text-gray-400',
-        ),
-        actions: [
-          WAnchor(
-            onTap: () => Navigator.of(dialogContext).pop(),
-            child: WDiv(
-              className: 'px-4 py-2',
-              child: WText(
-                trans('common.cancel'),
-                className:
-                    'text-sm font-medium text-gray-600 dark:text-gray-400',
-              ),
-            ),
-          ),
-          WAnchor(
-            onTap: () {
-              Navigator.of(dialogContext).pop();
-              _state.cancelRun(
-                _teamId,
-                widget.projectId,
-                widget.taskId,
-                widget.runId,
-              );
-            },
-            child: WDiv(
-              className: 'px-4 py-2',
-              child: WText(
-                trans('agent_run.cancel_confirm_action'),
-                className: 'text-sm font-medium text-red-500',
-              ),
-            ),
-          ),
-        ],
-      ),
+    MagicStarterConfirmDialog.show(
+      context,
+      title: trans('agent_run.cancel_confirm_title'),
+      description: trans('agent_run.cancel_confirm_message'),
+      confirmLabel: trans('agent_run.cancel_confirm_action'),
+      variant: ConfirmDialogVariant.danger,
+      onConfirm: () async {
+        _state.cancelRun(
+          _teamId,
+          widget.projectId,
+          widget.taskId,
+          widget.runId,
+        );
+      },
     );
   }
 

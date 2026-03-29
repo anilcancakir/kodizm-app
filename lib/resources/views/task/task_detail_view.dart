@@ -7,6 +7,7 @@ import '../../../app/models/task_run.dart';
 import '../../../app/models/task_section.dart';
 import '../../../app/models/user.dart';
 import '../../../app/state/task_state.dart';
+import '../../widgets/atoms/app_dialog.dart';
 import '../../widgets/atoms/priority_badge.dart';
 import '../../widgets/atoms/status_badge.dart';
 import '../../widgets/atoms/task_type_icon.dart';
@@ -753,9 +754,9 @@ class _StartRunDialogState extends State<_StartRunDialog> {
   Widget build(BuildContext context) {
     final starting = TaskState.instance.startingRun;
 
-    return AlertDialog(
-      title: Text(trans('tasks.select_agent_role')),
-      content: ListenableBuilder(
+    return AppDialog(
+      title: trans('tasks.select_agent_role'),
+      body: ListenableBuilder(
         listenable: TaskState.instance,
         builder: (context, _) {
           final currentRoles = TaskState.instance.agentRoles;
@@ -801,18 +802,32 @@ class _StartRunDialogState extends State<_StartRunDialog> {
           );
         },
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(trans('common.cancel')),
-        ),
-        TextButton(
-          onPressed: (_selectedRole != null && !starting) ? _submit : null,
-          child: Text(
-            starting ? trans('tasks.starting_run') : trans('tasks.start_run'),
+      footer: WDiv(
+        className: 'flex flex-row gap-2 w-full justify-end',
+        children: [
+          WAnchor(
+            onTap: () => Navigator.of(context).pop(),
+            child: WDiv(
+              className: AppDialog.theme.secondaryButtonClassName,
+              child: WText(trans('common.cancel'), className: 'text-inherit'),
+            ),
           ),
-        ),
-      ],
+          WAnchor(
+            onTap: (_selectedRole != null && !starting) ? _submit : null,
+            child: WDiv(
+              className: (_selectedRole != null && !starting)
+                  ? AppDialog.theme.primaryButtonClassName
+                  : '${AppDialog.theme.primaryButtonClassName} opacity-50',
+              child: WText(
+                starting
+                    ? trans('tasks.starting_run')
+                    : trans('tasks.start_run'),
+                className: 'text-inherit',
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

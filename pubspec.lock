@@ -552,9 +552,10 @@ packages:
   magic_starter:
     dependency: "direct main"
     description:
-      path: "/Users/anilcan/Code/fluttersdk/magic_starter"
-      relative: false
-    source: path
+      name: magic_starter
+      sha256: d59b5307b515b137215fb96ab2973793ab49fd9243b69e72facdf3cb2f7f50d1
+      url: "https://pub.dev"
+    source: hosted
     version: "0.0.1-alpha.4"
   markdown:
     dependency: "direct main"

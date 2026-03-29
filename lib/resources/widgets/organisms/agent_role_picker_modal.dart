@@ -219,7 +219,7 @@ class _AgentRolePickerModalState extends State<AgentRolePickerModal> {
             className:
                 '''
               w-5 h-5 rounded-full mt-0.5 flex-shrink-0
-              items-center justify-center
+              flex items-center justify-center
               ${isSelected ? 'border-2 border-amber-400' : 'border-2 border-slate-300 dark:border-slate-600'}
             ''',
             child: isSelected

@@ -52,8 +52,8 @@ Map<String, dynamic> _makeResponse({
 
 /// Injectable HTTP client for testing [UsageState] without hitting the
 /// network. Records calls and returns a pre-configured [MagicResponse].
-class FakeUsageHttpClient implements UsageHttpClient {
-  final List<_HttpCall> calls = [];
+class _FakeUsageHttpClient implements UsageHttpClient {
+  final List<_UsageHttpCall> calls = [];
   late MagicResponse Function(String url) _responder;
 
   /// Always return [response] regardless of the requested URL.
@@ -72,13 +72,13 @@ class FakeUsageHttpClient implements UsageHttpClient {
     Map<String, dynamic>? query,
     Map<String, String>? headers,
   }) async {
-    calls.add(_HttpCall('GET', url, query));
+    calls.add(_UsageHttpCall('GET', url, query));
     return _responder(url);
   }
 }
 
-class _HttpCall {
-  _HttpCall(this.method, this.url, this.query);
+class _UsageHttpCall {
+  _UsageHttpCall(this.method, this.url, this.query);
 
   final String method;
   final String url;
@@ -94,11 +94,11 @@ class _HttpCall {
 
 void main() {
   group('UsageState', () {
-    late FakeUsageHttpClient http;
+    late _FakeUsageHttpClient http;
     late UsageState state;
 
     setUp(() {
-      http = FakeUsageHttpClient();
+      http = _FakeUsageHttpClient();
       state = UsageState(httpClient: http);
     });
 

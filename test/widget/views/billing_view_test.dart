@@ -235,7 +235,7 @@ void main() {
     final balanceTexts = tester.widgetList<WText>(find.byType(WText));
     final emeraldBalance = balanceTexts.where(
       (w) =>
-          w.data?.contains('\$25.50') == true &&
+          w.data.contains('\$25.50') &&
           w.className?.contains('text-emerald-500') == true,
     );
     expect(emeraldBalance, isNotEmpty);

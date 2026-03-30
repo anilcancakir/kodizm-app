@@ -288,14 +288,12 @@ class _StatCard extends StatelessWidget {
     required this.value,
     required this.icon,
     required this.iconType,
-    this.subtitle,
   });
 
   final String label;
   final String value;
   final IconData icon;
   final String iconType;
-  final String? subtitle;
 
   @override
   Widget build(BuildContext context) {
@@ -330,13 +328,6 @@ class _StatCard extends StatelessWidget {
           value,
           className: 'text-3xl font-bold text-slate-900 dark:text-white',
         ),
-        if (subtitle != null) ...[
-          const WSpacer(className: 'h-1'),
-          WText(
-            subtitle!,
-            className: 'text-xs text-slate-400 dark:text-slate-500',
-          ),
-        ],
       ],
     );
   }

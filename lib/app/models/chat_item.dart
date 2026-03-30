@@ -178,9 +178,9 @@ final class ChatSubagentItem extends ChatItem {
     required this.occurredAt,
     required this.subagentId,
     required this.isComplete,
-    required this.toolUseCount,
     this.description,
     this.durationMs,
+    this.children = const [],
   });
 
   @override
@@ -198,12 +198,17 @@ final class ChatSubagentItem extends ChatItem {
   /// Whether the sub-agent has completed its work.
   final bool isComplete;
 
-  /// The number of tool invocations performed by the sub-agent.
-  final int toolUseCount;
+  /// The number of tool invocations performed by the sub-agent,
+  /// derived from [children] length of [ChatToolUseItem] entries.
+  int get toolUseCount => children.whereType<ChatToolUseItem>().length;
 
   /// Wall-clock duration of the sub-agent's execution in milliseconds.
   /// Populated on the stop event; null on the start event.
   final int? durationMs;
+
+  /// Nested chat items (tool_use, thinking, file_change, etc.) produced
+  /// by this sub-agent during its execution.
+  final List<ChatItem> children;
 }
 
 // -------

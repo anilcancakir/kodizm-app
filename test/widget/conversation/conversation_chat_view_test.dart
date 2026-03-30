@@ -9,8 +9,6 @@ import 'package:app/app/events/websocket_event.dart';
 import 'package:app/app/state/conversation_chat_state.dart';
 import 'package:app/resources/views/conversation/conversation_chat_view.dart';
 import 'package:app/resources/widgets/atoms/streaming_indicator.dart';
-import 'package:app/app/models/chat_item.dart';
-import 'package:app/app/models/conversation_message.dart';
 import 'package:app/resources/widgets/organisms/chat_message_bubble.dart';
 import 'package:app/resources/widgets/organisms/chat_stream_event_renderer.dart';
 import 'package:app/resources/widgets/organisms/chat_tool_use_card.dart';
@@ -274,13 +272,18 @@ void main() {
   });
 
   // -----------------------------------------------------------------------
-  // 4. Status badge renders for active conversation
+  // 4. Status badge and complete button in config modal, not header
   // -----------------------------------------------------------------------
 
-  testWidgets('status badge renders for active conversation', (tester) async {
+  testWidgets('status badge renders inside config modal', (tester) async {
     await pumpWithConversation(tester);
 
-    // View renders status inline via WDiv — verify the translated text.
+    // Status badge NOT visible in header directly.
+    expect(find.text(trans('conversation_chat.status_active')), findsNothing);
+
+    // Open config modal — status should appear there.
+    await tester.tap(find.byIcon(Icons.settings_outlined).first);
+    await tester.pumpAndSettle();
     expect(find.text(trans('conversation_chat.status_active')), findsWidgets);
   });
 
@@ -302,14 +305,18 @@ void main() {
   });
 
   // -----------------------------------------------------------------------
-  // 6. Complete button visible for active conversation
+  // 6. Complete button visible inside config modal for active conversation
   // -----------------------------------------------------------------------
 
-  testWidgets('complete button visible for active conversation', (
-    tester,
-  ) async {
+  testWidgets('complete button visible inside config modal', (tester) async {
     await pumpWithConversation(tester);
 
+    // Not in header.
+    expect(find.text(trans('conversation_chat.complete_chat')), findsNothing);
+
+    // Open config modal — complete button should appear.
+    await tester.tap(find.byIcon(Icons.settings_outlined).first);
+    await tester.pumpAndSettle();
     expect(find.text(trans('conversation_chat.complete_chat')), findsOneWidget);
   });
 
@@ -406,10 +413,13 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    // Open debug panel to see the raw events count.
-    final debugToggle = find.byIcon(Icons.settings_outlined);
-    await tester.tap(debugToggle.first);
-    await tester.pump();
+    // Open config modal, then toggle debug panel.
+    await tester.tap(find.byIcon(Icons.settings_outlined).first);
+    await tester.pumpAndSettle();
+
+    // Tap "Toggle Debug" in the modal.
+    await tester.tap(find.text(trans('conversation_chat.toggle_debug')));
+    await tester.pumpAndSettle();
 
     expect(
       find.text(trans('conversation_chat.raw_events_count', {'count': '1'})),
@@ -427,11 +437,11 @@ void main() {
     // Debug panel should be hidden initially (raw events section not visible).
     expect(find.text(trans('conversation_chat.raw_events')), findsNothing);
 
-    // Find and tap the debug toggle button (settings icon from ChatHeader).
-    final debugToggle = find.byIcon(Icons.settings_outlined).first;
-
-    await tester.tap(debugToggle);
-    await tester.pump();
+    // Open config modal and tap Toggle Debug.
+    await tester.tap(find.byIcon(Icons.settings_outlined).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(trans('conversation_chat.toggle_debug')));
+    await tester.pumpAndSettle();
 
     // Debug panel should now be visible.
     expect(
@@ -439,9 +449,11 @@ void main() {
       findsOneWidget,
     );
 
-    // Tap header toggle again to hide.
+    // Open modal again and toggle off.
     await tester.tap(find.byIcon(Icons.settings_outlined).first);
-    await tester.pump();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(trans('conversation_chat.toggle_debug')));
+    await tester.pumpAndSettle();
 
     // Should be hidden again.
     expect(
@@ -563,9 +575,11 @@ void main() {
     // Session Info should not be visible by default.
     expect(find.text(trans('conversation_chat.session_info')), findsNothing);
 
-    // Activate debug (settings icon from ChatHeader).
+    // Open config modal and tap Toggle Debug.
     await tester.tap(find.byIcon(Icons.settings_outlined).first);
-    await tester.pump();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(trans('conversation_chat.toggle_debug')));
+    await tester.pumpAndSettle();
 
     // Session Info should now be visible in the debug panel.
     expect(find.text(trans('conversation_chat.session_info')), findsOneWidget);
@@ -580,6 +594,139 @@ void main() {
 
     // StreamingIndicator should NOT be present when not sending.
     expect(find.byType(StreamingIndicator), findsNothing);
+  });
+
+  // -----------------------------------------------------------------------
+  // 18a. awaitingResponse — typing bubble persists until first WS message event
+  // -----------------------------------------------------------------------
+
+  testWidgets(
+    'typing bubble visible while awaitingResponse and hidden after first message event',
+    (tester) async {
+      await pumpWithConversation(tester);
+
+      // Manually set awaitingResponse to simulate the POST→WS gap.
+      state.setAwaitingResponseForTest(value: true);
+      await tester.pump();
+
+      // Typing bubble should be visible.
+      expect(
+        find.text(trans('conversation_chat.agent_working')),
+        findsOneWidget,
+      );
+
+      // First WS message event clears awaitingResponse.
+      state.addEvent(
+        WebSocketEvent(
+          id: 'ws-await-1',
+          channel: 'private-conversation.$kConversationId',
+          eventName: '.conversation.message',
+          data: {
+            'conversation_id': kConversationId,
+            'type': 'assistant',
+            'content': 'Here I am',
+            'metadata': null,
+            'occurred_at': '2026-03-27T10:01:00.000Z',
+          },
+          receivedAt: DateTime.utc(2026, 3, 27, 10, 1),
+        ),
+      );
+
+      await tester.pump();
+
+      // Typing bubble should be gone.
+      expect(find.text(trans('conversation_chat.agent_working')), findsNothing);
+    },
+  );
+
+  // -----------------------------------------------------------------------
+  // 18b. awaitingResponse getter true after sendMessage, false after addEvent
+  // -----------------------------------------------------------------------
+
+  test(
+    'awaitingResponse is true after sendMessage and false after addEvent',
+    () async {
+      http.responder = (url) {
+        if (url.contains('/conversations') && !url.contains('/messages')) {
+          return _createConversationResponse();
+        }
+        if (url.contains('/messages')) {
+          return MagicResponse(data: <String, dynamic>{}, statusCode: 200);
+        }
+        return MagicResponse(data: <String, dynamic>{}, statusCode: 404);
+      };
+
+      await state.createConversation(
+        kTeamId,
+        kProjectId,
+        agentRoleId: 'role-uuid-001',
+      );
+
+      expect(state.awaitingResponse, isFalse);
+
+      // sendMessage sets both _isSending and _awaitingResponse, then clears _isSending.
+      await state.sendMessage('Hello');
+
+      // After HTTP POST completes: isSending is false, awaitingResponse still true.
+      expect(state.isSending, isFalse);
+      expect(state.awaitingResponse, isTrue);
+
+      // First WS message event clears awaitingResponse.
+      state.addEvent(
+        WebSocketEvent(
+          id: 'ws-await-unit-1',
+          channel: 'private-conversation.$kConversationId',
+          eventName: '.conversation.message',
+          data: {
+            'conversation_id': kConversationId,
+            'type': 'assistant',
+            'content': 'Response arrived',
+            'metadata': null,
+            'occurred_at': '2026-03-27T10:01:00.000Z',
+          },
+          receivedAt: DateTime.utc(2026, 3, 27, 10, 1),
+        ),
+      );
+
+      expect(state.awaitingResponse, isFalse);
+    },
+  );
+
+  // -----------------------------------------------------------------------
+  // 18c. awaitingResponse cleared by reset()
+  // -----------------------------------------------------------------------
+
+  test('awaitingResponse is false after reset()', () async {
+    state.setAwaitingResponseForTest(value: true);
+    expect(state.awaitingResponse, isTrue);
+
+    state.reset();
+
+    expect(state.awaitingResponse, isFalse);
+  });
+
+  // -----------------------------------------------------------------------
+  // 19. dispose does not clear conversation data (refresh survival)
+  // -----------------------------------------------------------------------
+
+  testWidgets('dispose does not clear conversation data', (tester) async {
+    await pumpWithConversation(tester);
+
+    // State should have conversation loaded.
+    expect(state.conversation, isNotNull);
+    expect(state.conversation?.id, kConversationId);
+
+    // Replace widget tree — triggers dispose() on the old widget.
+    await tester.pumpWidget(
+      WindTheme(
+        data: WindThemeData(),
+        child: MaterialApp(home: Scaffold(body: WText('placeholder'))),
+      ),
+    );
+
+    // Conversation data survives — only WS was unsubscribed.
+    expect(state.conversation, isNotNull);
+    expect(state.conversation?.id, kConversationId);
   });
 
   // -----------------------------------------------------------------------

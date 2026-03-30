@@ -76,6 +76,7 @@ Conversation _makeConversation({
 Widget _buildHeader({
   required Conversation conversation,
   String? sessionPhase,
+  String? runningCostUsd,
   bool debugExpanded = false,
   VoidCallback? onComplete,
   VoidCallback? onToggleDebug,
@@ -88,6 +89,7 @@ Widget _buildHeader({
           child: ChatHeader(
             conversation: conversation,
             sessionPhase: sessionPhase,
+            runningCostUsd: runningCostUsd,
             debugExpanded: debugExpanded,
             onComplete: onComplete,
             onToggleDebug: onToggleDebug,
@@ -143,34 +145,48 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // Test 2: complete button visibility based on status
+  // Test 2: status badge NOT shown in header (moved to config modal)
   // -------------------------------------------------------------------------
 
-  testWidgets(
-    'complete button visible for active conversation, hidden for completed',
-    (tester) async {
-      _setViewport(tester);
+  testWidgets('status badge and complete button not shown in header', (
+    tester,
+  ) async {
+    _setViewport(tester);
 
-      // Active — button must appear
-      await tester.pumpWidget(
-        _buildHeader(conversation: _makeConversation(status: 'active')),
-      );
-      await tester.pump();
+    await tester.pumpWidget(
+      _buildHeader(conversation: _makeConversation(status: 'active')),
+    );
+    await tester.pump();
 
-      expect(find.text('Complete Chat'), findsOneWidget);
-
-      // Completed — button must be absent
-      await tester.pumpWidget(
-        _buildHeader(conversation: _makeConversation(status: 'completed')),
-      );
-      await tester.pump();
-
-      expect(find.text('Complete Chat'), findsNothing);
-    },
-  );
+    // Status badge and complete button moved to config modal
+    expect(find.text('Active'), findsNothing);
+    expect(find.text('Complete Chat'), findsNothing);
+  });
 
   // -------------------------------------------------------------------------
-  // Test 3: debug toggle appearance based on debugExpanded
+  // Test 3: running cost preferred over static cost
+  // -------------------------------------------------------------------------
+
+  testWidgets('running session cost preferred over static cost', (
+    tester,
+  ) async {
+    _setViewport(tester);
+
+    await tester.pumpWidget(
+      _buildHeader(
+        conversation: _makeConversation(totalCostUsd: 0.0012),
+        runningCostUsd: '0.0500',
+      ),
+    );
+    await tester.pump();
+
+    // Running cost shown, not static
+    expect(find.text('\$0.0500'), findsOneWidget);
+    expect(find.text('\$0.0012'), findsNothing);
+  });
+
+  // -------------------------------------------------------------------------
+  // Test 4: debug toggle appearance based on debugExpanded
   // -------------------------------------------------------------------------
 
   testWidgets('debug toggle changes appearance based on debugExpanded', (
@@ -195,5 +211,97 @@ void main() {
 
     final expandedIcon = tester.widget<WIcon>(find.byType(WIcon).last);
     expect(expandedIcon.className, contains('text-amber-600'));
+  });
+
+  // -------------------------------------------------------------------------
+  // Test 5: session phase badge — hidden when null
+  // -------------------------------------------------------------------------
+
+  testWidgets('no phase badge rendered when sessionPhase is null', (
+    tester,
+  ) async {
+    _setViewport(tester);
+
+    await tester.pumpWidget(_buildHeader(conversation: _makeConversation()));
+    await tester.pump();
+
+    expect(find.text('Provisioning'), findsNothing);
+    expect(find.text('Running'), findsNothing);
+    expect(find.text('Warm'), findsNothing);
+    expect(find.text('Stopped'), findsNothing);
+  });
+
+  // -------------------------------------------------------------------------
+  // Test 6: session phase badge — provisioning with spinner
+  // -------------------------------------------------------------------------
+
+  testWidgets('provisioning phase renders blue badge with spinner', (
+    tester,
+  ) async {
+    _setViewport(tester);
+
+    await tester.pumpWidget(
+      _buildHeader(
+        conversation: _makeConversation(),
+        sessionPhase: 'provisioning',
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Provisioning'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+  });
+
+  // -------------------------------------------------------------------------
+  // Test 7: session phase badge — executing with play icon
+  // -------------------------------------------------------------------------
+
+  testWidgets('executing phase renders green badge with play icon', (
+    tester,
+  ) async {
+    _setViewport(tester);
+
+    await tester.pumpWidget(
+      _buildHeader(
+        conversation: _makeConversation(),
+        sessionPhase: 'executing',
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Running'), findsOneWidget);
+    expect(find.byIcon(Icons.play_circle_rounded), findsOneWidget);
+  });
+
+  // -------------------------------------------------------------------------
+  // Test 8: session phase badge — warm with pause icon
+  // -------------------------------------------------------------------------
+
+  testWidgets('warm phase renders amber badge with pause icon', (tester) async {
+    _setViewport(tester);
+
+    await tester.pumpWidget(
+      _buildHeader(conversation: _makeConversation(), sessionPhase: 'warm'),
+    );
+    await tester.pump();
+
+    expect(find.text('Warm'), findsOneWidget);
+    expect(find.byIcon(Icons.pause_circle_rounded), findsOneWidget);
+  });
+
+  // -------------------------------------------------------------------------
+  // Test 9: session phase badge — dead with stop icon
+  // -------------------------------------------------------------------------
+
+  testWidgets('dead phase renders slate badge with stop icon', (tester) async {
+    _setViewport(tester);
+
+    await tester.pumpWidget(
+      _buildHeader(conversation: _makeConversation(), sessionPhase: 'dead'),
+    );
+    await tester.pump();
+
+    expect(find.text('Stopped'), findsOneWidget);
+    expect(find.byIcon(Icons.stop_circle_rounded), findsOneWidget);
   });
 }

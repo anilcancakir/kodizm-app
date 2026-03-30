@@ -5,9 +5,9 @@ import '../../../app/models/conversation.dart';
 
 /// Compact top bar for the conversation chat screen.
 ///
-/// Displays the agent role badge, conversation title, status indicator, cost,
-/// optional session phase label, a complete button (active conversations only),
-/// and a debug panel toggle.
+/// Displays the agent role badge, conversation title, cost (with running
+/// session cost preferred when available), optional session phase label,
+/// and a settings gear that opens a config modal.
 ///
 /// ## Usage
 ///
@@ -15,6 +15,7 @@ import '../../../app/models/conversation.dart';
 /// ChatHeader(
 ///   conversation: conversation,
 ///   sessionPhase: state.sessionPhase,
+///   runningCostUsd: state.runningCostUsd,
 ///   debugExpanded: _debugExpanded,
 ///   onComplete: _handleComplete,
 ///   onToggleDebug: _handleToggleDebug,
@@ -26,6 +27,7 @@ class ChatHeader extends StatelessWidget {
     required this.conversation,
     required this.debugExpanded,
     this.sessionPhase,
+    this.runningCostUsd,
     this.onComplete,
     this.onToggleDebug,
     super.key,
@@ -36,6 +38,9 @@ class ChatHeader extends StatelessWidget {
 
   /// Current session execution phase label, if available.
   final String? sessionPhase;
+
+  /// Live running cost from the session WebSocket channel.
+  final String? runningCostUsd;
 
   /// Whether the debug panel is currently expanded.
   final bool debugExpanded;
@@ -61,14 +66,49 @@ class ChatHeader extends StatelessWidget {
     };
   }
 
-  String _statusClassName(String status) {
-    return switch (status) {
-      'active' => 'bg-emerald-500/10 text-emerald-600',
-      'paused' => 'bg-amber-500/10 text-amber-600',
-      'completed' => 'bg-slate-500/10 text-slate-500',
-      'failed' => 'bg-red-500/10 text-red-600',
+  String _sessionPhaseClassName(String phase) {
+    return switch (phase) {
+      'provisioning' => 'bg-blue-500/10 text-blue-500',
+      'executing' => 'bg-emerald-500/10 text-emerald-600',
+      'warm' => 'bg-amber-500/10 text-amber-600',
+      'dead' => 'bg-slate-500/10 text-slate-500',
       _ => 'bg-slate-500/10 text-slate-500',
     };
+  }
+
+  IconData _sessionPhaseIcon(String phase) {
+    return switch (phase) {
+      'provisioning' => Icons.cloud_queue_rounded,
+      'executing' => Icons.play_circle_rounded,
+      'warm' => Icons.pause_circle_rounded,
+      'dead' => Icons.stop_circle_rounded,
+      _ => Icons.help_outline_rounded,
+    };
+  }
+
+  // -------
+  // Build
+  // -------
+
+  // -------
+  // Config modal
+  // -------
+
+  /// Opens a bottom sheet with conversation config: status, complete action,
+  /// and debug toggle.
+  void _showConfigModal(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (_) => _ChatConfigSheet(
+        conversation: conversation,
+        debugExpanded: debugExpanded,
+        onComplete: onComplete,
+        onToggleDebug: onToggleDebug,
+      ),
+    );
   }
 
   // -------
@@ -77,12 +117,20 @@ class ChatHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cost = conversation.totalCostUsd;
-    final costLabel = cost != null
-        ? trans('conversation_chat.cost_format', {
-            'amount': cost.toStringAsFixed(4),
-          })
-        : null;
+    // Prefer running session cost over static conversation cost.
+    final String? costLabel;
+    if (runningCostUsd != null) {
+      costLabel = trans('conversation_chat.cost_format', {
+        'amount': runningCostUsd!,
+      });
+    } else {
+      final cost = conversation.totalCostUsd;
+      costLabel = cost != null
+          ? trans('conversation_chat.cost_format', {
+              'amount': cost.toStringAsFixed(4),
+            })
+          : null;
+    }
 
     return WDiv(
       className:
@@ -117,16 +165,6 @@ class ChatHeader extends StatelessWidget {
           ),
         ),
 
-        // Status badge
-        WDiv(
-          className:
-              'px-1.5 py-0.5 rounded ${_statusClassName(conversation.status)}',
-          child: WText(
-            trans('conversation_chat.status_${conversation.status}'),
-            className: 'text-[11px] font-semibold',
-          ),
-        ),
-
         // Cost
         if (costLabel != null)
           WText(
@@ -134,29 +172,30 @@ class ChatHeader extends StatelessWidget {
             className: 'font-mono text-xs text-slate-500 dark:text-slate-400',
           ),
 
-        // Session phase
+        // Session phase badge
         if (sessionPhase != null)
-          WText(
-            trans('conversation_chat.session_phase', {'phase': sessionPhase!}),
-            className: 'text-[11px] text-slate-400',
-          ),
-
-        // Complete button — only for active conversations
-        if (conversation.status == 'active')
-          WAnchor(
-            onTap: onComplete,
-            child: WDiv(
-              className: 'px-3 py-1 bg-red-500 rounded-full',
-              child: WText(
-                trans('conversation_chat.complete_chat'),
-                className: 'text-xs text-white font-medium',
+          WDiv(
+            className:
+                'px-1.5 py-0.5 rounded-full flex flex-row items-center gap-1 ${_sessionPhaseClassName(sessionPhase!)}',
+            children: [
+              if (sessionPhase == 'provisioning')
+                SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(strokeWidth: 1.5),
+                )
+              else
+                WIcon(_sessionPhaseIcon(sessionPhase!), className: 'text-xs'),
+              WText(
+                trans('conversation_chat.phase_${sessionPhase!}'),
+                className: 'text-[11px] font-semibold',
               ),
-            ),
+            ],
           ),
 
-        // Debug toggle
+        // Settings gear — opens config modal
         WAnchor(
-          onTap: onToggleDebug,
+          onTap: () => _showConfigModal(context),
           child: WDiv(
             className: debugExpanded
                 ? 'p-1.5 rounded-lg bg-amber-400/15'
@@ -169,6 +208,122 @@ class ChatHeader extends StatelessWidget {
             ),
           ),
         ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Config bottom sheet
+// ---------------------------------------------------------------------------
+
+/// Bottom sheet with conversation configuration actions: status display,
+/// complete chat button, and debug panel toggle.
+class _ChatConfigSheet extends StatelessWidget {
+  const _ChatConfigSheet({
+    required this.conversation,
+    required this.debugExpanded,
+    this.onComplete,
+    this.onToggleDebug,
+  });
+
+  final Conversation conversation;
+  final bool debugExpanded;
+  final VoidCallback? onComplete;
+  final VoidCallback? onToggleDebug;
+
+  String _statusClassName(String status) {
+    return switch (status) {
+      'active' => 'bg-emerald-500/10 text-emerald-600',
+      'paused' => 'bg-amber-500/10 text-amber-600',
+      'completed' => 'bg-slate-500/10 text-slate-500',
+      'failed' => 'bg-red-500/10 text-red-600',
+      _ => 'bg-slate-500/10 text-slate-500',
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return WDiv(
+      className: 'p-6 flex flex-col gap-4',
+      children: [
+        // Sheet handle
+        WDiv(
+          className: 'w-full flex items-center justify-center',
+          child: WDiv(
+            className: 'w-10 h-1 rounded-full bg-slate-300 dark:bg-slate-600',
+          ),
+        ),
+
+        // Title
+        WText(
+          trans('conversation_chat.config_title'),
+          className: 'text-base font-semibold text-slate-800 dark:text-white',
+        ),
+
+        // Status row
+        WDiv(
+          className: 'flex flex-row items-center gap-3',
+          children: [
+            WText(
+              trans('agent_run.status'),
+              className: 'text-sm text-slate-500 dark:text-slate-400',
+            ),
+            WDiv(
+              className:
+                  'px-2 py-0.5 rounded ${_statusClassName(conversation.status)}',
+              child: WText(
+                trans('conversation_chat.status_${conversation.status}'),
+                className: 'text-xs font-semibold',
+              ),
+            ),
+          ],
+        ),
+
+        // Debug toggle
+        WAnchor(
+          onTap: () {
+            onToggleDebug?.call();
+            Navigator.of(context).pop();
+          },
+          child: WDiv(
+            className: '''
+              w-full flex flex-row items-center gap-3 px-4 py-3
+              rounded-xl bg-slate-50 dark:bg-slate-800
+            ''',
+            children: [
+              WIcon(
+                Icons.bug_report_outlined,
+                className: debugExpanded
+                    ? 'text-lg text-amber-600'
+                    : 'text-lg text-slate-400',
+              ),
+              WText(
+                trans('conversation_chat.toggle_debug'),
+                className: 'text-sm text-slate-700 dark:text-slate-200',
+              ),
+            ],
+          ),
+        ),
+
+        // Complete button — only for active conversations
+        if (conversation.status == 'active')
+          WAnchor(
+            onTap: () {
+              onComplete?.call();
+              Navigator.of(context).pop();
+            },
+            child: WDiv(
+              className: '''
+                w-full flex items-center justify-center
+                px-4 py-3 rounded-xl bg-red-500
+              ''',
+              child: WText(
+                trans('conversation_chat.complete_chat'),
+                className: 'text-sm font-semibold text-white',
+              ),
+            ),
+          ),
       ],
     );
   }

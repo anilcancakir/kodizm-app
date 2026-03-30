@@ -228,7 +228,7 @@ class _ConversationListViewState extends State<ConversationListView> {
 
     return WAnchor(
       onTap: () => MagicRoute.to(
-        '/projects/${widget.projectId}/chat?conversationId=${conversation.id}',
+        '/projects/${widget.projectId}/chats/${conversation.id}',
       ),
       child: WDiv(
         className:

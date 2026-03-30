@@ -273,7 +273,6 @@ void main() {
         subagentId: 'sa-abc123',
         description: 'Researching architecture',
         isComplete: false,
-        toolUseCount: 0,
       );
 
       await tester.pumpWidget(_wrap(ChatStreamEventRenderer(item: item)));
@@ -299,7 +298,14 @@ void main() {
         subagentId: 'sa-xyz',
         description: 'Analyzing code',
         isComplete: true,
-        toolUseCount: 12,
+        children: List.generate(
+          12,
+          (i) => ChatToolUseItem(
+            id: 'tool_$i',
+            occurredAt: _now,
+            toolName: 'Tool',
+          ),
+        ),
         durationMs: 8500,
       );
 

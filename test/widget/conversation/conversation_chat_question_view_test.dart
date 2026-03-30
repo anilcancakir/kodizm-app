@@ -519,6 +519,10 @@ void main() {
     await pumpWithConversation(tester, status: 'paused');
     await tester.pumpAndSettle();
 
+    // Status badge moved to config modal — open it via gear icon.
+    await tester.tap(find.byIcon(Icons.settings_outlined).first);
+    await tester.pumpAndSettle();
+
     expect(find.text(trans('conversation_chat.status_paused')), findsOneWidget);
   });
 

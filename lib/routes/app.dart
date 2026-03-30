@@ -102,6 +102,13 @@ void registerAppRoutes() {
     layoutId: 'app.chat',
     routes: () {
       MagicRoute.page(
+        '/projects/:projectId/chats/:conversationId',
+        (String projectId, String conversationId) => ConversationChatView(
+          projectId: projectId,
+          conversationId: conversationId,
+        ),
+      );
+      MagicRoute.page(
         '/projects/:projectId/chat',
         (String projectId) => ConversationChatView(projectId: projectId),
       );

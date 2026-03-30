@@ -163,7 +163,6 @@ void main() {
           subagentId: 'sub-uuid-1',
           description: 'Researching architecture',
           isComplete: false,
-          toolUseCount: 0,
         );
 
         expect(item.id, 'evt_200');
@@ -181,7 +180,14 @@ void main() {
           occurredAt: DateTime.utc(2026, 3, 29, 12, 5, 0),
           subagentId: 'sub-uuid-1',
           isComplete: true,
-          toolUseCount: 12,
+          children: List.generate(
+            12,
+            (i) => ChatToolUseItem(
+              id: 'tool_$i',
+              occurredAt: DateTime.utc(2026, 3, 29, 12, 5, 0),
+              toolName: 'Tool',
+            ),
+          ),
           durationMs: 30000,
         );
 

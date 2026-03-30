@@ -1,35 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:magic/magic.dart';
 
+import '../../../app/models/chat_item.dart';
+import '../atoms/chat_error_block.dart';
+import '../atoms/chat_file_change_row.dart';
+import '../atoms/chat_thinking_block.dart';
+import '../organisms/chat_tool_use_card.dart';
+
 // ---------------------------------------------------------------------------
 // ChatSubagentBlock
 // ---------------------------------------------------------------------------
 
-/// Inline sub-agent lifecycle indicator for the conversation chat stream.
+/// Inline sub-agent lifecycle block for the conversation chat stream.
 ///
 /// Renders a teal left-bordered block showing the sub-agent's name badge,
-/// an optional description, and either a running spinner or a completion
-/// summary with tool use count and duration.
+/// an optional description, a running spinner or completion summary, and a
+/// collapsible list of nested child events (tool_use, thinking, file_change).
+///
+/// When [isComplete] is `false` (running), the children section is expanded
+/// by default. When `true` (done), it collapses to a summary line.
 ///
 /// ## Usage
 ///
 /// ```dart
 /// ChatSubagentBlock(
 ///   subagentId: 'sa_abc123',
-///   description: 'Analyzing repository structure',
+///   description: 'Explore',
 ///   isComplete: false,
-///   toolUseCount: 0,
-/// )
-///
-/// ChatSubagentBlock(
-///   subagentId: 'sa_abc123',
-///   description: 'Analyzing repository structure',
-///   isComplete: true,
-///   toolUseCount: 12,
-///   durationMs: 8500,
+///   toolUseCount: 5,
+///   children: [chatToolUseItem1, chatToolUseItem2],
 /// )
 /// ```
-class ChatSubagentBlock extends StatelessWidget {
+class ChatSubagentBlock extends StatefulWidget {
   /// Creates a [ChatSubagentBlock] for the given sub-agent.
   const ChatSubagentBlock({
     required this.subagentId,
@@ -37,6 +39,7 @@ class ChatSubagentBlock extends StatelessWidget {
     required this.toolUseCount,
     this.description,
     this.durationMs,
+    this.children = const [],
     super.key,
   });
 
@@ -55,6 +58,25 @@ class ChatSubagentBlock extends StatelessWidget {
   /// Total execution time in milliseconds, populated on completion.
   final int? durationMs;
 
+  /// Nested [ChatItem]s produced by this sub-agent during execution.
+  final List<ChatItem> children;
+
+  @override
+  State<ChatSubagentBlock> createState() => _ChatSubagentBlockState();
+}
+
+class _ChatSubagentBlockState extends State<ChatSubagentBlock> {
+  bool _expanded = false;
+
+  @override
+  void didUpdateWidget(ChatSubagentBlock oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Auto-collapse when the subagent completes.
+    if (!oldWidget.isComplete && widget.isComplete) {
+      _expanded = false;
+    }
+  }
+
   // -----------------------------------------------------------------------
   // Build
   // -----------------------------------------------------------------------
@@ -64,19 +86,37 @@ class ChatSubagentBlock extends StatelessWidget {
     return WDiv(
       className: 'border-l-2 border-teal-400 pl-3 py-2',
       children: [
-        WDiv(
-          className: 'flex flex-row items-center gap-2',
-          children: [
-            _buildBadge(),
-            if (description != null)
-              WText(
-                description!,
-                className: 'text-xs text-slate-600 dark:text-slate-400',
-              ),
-          ],
+        WAnchor(
+          onTap: widget.children.isNotEmpty
+              ? () => setState(() => _expanded = !_expanded)
+              : null,
+          child: WDiv(
+            className: 'flex flex-row items-center gap-2',
+            children: [
+              _buildBadge(),
+              if (widget.description != null)
+                WText(
+                  widget.description!,
+                  className: 'text-xs text-slate-600 dark:text-slate-400',
+                ),
+              if (widget.children.isNotEmpty) ...[
+                WDiv(className: 'flex-1'),
+                WIcon(
+                  _expanded
+                      ? Icons.keyboard_arrow_up_rounded
+                      : Icons.keyboard_arrow_down_rounded,
+                  className: 'text-sm text-slate-400',
+                ),
+              ],
+            ],
+          ),
         ),
         WSpacer(className: 'h-1'),
-        isComplete ? _buildDone() : _buildRunning(),
+        widget.isComplete ? _buildDone() : _buildRunning(),
+        if (_expanded && widget.children.isNotEmpty) ...[
+          WSpacer(className: 'h-2'),
+          _buildChildren(),
+        ],
       ],
     );
   }
@@ -90,7 +130,9 @@ class ChatSubagentBlock extends StatelessWidget {
     return WDiv(
       className: 'px-1.5 py-0.5 rounded bg-teal-500/15',
       child: WText(
-        trans('conversation_chat.event_subagent_start', {'name': subagentId}),
+        trans('conversation_chat.event_subagent_start', {
+          'name': widget.subagentId,
+        }),
         className: 'text-[10px] font-bold text-teal-500',
       ),
     );
@@ -121,7 +163,7 @@ class ChatSubagentBlock extends StatelessWidget {
       children: [
         WText(
           trans('conversation_chat.event_subagent_done', {
-            'tools': toolUseCount.toString(),
+            'tools': widget.toolUseCount.toString(),
             'duration': _formatDuration(),
           }),
           className: 'text-xs text-teal-500',
@@ -130,14 +172,38 @@ class ChatSubagentBlock extends StatelessWidget {
     );
   }
 
+  /// Renders the nested child events inside the subagent block.
+  Widget _buildChildren() {
+    return WDiv(
+      className: 'flex flex-col gap-1',
+      children: [for (final child in widget.children) _buildChildItem(child)],
+    );
+  }
+
+  /// Route a single child [ChatItem] to its renderer.
+  Widget _buildChildItem(ChatItem item) {
+    return switch (item) {
+      ChatToolUseItem(:final toolName, :final input, :final result) =>
+        ChatToolUseCard(toolName: toolName, input: input, result: result),
+      ChatThinkingItem(:final content, :final durationMs) => ChatThinkingBlock(
+        content: content,
+        durationMs: durationMs,
+      ),
+      ChatFileChangeItem(:final operation, :final filePath) =>
+        ChatFileChangeRow(operation: operation, filePath: filePath),
+      ChatErrorItem(:final errorText) => ChatErrorBlock(errorText: errorText),
+      _ => WSpacer(className: 'h-0'),
+    };
+  }
+
   // -----------------------------------------------------------------------
   // Helpers
   // -----------------------------------------------------------------------
 
   /// Converts [durationMs] to a compact seconds string (e.g. 12000 -> "12s").
   String _formatDuration() {
-    if (durationMs == null) return '?';
-    final seconds = (durationMs! / 1000).round();
+    if (widget.durationMs == null) return '?';
+    final seconds = (widget.durationMs! / 1000).round();
     return '${seconds}s';
   }
 }

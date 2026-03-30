@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
 
+import 'package:app/app/models/chat_item.dart';
 import 'package:app/resources/widgets/molecules/chat_subagent_block.dart';
+import 'package:app/resources/widgets/organisms/chat_tool_use_card.dart';
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -28,6 +30,15 @@ Future<void> _pump(WidgetTester tester, Widget widget) async {
   await tester.pump();
 }
 
+final _now = DateTime.utc(2026, 3, 30);
+
+List<ChatToolUseItem> _toolItems(int count) {
+  return List.generate(
+    count,
+    (i) => ChatToolUseItem(id: 'tool_$i', occurredAt: _now, toolName: 'Tool$i'),
+  );
+}
+
 // ---------------------------------------------------------------------------
 // ChatSubagentBlock
 // ---------------------------------------------------------------------------
@@ -43,7 +54,7 @@ void main() {
       (tester) async {
         await _pump(
           tester,
-          const ChatSubagentBlock(
+          ChatSubagentBlock(
             subagentId: 'sub-001',
             description: 'Analyzing codebase',
             isComplete: false,
@@ -72,12 +83,13 @@ void main() {
     ) async {
       await _pump(
         tester,
-        const ChatSubagentBlock(
+        ChatSubagentBlock(
           subagentId: 'sub-002',
           description: 'Code review complete',
           isComplete: true,
           toolUseCount: 5,
           durationMs: 12000,
+          children: _toolItems(5),
         ),
       );
 
@@ -99,7 +111,7 @@ void main() {
     testWidgets('renders sub-agent badge with subagentId', (tester) async {
       await _pump(
         tester,
-        const ChatSubagentBlock(
+        ChatSubagentBlock(
           subagentId: 'sub-003',
           isComplete: false,
           toolUseCount: 0,
@@ -120,10 +132,11 @@ void main() {
     testWidgets('done state without duration shows fallback', (tester) async {
       await _pump(
         tester,
-        const ChatSubagentBlock(
+        ChatSubagentBlock(
           subagentId: 'sub-004',
           isComplete: true,
           toolUseCount: 3,
+          children: _toolItems(3),
         ),
       );
 
@@ -145,7 +158,7 @@ void main() {
     testWidgets('renders without description when null', (tester) async {
       await _pump(
         tester,
-        const ChatSubagentBlock(
+        ChatSubagentBlock(
           subagentId: 'sub-005',
           isComplete: false,
           toolUseCount: 0,
@@ -168,7 +181,7 @@ void main() {
     ) async {
       await _pump(
         tester,
-        const ChatSubagentBlock(
+        ChatSubagentBlock(
           subagentId: 'sub-006',
           isComplete: false,
           toolUseCount: 0,
@@ -181,6 +194,29 @@ void main() {
 
       final sizedBox = find.ancestor(of: cpi, matching: find.byType(SizedBox));
       expect(sizedBox, findsWidgets);
+    });
+
+    // ---------------------------------------------------------------------
+    // Children are collapsed by default
+    // ---------------------------------------------------------------------
+
+    testWidgets('children are collapsed by default', (tester) async {
+      await _pump(
+        tester,
+        ChatSubagentBlock(
+          subagentId: 'sub-007',
+          isComplete: false,
+          toolUseCount: 2,
+          children: [
+            ChatToolUseItem(id: 'tool_1', occurredAt: _now, toolName: 'Bash'),
+            ChatToolUseItem(id: 'tool_2', occurredAt: _now, toolName: 'Read'),
+          ],
+        ),
+      );
+
+      // Children should NOT be visible (collapsed by default).
+      final toolCards = find.byType(ChatToolUseCard);
+      expect(toolCards, findsNothing);
     });
   });
 }

@@ -1057,7 +1057,7 @@ void main() {
 
         final updated = state.chatItems[startIndex] as ChatSubagentItem;
         expect(updated.isComplete, isTrue);
-        expect(updated.toolUseCount, equals(0));
+        expect(updated.toolUseCount, isZero);
         expect(updated.durationMs, equals(3200));
       },
     );

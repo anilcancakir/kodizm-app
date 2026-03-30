@@ -174,7 +174,9 @@
     "agent_role": "Agent Role",
     "answer_placeholder": "Type your answer...",
     "assistant_role": "Assistant",
+    "agent_working": "Working...",
     "complete_chat": "Complete Chat",
+    "config_title": "Chat Settings",
     "conversation_id": "Conversation ID",
     "cost_format": "$:amount",
     "cost_label": "Cost",
@@ -206,6 +208,10 @@
     "send": "Send",
     "sending": "Sending...",
     "session_info": "Session Info",
+    "phase_dead": "Stopped",
+    "phase_executing": "Running",
+    "phase_provisioning": "Provisioning",
+    "phase_warm": "Warm",
     "session_phase": "Session: :phase",
     "start_chat": "Start Chat",
     "starting": "Starting...",
@@ -558,7 +564,10 @@
       "pg_description": "Enable PostgreSQL database in the container",
       "redis_description": "Enable Redis cache in the container",
       "version_placeholder": "Select version",
-      "using_default": "Using default (:version)"
+      "using_default": "Using default (:version)",
+      "save": "Save Changes",
+      "saved": "Environment settings saved successfully.",
+      "save_failed": "Failed to save environment settings."
     }
   },
   "teams": {

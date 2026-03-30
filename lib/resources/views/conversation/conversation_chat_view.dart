@@ -10,7 +10,6 @@ import '../../../app/models/conversation.dart';
 import '../../../app/models/user.dart';
 import '../../../app/services/websocket_service.dart';
 import '../../../app/state/conversation_chat_state.dart';
-import '../../widgets/atoms/streaming_indicator.dart';
 import '../../widgets/organisms/agent_role_picker_modal.dart';
 import '../../widgets/organisms/chat_header.dart';
 import '../../widgets/organisms/chat_input_bar.dart';
@@ -55,9 +54,14 @@ class _WebSocketAdapter implements ConversationChatWebSocket {
 /// ConversationChatView(projectId: 'proj-uuid-001')
 /// ```
 class ConversationChatView extends StatefulWidget {
-  const ConversationChatView({super.key, required this.projectId});
+  const ConversationChatView({
+    super.key,
+    required this.projectId,
+    this.conversationId,
+  });
 
   final String projectId;
+  final String? conversationId;
 
   @override
   State<ConversationChatView> createState() => _ConversationChatViewState();
@@ -107,27 +111,41 @@ class _ConversationChatViewState extends State<ConversationChatView> {
     _scrollController.removeListener(_onScrollChanged);
     _scrollController.dispose();
     _inputFocusNode.dispose();
-    _state.reset();
+    // Do NOT unsubscribe WS here — the singleton state manages its own
+    // subscriptions. In Flutter, dispose() of the old widget runs AFTER
+    // initState() of the new widget on route changes, so unsubscribing here
+    // would kill the channel that resubscribe() just set up.
+    // Full reset() in _maybeLoadConversation() handles cleanup when switching
+    // to a different conversation.
     super.dispose();
   }
 
   void _maybeLoadConversation() {
-    try {
-      final conversationId = MagicRouter.instance.queryParameter(
-        'conversationId',
-      );
-      if (conversationId != null && conversationId.isNotEmpty) {
+    // Path-param conversation ID takes priority (e.g. /chats/:conversationId).
+    final conversationId = widget.conversationId;
+    if (conversationId != null && conversationId.isNotEmpty) {
+      // Same conversation (e.g. browser refresh) — skip refetch, just
+      // re-subscribe WS channels that dispose() cleared.
+      if (_state.conversation?.id == conversationId) {
         _isLoadingExisting = true;
-        _state.loadConversation(_teamId, widget.projectId, conversationId);
+        _state.resubscribe();
         return;
       }
 
+      // Different conversation — full reset before loading.
+      _state.reset();
+      _isLoadingExisting = true;
+      _state.loadConversation(_teamId, widget.projectId, conversationId);
+      return;
+    }
+
+    try {
       final agentRoleId = MagicRouter.instance.queryParameter('agentRoleId');
       if (agentRoleId != null && agentRoleId.isNotEmpty) {
         _autoCreateWithAgentRole(agentRoleId);
       }
     } catch (_) {
-      // Query params not available in tests — silently ignore.
+      // Query params not available in tests.
     }
   }
 
@@ -142,7 +160,20 @@ class _ConversationChatViewState extends State<ConversationChatView> {
       widget.projectId,
       agentRoleId: agentRoleId,
     );
+    _updateUrlWithConversationId();
     if (mounted) setState(() => _isCreating = false);
+  }
+
+  /// Replace the current URL with conversationId so browser refresh survives.
+  void _updateUrlWithConversationId() {
+    final id = _state.conversation?.id;
+    if (id == null) return;
+
+    try {
+      MagicRoute.replace('/projects/${widget.projectId}/chats/$id');
+    } catch (_) {
+      // Router may not be available in tests.
+    }
   }
 
   // -----------------------------------------------------------------------
@@ -190,6 +221,7 @@ class _ConversationChatViewState extends State<ConversationChatView> {
       agentRoleId: selected.id,
       title: selected.name,
     );
+    _updateUrlWithConversationId();
     if (mounted) setState(() => _isCreating = false);
   }
 
@@ -311,6 +343,7 @@ class _ConversationChatViewState extends State<ConversationChatView> {
         ChatHeader(
           conversation: conversation,
           sessionPhase: _state.sessionPhase,
+          runningCostUsd: _state.runningCostUsd,
           debugExpanded: _rawEventsExpanded,
           onComplete: _handleComplete,
           onToggleDebug: () =>
@@ -320,9 +353,7 @@ class _ConversationChatViewState extends State<ConversationChatView> {
         // Message area — expands to fill available space
         Expanded(child: _buildMessageArea()),
 
-        // Bottom sticky area — streaming, cards, input
-        if (_state.isSending) const StreamingIndicator(),
-
+        // Bottom sticky area — question/permission cards, input
         if (_state.pendingQuestion != null)
           ChatQuestionCard(
             question: _state.pendingQuestion!,
@@ -362,8 +393,10 @@ class _ConversationChatViewState extends State<ConversationChatView> {
   Widget _buildMessageArea() {
     final chatItems = _state.chatItems;
     final conversation = _state.conversation!;
+    final showTyping = _state.isSending || _state.awaitingResponse;
+    final totalItems = chatItems.length + (showTyping ? 1 : 0);
 
-    if (chatItems.isEmpty) {
+    if (chatItems.isEmpty && !showTyping) {
       return Center(
         child: WDiv(
           className: 'flex flex-col items-center gap-3',
@@ -390,13 +423,19 @@ class _ConversationChatViewState extends State<ConversationChatView> {
         ListView.builder(
           controller: _scrollController,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          itemCount: chatItems.length,
-          itemBuilder: (context, index) => ChatStreamEventRenderer(
-            item: chatItems[index],
-            agentRoleSlug: conversation.agentRoleSlug,
-            agentRoleName: conversation.agentRoleName,
-            userName: Auth.user<User>()?.name,
-          ),
+          itemCount: totalItems,
+          itemBuilder: (context, index) {
+            // Typing indicator at the end of the list
+            if (index >= chatItems.length) {
+              return _buildTypingBubble(conversation);
+            }
+            return ChatStreamEventRenderer(
+              item: chatItems[index],
+              agentRoleSlug: conversation.agentRoleSlug,
+              agentRoleName: conversation.agentRoleName,
+              userName: Auth.user<User>()?.name,
+            );
+          },
         ),
 
         // Scroll-to-bottom FAB
@@ -418,6 +457,47 @@ class _ConversationChatViewState extends State<ConversationChatView> {
               ),
             ),
           ),
+      ],
+    );
+  }
+
+  // -----------------------------------------------------------------------
+  // Typing bubble — agent "working" indicator
+  // -----------------------------------------------------------------------
+
+  Widget _buildTypingBubble(Conversation conversation) {
+    return WDiv(
+      className: 'flex flex-row items-start gap-2 mb-3',
+      children: [
+        // Agent avatar
+        WDiv(
+          className:
+              'w-8 h-8 rounded-full flex items-center justify-center ${_avatarBgClassName(conversation.agentRoleSlug)}',
+          child: WText(
+            (conversation.agentRoleName ?? 'A')[0].toUpperCase(),
+            className: 'text-xs font-semibold text-white',
+          ),
+        ),
+
+        // Bubble with pulsing dots
+        WDiv(
+          className: '''
+            px-4 py-3 rounded-2xl rounded-tl-sm
+            bg-slate-100 dark:bg-slate-800
+            flex flex-row items-center gap-2
+          ''',
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: const CircularProgressIndicator(strokeWidth: 2),
+            ),
+            WText(
+              trans('conversation_chat.agent_working'),
+              className: 'text-sm text-slate-500 dark:text-slate-400',
+            ),
+          ],
+        ),
       ],
     );
   }

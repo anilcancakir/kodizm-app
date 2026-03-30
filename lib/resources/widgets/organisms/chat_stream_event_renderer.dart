@@ -82,6 +82,7 @@ class ChatStreamEventRenderer extends StatelessWidget {
         :final isComplete,
         :final toolUseCount,
         :final durationMs,
+        :final children,
       ) =>
         WDiv(
           className: 'pl-9 mb-2',
@@ -91,6 +92,7 @@ class ChatStreamEventRenderer extends StatelessWidget {
             isComplete: isComplete,
             toolUseCount: toolUseCount,
             durationMs: durationMs,
+            children: children,
           ),
         ),
       ChatFileChangeItem(:final operation, :final filePath) => WDiv(

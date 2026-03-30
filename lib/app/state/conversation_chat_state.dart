@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:magic/magic.dart';
 
 import '../events/websocket_event.dart';
@@ -139,6 +140,7 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   Map<String, int> _activeSubagents = {};
   List<WebSocketEvent> _rawEvents = [];
   bool _isSending = false;
+  bool _awaitingResponse = false;
   String? _error;
   String? _warmUntil;
   String _teamId = '';
@@ -182,6 +184,13 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   /// Whether a message send is currently in progress.
   bool get isSending => _isSending;
 
+  /// Whether the state is awaiting the first WS response after a send.
+  ///
+  /// True after [sendMessage] completes the HTTP POST and false after the
+  /// first `.conversation.message` WS event arrives from the agent. Used
+  /// to keep the typing bubble visible in the gap between POST and WS.
+  bool get awaitingResponse => _awaitingResponse;
+
   /// The last error message, or `null` if no error.
   String? get error => _error;
 
@@ -215,6 +224,19 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
 
   /// Whether an answer submission is currently in progress.
   bool get isAnswering => _isAnswering;
+
+  // ---------------------------------------------------------------------------
+  // Test helpers
+  // ---------------------------------------------------------------------------
+
+  /// Directly set [_awaitingResponse] — for widget tests only.
+  ///
+  /// Allows tests to simulate the POST→WS gap without wiring up HTTP.
+  @visibleForTesting
+  void setAwaitingResponseForTest({required bool value}) {
+    _awaitingResponse = value;
+    refreshUI();
+  }
 
   // ---------------------------------------------------------------------------
   // createConversation
@@ -316,6 +338,7 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
     if (_conversation == null || _isSending) return;
 
     _isSending = true;
+    _awaitingResponse = true;
     refreshUI();
 
     // Optimistic append.
@@ -458,7 +481,12 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   /// Unsubscribes from both the conversation channel and the session channel
   /// (if any). Call this when leaving the conversation chat screen to free
   /// resources.
-  void reset() {
+  /// Unsubscribe from all WS channels without clearing conversation data.
+  ///
+  /// Used during `dispose()` so the singleton state survives widget rebuilds
+  /// (e.g. browser refresh). A full [reset] is only called when navigating
+  /// to a *different* conversation.
+  void unsubscribeChannels() {
     if (_subscribedChannel != null) {
       _ws?.unsubscribe(_subscribedChannel!);
       _subscribedChannel = null;
@@ -468,12 +496,35 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
       _ws?.unsubscribe(_subscribedSessionChannel!);
       _subscribedSessionChannel = null;
     }
+  }
+
+  /// Re-subscribe to WS channels for the current conversation.
+  ///
+  /// Called after a browser refresh when the singleton still holds conversation
+  /// data but the old widget's `dispose()` cleared the WS subscriptions.
+  void resubscribe() {
+    if (_conversation == null) return;
+
+    final channel = 'private-conversation.${_conversation!.id}';
+    _subscribedChannel = channel;
+    _ws?.subscribe(channel, addEvent);
+
+    if (_sessionId != null) {
+      final sessionChannel = 'private-session.$_sessionId';
+      _subscribedSessionChannel = sessionChannel;
+      _ws?.subscribe(sessionChannel, _handleSessionEvent);
+    }
+  }
+
+  void reset() {
+    unsubscribeChannels();
 
     _conversation = null;
     _chatItems = [];
     _activeSubagents = {};
     _rawEvents = [];
     _isSending = false;
+    _awaitingResponse = false;
     _error = null;
     _warmUntil = null;
     _teamId = '';
@@ -523,6 +574,21 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   /// typed [ChatItem] subclasses to [_chatItems].
   void _handleMessageEvent(WebSocketEvent wsEvent) {
     final eventType = wsEvent.data['type'] as String?;
+
+    // Clear awaitingResponse only on terminal or visible-content events —
+    // keeps the loading indicator visible while the agent is still
+    // processing behind the scenes (system, tool_use, tool_result).
+    const terminalTypes = {
+      'result',
+      'error',
+      'text',
+      'assistant',
+      'question',
+      'permission',
+    };
+    if (terminalTypes.contains(eventType)) {
+      _awaitingResponse = false;
+    }
     final content = wsEvent.data['content'] as String?;
     final metadata = wsEvent.data['metadata'] as Map<String, dynamic>?;
     final metaData = metadata?['data'] as Map<String, dynamic>?;
@@ -545,47 +611,32 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
           }
           return;
         }
-        // Non-AskUserQuestion tool_use → append ChatToolUseItem
-        _chatItems = [
-          ..._chatItems,
-          ChatToolUseItem(
-            id: 'evt_${DateTime.now().microsecondsSinceEpoch}',
-            occurredAt: occurredAt,
-            toolName: toolName ?? 'Unknown',
-            input: metaData?['input'],
-            toolUseId: metaData?['toolUseId'] as String?,
-          ),
-        ];
+        // Non-AskUserQuestion tool_use → append to active subagent or top-level
+        final toolItem = ChatToolUseItem(
+          id: 'evt_${DateTime.now().microsecondsSinceEpoch}',
+          occurredAt: occurredAt,
+          toolName: toolName ?? 'Unknown',
+          input: metaData?['input'],
+          toolUseId: metaData?['toolUseId'] as String?,
+        );
+        _appendItemOrNest(toolItem);
 
       case 'tool_result':
         final toolUseId = metaData?['toolUseId'] as String?;
         if (toolUseId != null) {
-          final index = _chatItems.lastIndexWhere(
-            (item) => item is ChatToolUseItem && item.toolUseId == toolUseId,
+          _correlateToolResult(
+            toolUseId,
+            content ?? metaData?['content'] as String?,
           );
-          if (index != -1) {
-            final existing = _chatItems[index] as ChatToolUseItem;
-            final updated = ChatToolUseItem(
-              id: existing.id,
-              occurredAt: existing.occurredAt,
-              toolName: existing.toolName,
-              input: existing.input,
-              toolUseId: existing.toolUseId,
-              result: content ?? metaData?['content'] as String?,
-            );
-            _chatItems = List.of(_chatItems)..[index] = updated;
-          }
         }
 
       case 'thinking':
-        _chatItems = [
-          ..._chatItems,
-          ChatThinkingItem(
-            id: 'evt_${DateTime.now().microsecondsSinceEpoch}',
-            occurredAt: occurredAt,
-            content: content,
-          ),
-        ];
+        final thinkingItem = ChatThinkingItem(
+          id: 'evt_${DateTime.now().microsecondsSinceEpoch}',
+          occurredAt: occurredAt,
+          content: content,
+        );
+        _appendItemOrNest(thinkingItem);
 
       case 'subagent_start':
         final subagentId = metaData?['agentId'] as String? ?? '';
@@ -598,13 +649,17 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
             subagentId: subagentId,
             description: metaData?['agentType'] as String?,
             isComplete: false,
-            toolUseCount: 0,
           ),
         ];
         _activeSubagents[subagentId] = index;
 
       case 'subagent_stop':
-        final subagentId = metaData?['agentId'] as String? ?? '';
+        // Try inner data.agentId first, fallback to top-level subagent_id
+        // (truncation may strip metadata.data but keeps top-level fields).
+        final subagentId =
+            metaData?['agentId'] as String? ??
+            metadata?['subagent_id'] as String? ??
+            '';
         final index = _activeSubagents.remove(subagentId);
         if (index != null && index < _chatItems.length) {
           final existing = _chatItems[index];
@@ -615,23 +670,21 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
               subagentId: existing.subagentId,
               description: existing.description,
               isComplete: true,
-              toolUseCount: 0,
               durationMs: metaData?['durationMs'] as int?,
+              children: existing.children,
             );
             _chatItems = List.of(_chatItems)..[index] = updated;
           }
         }
 
       case 'file_change':
-        _chatItems = [
-          ..._chatItems,
-          ChatFileChangeItem(
-            id: 'evt_${DateTime.now().microsecondsSinceEpoch}',
-            occurredAt: occurredAt,
-            operation: _inferFileOperation(metaData?['toolName'] as String?),
-            filePath: (metaData?['filePath'] as String?) ?? '',
-          ),
-        ];
+        final fileItem = ChatFileChangeItem(
+          id: 'evt_${DateTime.now().microsecondsSinceEpoch}',
+          occurredAt: occurredAt,
+          operation: _inferFileOperation(metaData?['toolName'] as String?),
+          filePath: (metaData?['filePath'] as String?) ?? '',
+        );
+        _appendItemOrNest(fileItem);
 
       case 'error':
         _chatItems = [
@@ -644,6 +697,8 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
         ];
 
       case 'result':
+        // Close any still-running subagents — the session is done.
+        _closeAllActiveSubagents();
         _chatItems = [
           ..._chatItems,
           ChatResultItem(
@@ -735,6 +790,123 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
     }
 
     refreshUI();
+  }
+
+  /// Mark all active subagents as complete.
+  ///
+  /// Called when a `result` event arrives — the session is done, so any
+  /// subagent still tracked as active must have missed its `subagent_stop`.
+  void _closeAllActiveSubagents() {
+    if (_activeSubagents.isEmpty) return;
+
+    final updated = List<ChatItem>.of(_chatItems);
+    for (final index in _activeSubagents.values) {
+      if (index < updated.length && updated[index] is ChatSubagentItem) {
+        final existing = updated[index] as ChatSubagentItem;
+        if (!existing.isComplete) {
+          updated[index] = ChatSubagentItem(
+            id: existing.id,
+            occurredAt: existing.occurredAt,
+            subagentId: existing.subagentId,
+            description: existing.description,
+            isComplete: true,
+            children: existing.children,
+          );
+        }
+      }
+    }
+    _activeSubagents.clear();
+    _chatItems = updated;
+  }
+
+  /// Append a [ChatItem] to the most-recently-started active subagent's
+  /// children, or to the top-level [_chatItems] if no subagent is running.
+  void _appendItemOrNest(ChatItem item) {
+    if (_activeSubagents.isEmpty) {
+      _chatItems = [..._chatItems, item];
+      return;
+    }
+
+    // Find the most-recently-started subagent (highest index).
+    final subagentIndex = _activeSubagents.values.reduce(
+      (a, b) => a > b ? a : b,
+    );
+    if (subagentIndex < _chatItems.length &&
+        _chatItems[subagentIndex] is ChatSubagentItem) {
+      final existing = _chatItems[subagentIndex] as ChatSubagentItem;
+      final updated = ChatSubagentItem(
+        id: existing.id,
+        occurredAt: existing.occurredAt,
+        subagentId: existing.subagentId,
+        description: existing.description,
+        isComplete: existing.isComplete,
+        durationMs: existing.durationMs,
+        children: [...existing.children, item],
+      );
+      _chatItems = List.of(_chatItems)..[subagentIndex] = updated;
+    } else {
+      _chatItems = [..._chatItems, item];
+    }
+  }
+
+  /// Correlate a `tool_result` event with its parent `tool_use` item.
+  ///
+  /// Searches both top-level [_chatItems] and active subagent children
+  /// for the matching [toolUseId].
+  void _correlateToolResult(String toolUseId, String? resultContent) {
+    // First check top-level items.
+    final topIndex = _chatItems.lastIndexWhere(
+      (item) => item is ChatToolUseItem && item.toolUseId == toolUseId,
+    );
+    if (topIndex != -1) {
+      final existing = _chatItems[topIndex] as ChatToolUseItem;
+      final updated = ChatToolUseItem(
+        id: existing.id,
+        occurredAt: existing.occurredAt,
+        toolName: existing.toolName,
+        input: existing.input,
+        toolUseId: existing.toolUseId,
+        result: resultContent,
+      );
+      _chatItems = List.of(_chatItems)..[topIndex] = updated;
+      return;
+    }
+
+    // Check inside active subagent children.
+    for (final entry in _activeSubagents.entries) {
+      final subIndex = entry.value;
+      if (subIndex >= _chatItems.length) continue;
+      final subItem = _chatItems[subIndex];
+      if (subItem is! ChatSubagentItem) continue;
+
+      final childIndex = subItem.children.lastIndexWhere(
+        (item) => item is ChatToolUseItem && item.toolUseId == toolUseId,
+      );
+      if (childIndex == -1) continue;
+
+      final existing = subItem.children[childIndex] as ChatToolUseItem;
+      final updatedChild = ChatToolUseItem(
+        id: existing.id,
+        occurredAt: existing.occurredAt,
+        toolName: existing.toolName,
+        input: existing.input,
+        toolUseId: existing.toolUseId,
+        result: resultContent,
+      );
+      final updatedChildren = List<ChatItem>.of(subItem.children)
+        ..[childIndex] = updatedChild;
+      final updatedSub = ChatSubagentItem(
+        id: subItem.id,
+        occurredAt: subItem.occurredAt,
+        subagentId: subItem.subagentId,
+        description: subItem.description,
+        isComplete: subItem.isComplete,
+        durationMs: subItem.durationMs,
+        children: updatedChildren,
+      );
+      _chatItems = List.of(_chatItems)..[subIndex] = updatedSub;
+      return;
+    }
   }
 
   /// Infer file operation type from the sidecar tool name.

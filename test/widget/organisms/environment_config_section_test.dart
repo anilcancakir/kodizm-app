@@ -93,7 +93,7 @@ Future<void> _pump(
   Map<String, dynamic>? resolvedEnvironment,
   Map<String, dynamic>? teamEnvironment,
   Map<String, dynamic> runtimes = kMockRuntimes,
-  ValueChanged<Map<String, dynamic>>? onChanged,
+  Future<void> Function(Map<String, dynamic>)? onSave,
   bool enabled = true,
 }) async {
   tester.view.physicalSize = const Size(1440, 900);
@@ -129,7 +129,7 @@ Future<void> _pump(
               resolvedEnvironment: resolvedEnvironment ?? kResolvedEnvironment,
               teamEnvironment: teamEnvironment,
               runtimes: runtimes,
-              onChanged: onChanged ?? (_) {},
+              onSave: onSave ?? (_) async {},
               enabled: enabled,
             ),
           ),

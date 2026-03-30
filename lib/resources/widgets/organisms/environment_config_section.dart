@@ -23,9 +23,8 @@ const _serviceIcons = <String, IconData>{
 /// Organism widget that displays runtime version dropdowns and service toggles
 /// for a project's environment configuration.
 ///
-/// Shows inherited values (from team) with a visual "(Team default)" badge.
-/// Project overrides display a "Reset to team default" link that clears the
-/// override and falls back to the inherited value.
+/// Accumulates changes locally and persists them via [onSave] when the user
+/// taps the "Save Changes" button. Shows a snackbar on success.
 ///
 /// ## Usage
 ///
@@ -33,19 +32,20 @@ const _serviceIcons = <String, IconData>{
 /// EnvironmentConfigSection(
 ///   environment: project.environment,
 ///   resolvedEnvironment: project.resolvedEnvironment,
-///   teamEnvironment: team.environment,
 ///   runtimes: runtimesFromApi,
-///   onChanged: (updated) => state.updateEnvironment(updated),
+///   onSave: (updated) async {
+///     await state.updateProject(teamId, projectId, {'environment': updated});
+///   },
 /// )
 /// ```
-class EnvironmentConfigSection extends StatelessWidget {
+class EnvironmentConfigSection extends StatefulWidget {
   /// Creates an [EnvironmentConfigSection].
   const EnvironmentConfigSection({
     required this.environment,
     required this.resolvedEnvironment,
     this.teamEnvironment,
     required this.runtimes,
-    required this.onChanged,
+    required this.onSave,
     this.enabled = true,
     super.key,
   });
@@ -61,17 +61,28 @@ class EnvironmentConfigSection extends StatelessWidget {
 
   /// Available runtime versions from the API `/environment/runtimes` endpoint.
   ///
-  /// Expected shape: `{'python': ['3.12', '3.11', ...], 'node': ['22', '20', ...], ...}`.
+  /// Expected shape:
+  /// `{'python': ['3.12', '3.11', ...], 'node': ['22', '20', ...], ...}`.
   final Map<String, dynamic> runtimes;
 
-  /// Called with the updated environment map when a value changes or resets.
-  final ValueChanged<Map<String, dynamic>> onChanged;
+  /// Called with the updated environment map when the user saves changes.
+  /// Should return a [Future] that completes when the save is done.
+  final Future<void> Function(Map<String, dynamic> environment) onSave;
 
   /// Whether the controls are interactive. Set to `false` for read-only mode.
   final bool enabled;
 
+  @override
+  State<EnvironmentConfigSection> createState() =>
+      _EnvironmentConfigSectionState();
+}
+
+class _EnvironmentConfigSectionState extends State<EnvironmentConfigSection> {
+  late Map<String, dynamic> _pending;
+  bool _saving = false;
+
   // -------------------------------------------------------------------------
-  // Runtime keys
+  // Constants
   // -------------------------------------------------------------------------
 
   static const _runtimeKeys = [
@@ -87,36 +98,107 @@ class EnvironmentConfigSection extends StatelessWidget {
   static const _serviceKeys = ['pg', 'redis'];
 
   // -------------------------------------------------------------------------
+  // Lifecycle
+  // -------------------------------------------------------------------------
+
+  @override
+  void initState() {
+    super.initState();
+    _pending = Map<String, dynamic>.from(widget.environment ?? {});
+  }
+
+  @override
+  void didUpdateWidget(covariant EnvironmentConfigSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // 1. Sync pending state when parent provides fresh data (e.g. after save).
+    if (oldWidget.environment != widget.environment) {
+      _pending = Map<String, dynamic>.from(widget.environment ?? {});
+    }
+  }
+
+  // -------------------------------------------------------------------------
   // Helpers
   // -------------------------------------------------------------------------
 
   /// Whether the given [key] is a project-level override (not inherited).
-  bool _isOverride(String key) => environment?[key] != null;
+  bool _isOverride(String key) => _pending[key] != null;
 
   /// The resolved effective value for [key].
-  String? _resolvedValue(String key) => resolvedEnvironment?[key]?.toString();
+  String? _resolvedValue(String key) =>
+      widget.resolvedEnvironment?[key]?.toString();
 
   /// Available version strings for a runtime [key].
   List<String> _versionsForKey(String key) {
-    final raw = runtimes[key];
+    final raw = widget.runtimes[key];
     if (raw is List) {
       return raw.map((e) => e.toString()).toList();
     }
     return const [];
   }
 
-  /// Builds an updated map with [key] set to [value].
-  Map<String, dynamic> _withUpdate(String key, dynamic value) {
-    final updated = Map<String, dynamic>.from(environment ?? {});
-    updated[key] = value;
-    return updated;
+  /// Whether there are unsaved changes compared to the original environment.
+  bool get _hasChanges {
+    final original = widget.environment ?? {};
+    if (_pending.length != original.length) return true;
+
+    for (final entry in _pending.entries) {
+      if (original[entry.key]?.toString() != entry.value?.toString()) {
+        return true;
+      }
+    }
+    return false;
   }
 
-  /// Builds an updated map with [key] removed (reset to inherited).
-  Map<String, dynamic> _withReset(String key) {
-    final updated = Map<String, dynamic>.from(environment ?? {});
-    updated.remove(key);
-    return updated;
+  // -------------------------------------------------------------------------
+  // Actions
+  // -------------------------------------------------------------------------
+
+  /// Updates a single key in the pending state.
+  void _updateKey(String key, dynamic value) {
+    setState(() {
+      _pending[key] = value;
+    });
+  }
+
+  /// Resets a single key back to inherited (removes from pending).
+  void _resetKey(String key) {
+    setState(() {
+      _pending.remove(key);
+    });
+  }
+
+  /// Saves the pending state via the [onSave] callback.
+  Future<void> _save() async {
+    setState(() => _saving = true);
+
+    try {
+      await widget.onSave(_pending);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(trans('projects.environment.saved')),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: const Color(0xFF10B981),
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(trans('projects.environment.save_failed')),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _saving = false);
+      }
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -161,7 +243,7 @@ class EnvironmentConfigSection extends StatelessWidget {
                   'text-sm font-semibold text-slate-600 dark:text-slate-300 mb-4',
             ),
             WDiv(
-              className: 'flex flex-wrap gap-4',
+              className: 'flex flex-col gap-3',
               children: [
                 for (final key in _runtimeKeys) _buildRuntimeField(key),
               ],
@@ -191,6 +273,28 @@ class EnvironmentConfigSection extends StatelessWidget {
             ),
           ],
         ),
+
+        // -------
+        // Divider + Save button
+        // -------
+        WDiv(className: 'border-t border-slate-200 dark:border-slate-700 mx-6'),
+        WDiv(
+          className: 'w-full p-6 flex flex-row justify-end',
+          children: [
+            WButton(
+              onTap: _hasChanges ? _save : null,
+              isLoading: _saving,
+              disabled: !_hasChanges,
+              className: '''
+                px-5 py-2 rounded-lg text-sm font-semibold
+                bg-amber-400 dark:bg-amber-500
+                text-primary dark:text-primary-900
+                disabled:opacity-50
+              ''',
+              child: WText(trans('projects.environment.save')),
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -199,7 +303,7 @@ class EnvironmentConfigSection extends StatelessWidget {
   // Runtime dropdown field
   // -------------------------------------------------------------------------
 
-  /// Builds a single runtime version dropdown with inherited/override state.
+  /// Builds a single runtime version row with icon, label, dropdown, and badge.
   Widget _buildRuntimeField(String key) {
     final versions = _versionsForKey(key);
     final resolved = _resolvedValue(key);
@@ -207,70 +311,71 @@ class EnvironmentConfigSection extends StatelessWidget {
     final icon = _runtimeIcons[key] ?? Icons.code;
 
     return WDiv(
-      className: 'w-full sm:w-[calc(50%-8px)] flex flex-col gap-2',
+      className: '''
+        flex flex-row items-center gap-4
+        p-3 rounded-xl
+        bg-slate-50 dark:bg-slate-800/50
+      ''',
       children: [
-        // Label row
+        // Icon
+        WIcon(icon, className: 'text-lg text-slate-400'),
+
+        // Label + inherited badge
         WDiv(
-          className: 'flex flex-row items-center gap-2',
+          className: 'flex-1 flex flex-col gap-0.5',
           children: [
-            WIcon(icon, className: 'text-sm text-slate-400'),
             WText(
               trans('projects.environment.$key'),
               className:
                   'text-sm font-medium text-slate-700 dark:text-slate-200',
             ),
+            if (isProjectOverride)
+              WAnchor(
+                onTap: widget.enabled ? () => _resetKey(key) : null,
+                child: WText(
+                  trans('projects.environment.reset_to_default'),
+                  className: 'text-xs text-blue-500',
+                ),
+              )
+            else
+              WText(
+                trans('projects.environment.inherited'),
+                className: 'text-xs text-slate-400 italic',
+              ),
           ],
         ),
 
-        // Dropdown
-        WDiv(
-          className: '''
-            border border-slate-200 dark:border-slate-700
-            rounded-lg bg-white dark:bg-slate-900
-            px-3
-          ''',
-          child: DropdownButton<String>(
-            value: isProjectOverride ? environment![key]?.toString() : null,
-            hint: WText(
-              resolved != null
-                  ? trans('projects.environment.using_default', {
-                      'version': resolved,
-                    })
-                  : trans('projects.environment.version_placeholder'),
-              className: 'text-sm text-slate-400',
-            ),
-            underline: const WSpacer(className: 'h-0 w-0'),
-            onChanged: enabled
+        // Dropdown — constrained width
+        SizedBox(
+          width: 160,
+          child: WFormSelect<String>(
+            value: isProjectOverride ? _pending[key]?.toString() : null,
+            options: [
+              for (final version in versions)
+                SelectOption(value: version, label: version),
+            ],
+            onChange: widget.enabled
                 ? (value) {
                     if (value != null) {
-                      onChanged(_withUpdate(key, value));
+                      _updateKey(key, value);
                     }
                   }
                 : null,
-            items: [
-              for (final version in versions)
-                DropdownMenuItem<String>(
-                  value: version,
-                  child: WText(version, className: 'text-sm text-slate-700'),
-                ),
-            ],
+            placeholder:
+                resolved ?? trans('projects.environment.version_placeholder'),
+            className: '''
+              px-3 py-2 rounded-lg text-sm
+              bg-white dark:bg-slate-900
+              text-slate-700 dark:text-slate-200
+              border border-slate-200 dark:border-slate-700
+            ''',
+            menuClassName: '''
+              bg-white dark:bg-slate-900
+              border border-slate-200 dark:border-slate-700
+              rounded-xl shadow-xl
+            ''',
           ),
         ),
-
-        // Inherited badge OR reset link
-        if (isProjectOverride)
-          WAnchor(
-            onTap: enabled ? () => onChanged(_withReset(key)) : null,
-            child: WText(
-              trans('projects.environment.reset_to_default'),
-              className: 'text-xs text-blue-500 hover:text-blue-600',
-            ),
-          )
-        else
-          WText(
-            trans('projects.environment.inherited'),
-            className: 'text-xs text-slate-400 italic',
-          ),
       ],
     );
   }
@@ -281,15 +386,17 @@ class EnvironmentConfigSection extends StatelessWidget {
 
   /// Builds a single service toggle row with label, description, and switch.
   Widget _buildServiceToggle(String key) {
-    final i18nKey = key;
     final isProjectOverride = _isOverride(key);
-    final currentValue = resolvedEnvironment?[key] as bool? ?? true;
+    final currentValue =
+        _pending[key] as bool? ??
+        widget.resolvedEnvironment?[key] as bool? ??
+        true;
     final icon = _serviceIcons[key] ?? Icons.miscellaneous_services_outlined;
 
     return WDiv(
       className: '''
         flex flex-row items-center gap-4
-        p-4 rounded-xl
+        p-3 rounded-xl
         bg-slate-50 dark:bg-slate-800/50
       ''',
       children: [
@@ -301,17 +408,17 @@ class EnvironmentConfigSection extends StatelessWidget {
           className: 'flex-1 flex flex-col gap-1',
           children: [
             WText(
-              trans('projects.environment.$i18nKey'),
+              trans('projects.environment.$key'),
               className:
                   'text-sm font-medium text-slate-700 dark:text-slate-200',
             ),
             WText(
-              trans('projects.environment.${i18nKey}_description'),
+              trans('projects.environment.${key}_description'),
               className: 'text-xs text-slate-400',
             ),
             if (isProjectOverride)
               WAnchor(
-                onTap: enabled ? () => onChanged(_withReset(key)) : null,
+                onTap: widget.enabled ? () => _resetKey(key) : null,
                 child: WText(
                   trans('projects.environment.reset_to_default'),
                   className: 'text-xs text-blue-500',
@@ -328,10 +435,7 @@ class EnvironmentConfigSection extends StatelessWidget {
         // Toggle
         Switch(
           value: currentValue,
-          onChanged: enabled
-              ? (value) => onChanged(_withUpdate(key, value))
-              : null,
-          // Emerald-500 from DESIGN.md — Switch requires a Color object.
+          onChanged: widget.enabled ? (value) => _updateKey(key, value) : null,
           activeThumbColor: const Color(0xFF10B981),
         ),
       ],

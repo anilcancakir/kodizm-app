@@ -1059,11 +1059,17 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
       environment: project.environment,
       resolvedEnvironment: project.resolvedEnvironment,
       runtimes: flatRuntimes,
-      onChanged: (updatedEnv) {
-        if (teamId == null) return;
-        ProjectState.instance.updateProject(teamId, widget.projectId, {
-          'environment': updatedEnv,
-        });
+      onSave: (updatedEnv) async {
+        if (teamId == null) throw Exception('No team');
+        final result = await ProjectState.instance.updateProject(
+          teamId,
+          widget.projectId,
+          {'environment': updatedEnv},
+        );
+        if (result == null) throw Exception('Save failed');
+
+        // Refresh project data so UI reflects the saved state.
+        await ProjectState.instance.fetchProject(teamId, widget.projectId);
       },
     );
   }

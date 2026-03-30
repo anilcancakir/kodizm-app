@@ -5,7 +5,6 @@ import 'package:magic_starter/magic_starter.dart';
 // import '../resources/views/welcome_view.dart'; // Replaced by DashboardView
 import '../resources/views/dashboard_view.dart';
 import '../resources/views/project/project_list_view.dart';
-import '../resources/views/project/project_create_view.dart';
 import '../resources/views/project/project_detail_view.dart';
 import '../resources/views/task/task_list_view.dart';
 import '../resources/views/task/task_create_view.dart';
@@ -37,7 +36,6 @@ void registerAppRoutes() {
       MagicRoute.page('/', () => const DashboardView());
       MagicRoute.page('/dashboard', () => const DashboardView());
       MagicRoute.page('/projects', () => const ProjectListView());
-      MagicRoute.page('/projects/create', () => const ProjectCreateView());
       MagicRoute.page(
         '/projects/:id',
         (String id) => ProjectDetailView(projectId: id),

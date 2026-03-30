@@ -4,6 +4,7 @@ import 'package:magic/magic.dart';
 import '../../../app/models/project.dart';
 import '../../../app/models/user.dart';
 import '../../../app/state/project_state.dart';
+import '../../widgets/organisms/project_create_modal.dart';
 import 'package:magic_starter/magic_starter.dart';
 
 /// Project list view — displays all projects for the authenticated user's team.
@@ -41,6 +42,14 @@ class _ProjectListViewState extends State<ProjectListView> {
     await ProjectState.instance.fetchProjects(teamId);
   }
 
+  /// Opens the create project modal and navigates to the new project on success.
+  Future<void> _onCreateProject(BuildContext context) async {
+    final project = await ProjectCreateModal.show(context);
+    if (project != null) {
+      MagicRoute.to('/projects/${project.id}');
+    }
+  }
+
   void _onSortChanged(SortField? field) {
     if (field == null || field == _sortField) return;
     setState(() => _sortField = field);
@@ -60,7 +69,7 @@ class _ProjectListViewState extends State<ProjectListView> {
           subtitle: trans('projects.manage_subtitle'),
           actions: [
             WAnchor(
-              onTap: () => MagicRoute.to('/projects/create'),
+              onTap: () => _onCreateProject(context),
               child: WDiv(
                 className: '''
                     flex flex-row items-center gap-2
@@ -112,7 +121,7 @@ class _ProjectListViewState extends State<ProjectListView> {
           onError: (msg) => _ErrorView(message: msg),
           onEmpty: // ignore: const_widgets_require_const_arguments
           _EmptyView(
-            onCreateTap: () => MagicRoute.to('/projects/create'),
+            onCreateTap: () => _onCreateProject(context),
           ),
         ),
       ],

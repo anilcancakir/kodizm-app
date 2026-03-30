@@ -405,7 +405,7 @@ class _ConversationChatViewState extends State<ConversationChatView> {
               className:
                   'w-10 h-10 rounded-full flex items-center justify-center ${_avatarBgClassName(conversation.agentRoleSlug)}',
               child: WText(
-                (conversation.agentRoleName ?? 'A')[0].toUpperCase(),
+                _agentInitials(conversation.agentRoleName),
                 className: 'text-sm font-semibold text-white',
               ),
             ),
@@ -474,12 +474,12 @@ class _ConversationChatViewState extends State<ConversationChatView> {
           className:
               'w-8 h-8 rounded-full flex items-center justify-center ${_avatarBgClassName(conversation.agentRoleSlug)}',
           child: WText(
-            (conversation.agentRoleName ?? 'A')[0].toUpperCase(),
+            _agentInitials(conversation.agentRoleName),
             className: 'text-xs font-semibold text-white',
           ),
         ),
 
-        // Bubble with pulsing dots
+        // Bubble with phase-aware status text
         WDiv(
           className: '''
             px-4 py-3 rounded-2xl rounded-tl-sm
@@ -493,13 +493,39 @@ class _ConversationChatViewState extends State<ConversationChatView> {
               child: const CircularProgressIndicator(strokeWidth: 2),
             ),
             WText(
-              trans('conversation_chat.agent_working'),
+              _typingStatusLabel(),
               className: 'text-sm text-slate-500 dark:text-slate-400',
             ),
           ],
         ),
       ],
     );
+  }
+
+  /// Returns a user-friendly label based on the current session phase.
+  String _typingStatusLabel() {
+    final phase = _state.sessionPhase;
+    return switch (phase) {
+      'provisioning' => trans('conversation_chat.status_starting'),
+      'executing' => trans('conversation_chat.status_working'),
+      'warm' => trans('conversation_chat.status_thinking'),
+      _ =>
+        _state.isSending
+            ? trans('conversation_chat.status_sending')
+            : trans('conversation_chat.status_connecting'),
+    };
+  }
+
+  /// Derives avatar initials from agent role name (e.g. "Developer" → "D",
+  /// "Business Analyst" → "BA").
+  String _agentInitials(String? name) {
+    if (name == null || name.isEmpty) return 'A';
+    return name
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .map((w) => w[0].toUpperCase())
+        .take(2)
+        .join();
   }
 
   // -----------------------------------------------------------------------

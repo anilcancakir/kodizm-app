@@ -71,11 +71,11 @@ abstract class ConversationChatWebSocket {
 // ConversationChatState controller
 // ---------------------------------------------------------------------------
 
-/// Reactive state controller for the debug conversation chat lifecycle.
+/// Reactive state controller for the conversation chat lifecycle.
 ///
 /// Orchestrates creating a conversation, sending messages, receiving
-/// WebSocket events, tracking metadata, and accumulating raw events for
-/// debug display. All mutations call [refreshUI] to notify listeners.
+/// WebSocket events, tracking metadata, and accumulating raw events.
+/// All mutations call [refreshUI] to notify listeners.
 ///
 /// The primary state (`rxState`) is unused; all fields are secondary state
 /// managed with manual [refreshUI] calls.

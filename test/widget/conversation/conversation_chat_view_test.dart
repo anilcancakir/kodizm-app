@@ -609,9 +609,9 @@ void main() {
       state.setAwaitingResponseForTest(value: true);
       await tester.pump();
 
-      // Typing bubble should be visible.
+      // Typing bubble should be visible (no session phase yet → "Connecting...").
       expect(
-        find.text(trans('conversation_chat.agent_working')),
+        find.text(trans('conversation_chat.status_connecting')),
         findsOneWidget,
       );
 

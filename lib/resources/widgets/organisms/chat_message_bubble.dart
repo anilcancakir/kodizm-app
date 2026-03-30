@@ -134,7 +134,7 @@ class ChatMessageBubble extends StatelessWidget {
       className:
           'w-7 h-7 rounded-full flex items-center justify-center ${_avatarBgClassName(agentRoleSlug)}',
       child: WText(
-        _roleAbbreviation(agentRoleSlug),
+        _agentInitials(agentRoleName, agentRoleSlug),
         className: 'text-[10px] font-bold text-white',
       ),
     );
@@ -187,16 +187,21 @@ class ChatMessageBubble extends StatelessWidget {
   bool get _hasFooterData =>
       message.costUsd != null || message.durationMs != null;
 
-  /// Maps an agent role slug to a 2-letter abbreviation for the avatar.
-  static String _roleAbbreviation(String? slug) {
-    return switch (slug) {
-      'ba' => 'BA',
-      'lead' => 'LD',
-      'dev' => 'DV',
-      'reviewer' => 'RV',
-      'qa' => 'QA',
-      _ => 'AI',
-    };
+  /// Derives avatar initials from the agent role name (e.g. "Business Analyst"
+  /// → "BA", "Developer" → "D"). Falls back to first letter of slug or "AI".
+  static String _agentInitials(String? name, String? slug) {
+    if (name != null && name.isNotEmpty) {
+      return name
+          .split(RegExp(r'\s+'))
+          .where((w) => w.isNotEmpty)
+          .map((w) => w[0].toUpperCase())
+          .take(2)
+          .join();
+    }
+    if (slug != null && slug.isNotEmpty) {
+      return slug[0].toUpperCase();
+    }
+    return 'AI';
   }
 
   /// Maps an agent role slug to a background className for the avatar circle.

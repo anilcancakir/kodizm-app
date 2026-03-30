@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:magic/magic.dart';
 
+import '../../../app/models/agent_role.dart';
 import '../../../app/models/conversation.dart';
 import '../../../app/models/user.dart';
+import '../../../app/state/conversation_chat_state.dart';
 import '../../../app/state/conversation_list_state.dart';
+import '../../widgets/organisms/agent_role_picker_modal.dart';
 import 'package:magic_starter/magic_starter.dart';
 
 /// Conversation list view — displays all conversations for a given project.
@@ -44,6 +47,23 @@ class _ConversationListViewState extends State<ConversationListView> {
     final teamId = Auth.user<User>()?.currentTeam?.id;
     if (teamId == null) return;
     await _state.loadConversations(teamId, widget.projectId);
+  }
+
+  /// Shows the agent role picker and navigates directly to a new chat.
+  Future<void> _handleNewConversation() async {
+    final teamId = Auth.user<User>()?.currentTeam?.id;
+    if (teamId == null) return;
+
+    final chatState = ConversationChatState();
+    final roles = await chatState.fetchAgentRoles(teamId);
+    if (!mounted || roles.isEmpty) return;
+
+    final AgentRole? selected = await AgentRolePickerModal.show(context, roles);
+    if (selected == null || !mounted) return;
+
+    MagicRoute.to(
+      '/projects/${widget.projectId}/chat?agentRoleId=${selected.id}',
+    );
   }
 
   // -----------------------------------------------------------------------
@@ -117,7 +137,7 @@ class _ConversationListViewState extends State<ConversationListView> {
           subtitle: trans('conversations.subtitle'),
           actions: [
             WAnchor(
-              onTap: () => MagicRoute.to('/projects/${widget.projectId}/chat'),
+              onTap: _handleNewConversation,
               child: WDiv(
                 className: '''
                   flex flex-row items-center gap-2
@@ -208,15 +228,30 @@ class _ConversationListViewState extends State<ConversationListView> {
       noPadding: true,
       child: RefreshIndicator(
         onRefresh: _loadConversations,
-        child: ListView.builder(
+        child: ListView.separated(
           shrinkWrap: true,
           physics: const AlwaysScrollableScrollPhysics(),
           itemCount: conversations.length,
+          separatorBuilder: (_, _) => WDiv(
+            className: 'mx-4 border-b border-slate-100 dark:border-slate-700',
+          ),
           itemBuilder: (context, index) =>
               _buildConversationRow(conversations[index]),
         ),
       ),
     );
+  }
+
+  /// Derives a short avatar label from the agent role name (e.g. "BA").
+  static String _avatarLabel(Conversation conversation) {
+    final name = conversation.agentRoleName ?? conversation.title ?? '';
+    if (name.isEmpty) return '?';
+    return name
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .map((w) => w[0].toUpperCase())
+        .take(2)
+        .join();
   }
 
   /// A tappable row for a single [Conversation].
@@ -225,28 +260,25 @@ class _ConversationListViewState extends State<ConversationListView> {
     final lastActive = _relativeTime(
       conversation.lastActivityAt ?? conversation.updatedAt,
     );
+    final avatar = _avatarLabel(conversation);
 
     return WAnchor(
       onTap: () => MagicRoute.to(
         '/projects/${widget.projectId}/chats/${conversation.id}',
       ),
       child: WDiv(
-        className:
-            'px-4 py-3 flex flex-row items-center gap-3 border-b border-slate-100',
+        className: 'px-4 py-3 flex flex-row items-center gap-3',
         children: [
           // -------------------------------------------------------------------
-          // Agent role badge
+          // Agent role avatar (initials)
           // -------------------------------------------------------------------
           WDiv(
             className: '''
-              w-9 h-9 rounded-lg
+              w-9 h-9 rounded-full
               flex items-center justify-center
-              bg-indigo-500/10
+              bg-amber-400
             ''',
-            child: WIcon(
-              Icons.smart_toy_outlined,
-              className: 'text-base text-indigo-500',
-            ),
+            child: WText(avatar, className: 'text-xs font-bold text-slate-900'),
           ),
 
           // -------------------------------------------------------------------

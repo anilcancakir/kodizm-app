@@ -552,7 +552,6 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
             _buildRepositoriesSection(),
             if (_hasRuntimeData) _buildEnvironmentSection(project),
             _buildRecentTasksSection(),
-            _buildDebugChatSection(),
             if (_canManageProject) _buildSettingsSection(project),
           ],
         );
@@ -1157,43 +1156,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   }
 
   // ---------------------------------------------------------------------------
-  // 4. Debug Chat Section
-  // ---------------------------------------------------------------------------
-
-  /// Builds the debug chat link section for real-time conversation testing.
-  Widget _buildDebugChatSection() {
-    return MagicStarterCard(
-      title: trans('conversation_chat.title'),
-      child: WAnchor(
-        onTap: () => MagicRoute.to('/projects/${widget.projectId}/chat'),
-        child: WDiv(
-          className: '''
-            flex flex-row items-center gap-3
-            p-3 rounded-xl
-            bg-white dark:bg-gray-800
-            border border-slate-200 dark:border-slate-700
-          ''',
-          children: [
-            WIcon(
-              Icons.chat_outlined,
-              className: 'text-base text-slate-400 dark:text-slate-500',
-            ),
-            WDiv(
-              className: 'flex-1',
-              child: WText(
-                trans('conversation_chat.title'),
-                className: 'text-sm text-slate-600 dark:text-slate-400',
-              ),
-            ),
-            WIcon(Icons.chevron_right, className: 'text-base text-slate-400'),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // 6. Settings Section
+  // 5. Settings Section
   // ---------------------------------------------------------------------------
 
   /// Builds the settings section with edit form and delete button.

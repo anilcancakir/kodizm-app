@@ -53,7 +53,7 @@ void main() {
       'created_by_user': {'id': 'user-uuid-001', 'name': 'Alice'},
       'sub_tasks_count': 3,
       'sections_count': 2,
-      'runs_count': 1,
+      'linked_conversations_count': 1,
       'created_at': '2024-03-10T09:00:00.000Z',
       'updated_at': '2024-03-20T11:00:00.000Z',
     };
@@ -122,7 +122,7 @@ void main() {
       );
       expect(task.subTasksCount, equals(3));
       expect(task.sectionsCount, equals(2));
-      expect(task.runsCount, equals(1));
+      expect(task.linkedConversationsCount, equals(1));
     });
 
     test('fromMap extracts nested assignedAgentRoleName', () {
@@ -164,7 +164,7 @@ void main() {
       expect(task.createdByUserName, isNull);
       expect(task.subTasksCount, isNull);
       expect(task.sectionsCount, isNull);
-      expect(task.runsCount, isNull);
+      expect(task.linkedConversationsCount, isNull);
     });
 
     test('nullable list-shape fields return null when absent', () {

@@ -210,8 +210,9 @@ class Task extends Model with HasTimestamps, InteractsWithPersistence {
   /// Get the total number of sections (detail view only).
   int? get sectionsCount => getAttribute('sections_count') as int?;
 
-  /// Get the total number of runs (detail view only).
-  int? get runsCount => getAttribute('runs_count') as int?;
+  /// Get the total number of linked conversations (detail view only).
+  int? get linkedConversationsCount =>
+      getAttribute('linked_conversations_count') as int?;
 
   // ---------------------------------------------------------------------------
   // Static Helpers

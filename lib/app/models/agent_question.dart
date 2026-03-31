@@ -1,4 +1,4 @@
-/// A question raised by an agent during a task run, awaiting a user answer.
+/// A question raised by an agent during a conversation, awaiting a user answer.
 ///
 /// Maps directly to `AgentQuestionResource` from the Kodizm API.
 /// Questions are created when an agent requires human input to proceed.
@@ -19,7 +19,7 @@ class AgentQuestion {
   /// Creates an [AgentQuestion] with all fields.
   const AgentQuestion({
     required this.id,
-    required this.taskRunId,
+    required this.conversationId,
     required this.questionText,
     required this.createdAt,
     this.streamEventId,
@@ -33,8 +33,8 @@ class AgentQuestion {
   /// The unique identifier of this question (UUID).
   final String id;
 
-  /// The identifier of the parent task run (UUID).
-  final String taskRunId;
+  /// The identifier of the parent conversation (UUID).
+  final String conversationId;
 
   /// The stream event that triggered this question. Null if not event-linked.
   final String? streamEventId;
@@ -63,7 +63,7 @@ class AgentQuestion {
   factory AgentQuestion.fromMap(Map<String, dynamic> map) {
     return AgentQuestion(
       id: map['id'] as String,
-      taskRunId: map['task_run_id'] as String,
+      conversationId: map['conversation_id'] as String,
       streamEventId: map['stream_event_id'] as String?,
       questionText: map['question_text'] as String,
       answerText: map['answer_text'] as String?,
@@ -89,7 +89,7 @@ class AgentQuestion {
   }) {
     return AgentQuestion(
       id: id,
-      taskRunId: taskRunId,
+      conversationId: conversationId,
       streamEventId: streamEventId,
       questionText: questionText,
       answerText: answerText ?? this.answerText,

@@ -61,20 +61,29 @@ const Map<String, dynamic> kSectionA = {
   'updated_at': '2025-01-11T08:00:00.000Z',
 };
 
-const Map<String, dynamic> kRunA = {
-  'id': 'run-uuid-001',
+const Map<String, dynamic> kConversationA = {
+  'id': 'conv-uuid-001',
+  'project_id': 'proj-uuid-001',
+  'user': {'id': 'user-uuid-001', 'name': 'Test User'},
+  'agent_role': {
+    'id': 'role-uuid-001',
+    'name': 'Business Analyst',
+    'slug': 'ba',
+  },
+  'status': 'completed',
+  'type': 'autonomous',
   'task_id': 'task-uuid-001',
-  'agent_role_id': 'role-uuid-001',
-  'agent_role': {'id': 'role-uuid-001', 'name': 'Business Analyst'},
-  'status': 'done',
+  'prompt': 'Implement the login screen',
   'model': 'claude-3-5-sonnet',
-  'total_cost_usd': 0.021,
-  'duration_ms': 12400,
-  'num_turns': 8,
-  'error': null,
+  'total_cost_usd': '0.0210',
+  'total_input_tokens': 1200,
+  'total_output_tokens': 800,
+  'messages_count': 8,
+  'last_activity_at': '2025-01-11T08:03:00.000Z',
   'started_at': '2025-01-11T08:01:00.000Z',
   'completed_at': '2025-01-11T08:03:00.000Z',
   'created_at': '2025-01-11T08:00:55.000Z',
+  'updated_at': '2025-01-11T08:03:00.000Z',
 };
 
 const Map<String, dynamic> kAgentRoleA = {
@@ -466,66 +475,81 @@ void main() {
     });
 
     // -----------------------------------------------------------------------
-    // 12. fetchRuns — populates runs list
+    // 12. fetchConversations — populates conversations list
     // -----------------------------------------------------------------------
 
-    test('fetchRuns populates runs list', () async {
+    test('fetchConversations populates conversations list', () async {
       http.alwaysReturn(
         MagicResponse(
           data: {
-            'data': [kRunA],
+            'data': [kConversationA],
           },
           statusCode: 200,
         ),
       );
 
-      await state.fetchRuns('team-uuid-001', 'proj-uuid-001', 'task-uuid-001');
+      await state.fetchConversations(
+        'team-uuid-001',
+        'proj-uuid-001',
+        'task-uuid-001',
+      );
 
-      expect(state.runs.length, equals(1));
-      expect(state.runs.first.id, equals('run-uuid-001'));
-      expect(state.runs.first.status, equals('done'));
-      expect(state.runs.first.agentRoleName, equals('Business Analyst'));
+      expect(state.conversations.length, equals(1));
+      expect(state.conversations.first.id, equals('conv-uuid-001'));
+      expect(state.conversations.first.status, equals('completed'));
+      expect(
+        state.conversations.first.agentRoleName,
+        equals('Business Analyst'),
+      );
+      expect(state.conversations.first.isAutonomous, isTrue);
 
       expect(
         http.calls.first.url,
         equals(
-          '/teams/team-uuid-001/projects/proj-uuid-001/tasks/task-uuid-001/runs',
+          '/teams/team-uuid-001/projects/proj-uuid-001/tasks/task-uuid-001/conversations',
         ),
       );
     });
 
     // -----------------------------------------------------------------------
-    // 13. startRun — posts and returns TaskRun
+    // 13. startRun — posts and returns Conversation
     // -----------------------------------------------------------------------
 
-    test('startRun posts agent_role_id and returns created TaskRun', () async {
-      http.alwaysReturn(MagicResponse(data: {'data': kRunA}, statusCode: 201));
+    test(
+      'startRun posts agent_role_id and returns created Conversation',
+      () async {
+        http.alwaysReturn(
+          MagicResponse(data: {'data': kConversationA}, statusCode: 201),
+        );
 
-      final run = await state.startRun(
-        'team-uuid-001',
-        'proj-uuid-001',
-        'task-uuid-001',
-        'role-uuid-001',
-      );
+        final conversation = await state.startRun(
+          'team-uuid-001',
+          'proj-uuid-001',
+          'task-uuid-001',
+          'role-uuid-001',
+        );
 
-      expect(run, isNotNull);
-      expect(run!.id, equals('run-uuid-001'));
-      expect(run.agentRoleId, equals('role-uuid-001'));
-      expect(state.startingRun, isFalse);
+        expect(conversation, isNotNull);
+        expect(conversation!.id, equals('conv-uuid-001'));
+        expect(conversation.agentRoleId, equals('role-uuid-001'));
+        expect(conversation.isAutonomous, isTrue);
+        expect(conversation.taskId, equals('task-uuid-001'));
+        expect(state.startingRun, isFalse);
 
-      final call = http.calls.first;
-      expect(call.method, equals('POST'));
-      expect(
-        call.url,
-        equals(
-          '/teams/team-uuid-001/projects/proj-uuid-001/tasks/task-uuid-001/runs',
-        ),
-      );
-      expect(
-        (call.data as Map<String, dynamic>)['agent_role_id'],
-        equals('role-uuid-001'),
-      );
-    });
+        final call = http.calls.first;
+        expect(call.method, equals('POST'));
+        expect(
+          call.url,
+          equals(
+            '/teams/team-uuid-001/projects/proj-uuid-001/tasks/task-uuid-001/run',
+          ),
+        );
+        expect(
+          (call.data as Map<String, dynamic>)['agent_role_id'],
+          equals('role-uuid-001'),
+        );
+      },
+    );
 
     // -----------------------------------------------------------------------
     // 14. fetchAgentRoles — populates agentRoles list

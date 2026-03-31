@@ -8,7 +8,6 @@ import '../resources/views/project/project_list_view.dart';
 import '../resources/views/project/project_detail_view.dart';
 import '../resources/views/task/task_list_view.dart';
 import '../resources/views/task/task_create_view.dart';
-import '../resources/views/task/agent_run_view.dart';
 import '../resources/views/task/task_detail_view.dart';
 import '../resources/views/billing/billing_view.dart';
 import '../resources/views/billing/usage_history_view.dart';
@@ -52,11 +51,6 @@ void registerAppRoutes() {
         '/projects/:projectId/tasks/:taskId',
         (String projectId, String taskId) =>
             TaskDetailView(projectId: projectId, taskId: taskId),
-      );
-      MagicRoute.page(
-        '/projects/:projectId/tasks/:taskId/runs/:runId',
-        (String projectId, String taskId, String runId) =>
-            AgentRunView(projectId: projectId, taskId: taskId, runId: runId),
       );
       // Top-level nav redirects — check current project and redirect.
       MagicRoute.page(

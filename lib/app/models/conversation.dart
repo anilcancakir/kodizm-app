@@ -33,6 +33,9 @@ class Conversation {
     this.lastActivityAt,
     this.startedAt,
     this.completedAt,
+    this.type = 'interactive',
+    this.taskId,
+    this.prompt,
   });
 
   // -------
@@ -98,8 +101,25 @@ class Conversation {
   /// UTC timestamp when this conversation record was created.
   final DateTime createdAt;
 
+  /// Conversation type — `'interactive'` (user-driven chat) or `'autonomous'`
+  /// (task-triggered agent run).
+  final String type;
+
+  /// The identifier of the parent task (UUID). Present only for autonomous
+  /// conversations spawned from a task run. Null for interactive chats.
+  final String? taskId;
+
+  /// The prompt text sent to the agent for autonomous conversations. Null for
+  /// interactive chats where the user types messages directly.
+  final String? prompt;
+
   /// UTC timestamp of the last update to this conversation record.
   final DateTime updatedAt;
+
+  // -------
+
+  /// Whether this conversation is an autonomous task run.
+  bool get isAutonomous => type == 'autonomous';
 
   // -------
 
@@ -139,6 +159,9 @@ class Conversation {
           : null,
       createdAt: DateTime.parse(map['created_at'] as String),
       updatedAt: DateTime.parse(map['updated_at'] as String),
+      type: map['type'] as String? ?? 'interactive',
+      taskId: map['task_id'] as String?,
+      prompt: map['prompt'] as String?,
     );
   }
 
@@ -148,12 +171,16 @@ class Conversation {
   ///
   /// All fields not provided retain their current values.
   Conversation copyWith({
+    String? title,
     String? status,
     String? model,
     double? totalCostUsd,
     int? messagesCount,
     DateTime? lastActivityAt,
     DateTime? completedAt,
+    String? type,
+    String? taskId,
+    String? prompt,
   }) {
     return Conversation(
       id: id,
@@ -163,7 +190,7 @@ class Conversation {
       agentRoleId: agentRoleId,
       agentRoleName: agentRoleName,
       agentRoleSlug: agentRoleSlug,
-      title: title,
+      title: title ?? this.title,
       status: status ?? this.status,
       model: model ?? this.model,
       totalCostUsd: totalCostUsd ?? this.totalCostUsd,
@@ -175,6 +202,9 @@ class Conversation {
       completedAt: completedAt ?? this.completedAt,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      type: type ?? this.type,
+      taskId: taskId ?? this.taskId,
+      prompt: prompt ?? this.prompt,
     );
   }
 }

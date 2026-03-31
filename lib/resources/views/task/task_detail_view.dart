@@ -3,8 +3,8 @@ import 'package:magic/magic.dart';
 import 'package:magic_starter/magic_starter.dart';
 
 import '../../../app/models/agent_role.dart';
+import '../../../app/models/conversation.dart';
 import '../../../app/models/task.dart';
-import '../../../app/models/task_run.dart';
 import '../../../app/models/task_section.dart';
 import '../../../app/models/user.dart';
 import '../../../app/state/task_state.dart';
@@ -93,7 +93,11 @@ class _TaskDetailViewState extends State<TaskDetailView> {
     await Future.wait([
       TaskState.instance.fetchTask(teamId, widget.projectId, widget.taskId),
       TaskState.instance.fetchSections(teamId, widget.projectId, widget.taskId),
-      TaskState.instance.fetchRuns(teamId, widget.projectId, widget.taskId),
+      TaskState.instance.fetchConversations(
+        teamId,
+        widget.projectId,
+        widget.taskId,
+      ),
     ]);
   }
 
@@ -133,10 +137,10 @@ class _TaskDetailViewState extends State<TaskDetailView> {
         projectId: widget.projectId,
         taskId: widget.taskId,
         teamId: teamId,
-        onRunStarted: (runId) {
+        onRunStarted: (conversationId) {
           if (context.mounted) {
             MagicRoute.to(
-              '/projects/${widget.projectId}/tasks/${widget.taskId}/runs/$runId',
+              '/projects/${widget.projectId}/chats/$conversationId',
             );
           }
         },
@@ -162,10 +166,10 @@ class _TaskDetailViewState extends State<TaskDetailView> {
     return '\$${value.toStringAsFixed(4)}';
   }
 
-  /// Whether any active run prevents starting a new one.
-  bool _hasActiveRun(List<TaskRun> runs) {
-    return runs.any(
-      (r) => r.status == 'running' || r.status == 'waiting_for_input',
+  /// Whether any active conversation prevents starting a new one.
+  bool _hasActiveRun(List<Conversation> conversations) {
+    return conversations.any(
+      (c) => c.status == 'active' || c.status == 'running',
     );
   }
 
@@ -186,7 +190,7 @@ class _TaskDetailViewState extends State<TaskDetailView> {
       builder: (context, _) {
         final task = TaskState.instance.selectedTask;
         final sections = TaskState.instance.sections;
-        final runs = TaskState.instance.runs;
+        final runs = TaskState.instance.conversations;
 
         if (task == null) {
           return const WDiv(
@@ -500,7 +504,10 @@ class _TaskDetailViewState extends State<TaskDetailView> {
   }
 
   /// Builds the run history card with the start-run button.
-  Widget _buildRunHistorySection(BuildContext context, List<TaskRun> runs) {
+  Widget _buildRunHistorySection(
+    BuildContext context,
+    List<Conversation> runs,
+  ) {
     final hasActive = _hasActiveRun(runs);
 
     return MagicStarterCard(
@@ -618,8 +625,8 @@ class _RunRow extends StatelessWidget {
     required this.taskId,
   });
 
-  /// The run to display.
-  final TaskRun run;
+  /// The conversation (run) to display.
+  final Conversation run;
 
   /// The project ID for navigation.
   final String projectId;
@@ -635,12 +642,6 @@ class _RunRow extends StatelessWidget {
     return '\$${cost.toStringAsFixed(2)}';
   }
 
-  /// Formats duration milliseconds as `Xs` or `--`.
-  String _formatDuration(int? ms) {
-    if (ms == null) return '--';
-    return '${(ms / 1000).round()}s';
-  }
-
   /// Formats [DateTime] as `Mar 25, 2026` using i18n month names.
   String _formatDate(DateTime? date) {
     if (date == null) return '--';
@@ -651,8 +652,7 @@ class _RunRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return WAnchor(
-      onTap: () =>
-          MagicRoute.to('/projects/$projectId/tasks/$taskId/runs/${run.id}'),
+      onTap: () => MagicRoute.to('/projects/$projectId/chats/${run.id}'),
       child: WDiv(
         className: '''
           flex flex-row items-center gap-3
@@ -673,11 +673,6 @@ class _RunRow extends StatelessWidget {
           // Cost
           WText(
             _formatCost(run.totalCostUsd),
-            className: 'text-xs text-slate-500 dark:text-slate-400',
-          ),
-          // Duration
-          WText(
-            _formatDuration(run.durationMs),
             className: 'text-xs text-slate-500 dark:text-slate-400',
           ),
           // Started at
@@ -733,7 +728,7 @@ class _StartRunDialogState extends State<_StartRunDialog> {
     final role = _selectedRole;
     if (role == null) return;
 
-    final run = await TaskState.instance.startRun(
+    final conversation = await TaskState.instance.startRun(
       widget.teamId,
       widget.projectId,
       widget.taskId,
@@ -744,8 +739,8 @@ class _StartRunDialogState extends State<_StartRunDialog> {
 
     Navigator.of(context).pop();
 
-    if (run != null) {
-      widget.onRunStarted(run.id);
+    if (conversation != null) {
+      widget.onRunStarted(conversation.id);
     }
   }
 

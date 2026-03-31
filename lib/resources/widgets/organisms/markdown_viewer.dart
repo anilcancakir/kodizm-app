@@ -77,28 +77,133 @@ class MarkdownViewer extends StatelessWidget {
 
   /// Builds a [MarkdownStyleSheet] seeded from the current [Theme] and
   /// overridden with DESIGN.md tokens.
+  ///
+  /// Dark/light mode aware — applies appropriate palette from DESIGN.md §9.
   MarkdownStyleSheet _buildStyleSheet(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // -- Palette (DESIGN.md §2 + §9) --
+    final Color textBody = isDark
+        ? const Color(0xFFF1F5F9)
+        : const Color(0xFF334E68);
+    final Color textSecondary = isDark
+        ? const Color(0xFF94A3B8)
+        : const Color(0xFF64748B);
+    final Color border = isDark
+        ? const Color(0xFF243346)
+        : const Color(0xFFE2E8F0);
+    final Color blockquoteBg = isDark
+        ? const Color(0xFF243346)
+        : const Color(0xFFF8FAFC);
+    final Color inlineCodeBg = isDark
+        ? const Color(0x1FFFFFFF)
+        : const Color(0x0F334E68);
+    final Color linkColor = isDark
+        ? const Color(0xFF60A5FA)
+        : const Color(0xFF334E68);
+    final Color tableCellBg = isDark
+        ? const Color(0x08FFFFFF)
+        : const Color(0x00000000);
+    final Color tableHeadBg = isDark
+        ? const Color(0x12FFFFFF)
+        : const Color(0x08334E68);
+
+    // -- Font families (DESIGN.md §3) --
+    const String bodyFont = 'AlbertSans';
+    const String monoFont = 'JetBrains Mono';
+
     return MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
-      // Inline code — JetBrains Mono, teal accent, subtle navy tint bg.
-      code: const TextStyle(
-        fontFamily: 'JetBrains Mono',
+      // Body text — Albert Sans, primary readable color.
+      p: TextStyle(
+        fontFamily: bodyFont,
+        fontSize: 14,
+        height: 1.6,
+        color: textBody,
+      ),
+      // Headings — DESIGN.md §3 constrained type scale.
+      h1: TextStyle(
+        fontFamily: bodyFont,
+        fontSize: 24,
+        fontWeight: FontWeight.w700,
+        height: 1.3,
+        letterSpacing: -0.01,
+        color: textBody,
+      ),
+      h2: TextStyle(
+        fontFamily: bodyFont,
+        fontSize: 20,
+        fontWeight: FontWeight.w600,
+        height: 1.35,
+        letterSpacing: -0.01,
+        color: textBody,
+      ),
+      h3: TextStyle(
+        fontFamily: bodyFont,
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        height: 1.4,
+        color: textBody,
+      ),
+      // Inline code — JetBrains Mono, teal accent, subtle bg.
+      code: TextStyle(
+        fontFamily: monoFont,
         fontSize: 13,
-        color: Color(0xFF14B8A6),
-        backgroundColor: Color(0x0F334E68),
+        color: const Color(0xFF14B8A6),
+        backgroundColor: inlineCodeBg,
       ),
-      // Table heading — semi-bold weight.
-      tableHead: const TextStyle(fontWeight: FontWeight.w600),
-      // Table border — slate-200.
-      tableBorder: TableBorder.all(color: const Color(0xFFE2E8F0)),
-      // Blockquote — light slate bg + primary navy left border.
-      blockquoteDecoration: const BoxDecoration(
-        color: Color(0xFFF8FAFC),
-        border: Border(left: BorderSide(color: Color(0xFF334E68), width: 3)),
+      // Table heading — Albert Sans, semi-bold, subtle background.
+      tableHead: TextStyle(
+        fontFamily: bodyFont,
+        fontWeight: FontWeight.w600,
+        color: textBody,
       ),
-      // Links — primary navy + underline.
-      a: const TextStyle(
-        color: Color(0xFF334E68),
+      tableHeadAlign: TextAlign.left,
+      // Table border — theme-aware, subtle.
+      tableBorder: TableBorder.all(color: border, width: 0.5),
+      // Table cell decoration — alternating-ready subtle tint.
+      tableCellsDecoration: BoxDecoration(color: tableCellBg),
+      // Table head cell decoration — slightly more prominent.
+      tableHeadCellsDecoration: BoxDecoration(color: tableHeadBg),
+      // Table cell padding — comfortable spacing.
+      tableCellsPadding: const EdgeInsets.symmetric(
+        horizontal: 12,
+        vertical: 8,
+      ),
+      // Table body text — Albert Sans.
+      tableBody: TextStyle(
+        fontFamily: bodyFont,
+        fontSize: 14,
+        height: 1.5,
+        color: textBody,
+      ),
+      // Blockquote — theme-aware bg + accent left border.
+      blockquoteDecoration: BoxDecoration(
+        color: blockquoteBg,
+        border: const Border(
+          left: BorderSide(color: Color(0xFFFBBF24), width: 3),
+        ),
+        borderRadius: const BorderRadius.only(
+          topRight: Radius.circular(4),
+          bottomRight: Radius.circular(4),
+        ),
+      ),
+      blockquotePadding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      // Links — blue in dark mode for visibility, navy in light.
+      a: TextStyle(
+        fontFamily: bodyFont,
+        color: linkColor,
         decoration: TextDecoration.underline,
+        decorationColor: linkColor.withValues(alpha: 0.4),
+      ),
+      // List item bullets — secondary text color.
+      listBullet: TextStyle(
+        fontFamily: bodyFont,
+        fontSize: 14,
+        color: textSecondary,
+      ),
+      // Horizontal rule.
+      horizontalRuleDecoration: BoxDecoration(
+        border: Border(top: BorderSide(color: border, width: 1)),
       ),
     );
   }

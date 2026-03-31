@@ -262,7 +262,11 @@ void main() {
     await Future.wait([
       state.fetchTask('team-uuid-001', 'proj-uuid-001', 'task-uuid-001'),
       state.fetchSections('team-uuid-001', 'proj-uuid-001', 'task-uuid-001'),
-      state.fetchRuns('team-uuid-001', 'proj-uuid-001', 'task-uuid-001'),
+      state.fetchConversations(
+        'team-uuid-001',
+        'proj-uuid-001',
+        'task-uuid-001',
+      ),
     ]);
 
     await tester.pumpWidget(_buildTestWidget());

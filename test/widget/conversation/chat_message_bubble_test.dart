@@ -7,6 +7,7 @@ import 'package:magic/magic.dart';
 
 import 'package:app/app/models/conversation_message.dart';
 import 'package:app/resources/widgets/organisms/chat_message_bubble.dart';
+import 'package:app/resources/widgets/organisms/markdown_viewer.dart';
 
 // ---------------------------------------------------------------------------
 // Translation loader
@@ -205,5 +206,82 @@ void main() {
 
     // Duration label
     expect(find.text('1234ms'), findsOneWidget);
+  });
+
+  // -------------------------------------------------------------------------
+  // Test 4: Source/render toggle
+  // -------------------------------------------------------------------------
+
+  testWidgets('toggle button switches between markdown and source', (
+    tester,
+  ) async {
+    _setViewport(tester);
+
+    await tester.pumpWidget(
+      _buildBubble(
+        ChatMessageBubble(
+          message: _makeAssistantMessage(content: '**Bold** text'),
+          agentRoleSlug: 'dev',
+          agentRoleName: 'Developer',
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // Initially renders via MarkdownViewer.
+    expect(find.byType(MarkdownViewer), findsOneWidget);
+    expect(find.byType(SelectableText), findsNothing);
+
+    // Tap the code toggle icon (Icons.code).
+    await tester.tap(find.byIcon(Icons.code));
+    await tester.pump();
+
+    // Now shows source — SelectableText with raw markdown, no MarkdownViewer.
+    expect(find.byType(MarkdownViewer), findsNothing);
+    expect(find.byType(SelectableText), findsOneWidget);
+
+    // Tap again (now Icons.visibility) to go back to rendered.
+    await tester.tap(find.byIcon(Icons.visibility));
+    await tester.pump();
+
+    expect(find.byType(MarkdownViewer), findsOneWidget);
+  });
+
+  // -------------------------------------------------------------------------
+  // Test 5: Copy button changes icon temporarily
+  // -------------------------------------------------------------------------
+
+  testWidgets('copy button shows check icon after tap', (tester) async {
+    _setViewport(tester);
+
+    await tester.pumpWidget(
+      _buildBubble(
+        ChatMessageBubble(
+          message: _makeAssistantMessage(content: 'Copy me'),
+          agentRoleSlug: 'qa',
+          agentRoleName: 'QA',
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // Initially shows copy icon.
+    expect(find.byIcon(Icons.copy), findsOneWidget);
+    expect(find.byIcon(Icons.check), findsNothing);
+
+    // Tap the copy button.
+    await tester.tap(find.byIcon(Icons.copy));
+    await tester.pump();
+
+    // Icon switches to check.
+    expect(find.byIcon(Icons.check), findsOneWidget);
+    expect(find.byIcon(Icons.copy), findsNothing);
+
+    // Advance past the 2-second feedback timer so no pending timers remain.
+    await tester.pump(const Duration(seconds: 3));
+
+    // Reverts back to copy icon.
+    expect(find.byIcon(Icons.copy), findsOneWidget);
+    expect(find.byIcon(Icons.check), findsNothing);
   });
 }

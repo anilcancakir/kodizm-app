@@ -1,8 +1,8 @@
-/// A single AI token usage record for a team, optionally linked to a task run.
+/// A single AI token usage record for a team, optionally linked to a conversation.
 ///
 /// Maps to `UsageRecordResource` from the Kodizm API. Includes token counts,
 /// cost in USD (parsed from a decimal string), billing period, and optional
-/// nested context from the linked task run.
+/// nested context from the linked conversation.
 ///
 /// ## Usage
 /// ```dart
@@ -20,7 +20,7 @@ class UsageRecord {
     required this.costUsd,
     required this.period,
     required this.recordedAt,
-    this.taskRunId,
+    this.conversationId,
     this.model,
     this.inputTokens,
     this.outputTokens,
@@ -39,11 +39,11 @@ class UsageRecord {
   /// The identifier of the team that incurred this usage (UUID).
   final String teamId;
 
-  /// The identifier of the task run that generated this record (UUID). Null
-  /// when the usage is not tied to a specific run.
-  final String? taskRunId;
+  /// The identifier of the conversation that generated this record (UUID). Null
+  /// when the usage is not tied to a specific conversation.
+  final String? conversationId;
 
-  /// The AI model identifier (e.g. `'claude-3-5-sonnet-20241022'`). Null when
+  /// The AI model identifier (e.g. `'claude-sonnet-4-6'`). Null when
   /// the model was not recorded.
   final String? model;
 
@@ -69,15 +69,15 @@ class UsageRecord {
   /// UTC timestamp when this usage was recorded.
   final DateTime recordedAt;
 
-  /// Agent role name from the linked task run's `task_run.agent_role_name`.
-  /// Null when the record is not linked to a task run or the relation is not
-  /// loaded.
+  /// Agent role name from the linked conversation's agent role.
+  /// Null when the record is not linked to a conversation or the relation is
+  /// not loaded.
   final String? agentRoleName;
 
-  /// Task title from the linked `task_run.task.title`. Null when not loaded.
+  /// Task title from the linked conversation's task. Null when not loaded.
   final String? taskTitle;
 
-  /// Project identifier from the linked `task_run.task.project_id` (UUID).
+  /// Project identifier from the linked conversation's task (UUID).
   /// Null when not loaded.
   final String? projectId;
 
@@ -85,20 +85,20 @@ class UsageRecord {
 
   /// Parses a [UsageRecord] from a JSON-decoded map.
   ///
-  /// Extracts [agentRoleName] from the nested `task_run.agent_role_name` field,
-  /// [taskTitle] from `task_run.task.title`, and [projectId] from
-  /// `task_run.task.project_id`.
+  /// Extracts [agentRoleName] from the nested `conversation.agent_role_name`
+  /// field, [taskTitle] from `conversation.task.title`, and [projectId] from
+  /// `conversation.task.project_id`.
   ///
   /// [costUsd] is parsed via [double.parse] because the API returns it as a
   /// decimal string (e.g. `"0.00420"`).
   factory UsageRecord.fromMap(Map<String, dynamic> map) {
-    final taskRun = map['task_run'] as Map<String, dynamic>?;
-    final task = taskRun?['task'] as Map<String, dynamic>?;
+    final conversation = map['conversation'] as Map<String, dynamic>?;
+    final task = conversation?['task'] as Map<String, dynamic>?;
 
     return UsageRecord(
       id: map['id'] as String,
       teamId: map['team_id'] as String,
-      taskRunId: map['task_run_id'] as String?,
+      conversationId: map['conversation_id'] as String?,
       model: map['model'] as String?,
       inputTokens: map['input_tokens'] as int?,
       outputTokens: map['output_tokens'] as int?,
@@ -107,7 +107,7 @@ class UsageRecord {
       costUsd: double.parse(map['cost_usd'] as String),
       period: map['period'] as String,
       recordedAt: DateTime.parse(map['recorded_at'] as String),
-      agentRoleName: taskRun?['agent_role_name'] as String?,
+      agentRoleName: conversation?['agent_role_name'] as String?,
       taskTitle: task?['title'] as String?,
       projectId: task?['project_id'] as String?,
     );

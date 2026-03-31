@@ -1,4 +1,4 @@
-/// A task run that is currently active (running or queued).
+/// An autonomous conversation that is currently active (running or queued).
 ///
 /// ## Usage
 /// ```dart
@@ -10,7 +10,7 @@ class ActiveRun {
 
   /// Creates an [ActiveRun] with all fields.
   const ActiveRun({
-    required this.taskRunId,
+    required this.conversationId,
     required this.taskId,
     required this.taskTitle,
     required this.agentRole,
@@ -21,8 +21,8 @@ class ActiveRun {
 
   // -------
 
-  /// The unique identifier of the task run (UUID).
-  final String taskRunId;
+  /// The unique identifier of the conversation (UUID).
+  final String conversationId;
 
   /// The identifier of the parent task (UUID).
   final String taskId;
@@ -33,7 +33,7 @@ class ActiveRun {
   /// The agent role executing this run (e.g. `'Dev'`, `'QA'`, `'Lead'`).
   final String agentRole;
 
-  /// Current execution status (e.g. `'in_progress'`, `'running'`).
+  /// Current execution status (e.g. `'active'`, `'paused'`).
   final String status;
 
   /// UTC timestamp when this run started.
@@ -47,7 +47,7 @@ class ActiveRun {
   /// Parses an [ActiveRun] from a JSON-decoded map.
   factory ActiveRun.fromMap(Map<String, dynamic> map) {
     return ActiveRun(
-      taskRunId: map['task_run_id'] as String,
+      conversationId: map['conversation_id'] as String,
       taskId: map['task_id'] as String,
       taskTitle: map['task_title'] as String,
       agentRole: map['agent_role'] as String,
@@ -100,7 +100,7 @@ class TasksSummary {
 // RecentRun
 // ---------------------------------------------------------------------------
 
-/// A completed (or failed) task run from recent history.
+/// A completed (or failed) autonomous conversation from recent history.
 ///
 /// ## Usage
 /// ```dart
@@ -112,7 +112,7 @@ class RecentRun {
 
   /// Creates a [RecentRun] with all fields.
   const RecentRun({
-    required this.taskRunId,
+    required this.conversationId,
     required this.taskId,
     required this.taskTitle,
     required this.agentRole,
@@ -124,8 +124,8 @@ class RecentRun {
 
   // -------
 
-  /// The unique identifier of the task run (UUID).
-  final String taskRunId;
+  /// The unique identifier of the conversation (UUID).
+  final String conversationId;
 
   /// The identifier of the parent task (UUID).
   final String taskId;
@@ -136,7 +136,7 @@ class RecentRun {
   /// The agent role that executed this run (e.g. `'Reviewer'`, `'QA'`).
   final String agentRole;
 
-  /// Final execution status (e.g. `'done'`, `'failed'`).
+  /// Final execution status (e.g. `'completed'`, `'failed'`).
   final String status;
 
   /// Total cost of the run in USD.
@@ -153,7 +153,7 @@ class RecentRun {
   /// Parses a [RecentRun] from a JSON-decoded map.
   factory RecentRun.fromMap(Map<String, dynamic> map) {
     return RecentRun(
-      taskRunId: map['task_run_id'] as String,
+      conversationId: map['conversation_id'] as String,
       taskId: map['task_id'] as String,
       taskTitle: map['task_title'] as String,
       agentRole: map['agent_role'] as String,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:magic/magic.dart';
 
 import '../../../app/models/conversation_message.dart';
@@ -12,6 +13,9 @@ import 'markdown_viewer.dart';
 /// avatar circle showing the role abbreviation, markdown content via
 /// [MarkdownViewer], and an optional cost/duration footer.
 ///
+/// Assistant bubbles include action buttons for toggling between rendered
+/// markdown and raw source, and copying the message content to clipboard.
+///
 /// ## Usage
 ///
 /// ```dart
@@ -22,7 +26,7 @@ import 'markdown_viewer.dart';
 ///   userName: 'Anilcan',
 /// )
 /// ```
-class ChatMessageBubble extends StatelessWidget {
+class ChatMessageBubble extends StatefulWidget {
   /// Creates a [ChatMessageBubble] for the given [message].
   const ChatMessageBubble({
     required this.message,
@@ -47,13 +51,21 @@ class ChatMessageBubble extends StatelessWidget {
   /// Display name of the logged-in user — first letter used as monogram.
   final String? userName;
 
+  @override
+  State<ChatMessageBubble> createState() => _ChatMessageBubbleState();
+}
+
+class _ChatMessageBubbleState extends State<ChatMessageBubble> {
+  bool _showSource = false;
+  bool _copied = false;
+
   // -----------------------------------------------------------------------
   // Build
   // -----------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
-    final bool isUser = message.role == 'user';
+    final bool isUser = widget.message.role == 'user';
 
     return isUser ? _buildUserBubble() : _buildAssistantBubble();
   }
@@ -74,14 +86,14 @@ class ChatMessageBubble extends StatelessWidget {
                   'px-3.5 py-2.5 rounded-2xl rounded-br-sm bg-secondary-400/15',
               children: [
                 WText(
-                  message.content,
+                  widget.message.content,
                   className: 'text-sm text-primary-600 dark:text-slate-100',
                 ),
                 WDiv(
                   className: 'flex flex-row justify-end mt-1',
                   children: [
                     WText(
-                      _formatTimeAgo(message.createdAt),
+                      _formatTimeAgo(widget.message.createdAt),
                       className: 'text-[10px] text-slate-400',
                     ),
                   ],
@@ -111,12 +123,20 @@ class ChatMessageBubble extends StatelessWidget {
               className:
                   'px-3.5 py-2.5 rounded-2xl rounded-bl-sm bg-slate-100 dark:bg-slate-800',
               children: [
-                MarkdownViewer(data: message.content),
-                if (_hasFooterData) _buildFooter(),
-                WText(
-                  _formatTimeAgo(message.createdAt),
-                  className: 'text-[10px] text-slate-400 mt-1',
-                ),
+                _showSource
+                    ? WDiv(
+                        className: 'py-1',
+                        child: SelectableText(
+                          widget.message.content,
+                          style: const TextStyle(
+                            fontFamily: 'JetBrains Mono',
+                            fontSize: 13,
+                            height: 1.6,
+                          ),
+                        ),
+                      )
+                    : MarkdownViewer(data: widget.message.content),
+                _buildAssistantFooter(),
               ],
             ),
           ],
@@ -132,17 +152,22 @@ class ChatMessageBubble extends StatelessWidget {
   Widget _buildAgentAvatar() {
     return WDiv(
       className:
-          'w-7 h-7 rounded-full flex items-center justify-center ${_avatarBgClassName(agentRoleSlug)}',
+          '''
+        w-7 h-7 rounded-full
+        flex items-center justify-center
+        ${_avatarBgClassName(widget.agentRoleSlug)}
+      ''',
       child: WText(
-        _agentInitials(agentRoleName, agentRoleSlug),
+        _agentInitials(widget.agentRoleName, widget.agentRoleSlug),
         className: 'text-[10px] font-bold text-white',
       ),
     );
   }
 
   Widget _buildUserAvatar() {
-    final String initial = userName != null && userName!.isNotEmpty
-        ? userName![0].toUpperCase()
+    final String initial =
+        widget.userName != null && widget.userName!.isNotEmpty
+        ? widget.userName![0].toUpperCase()
         : 'U';
 
     return WDiv(
@@ -159,33 +184,70 @@ class ChatMessageBubble extends StatelessWidget {
   // Footer
   // -----------------------------------------------------------------------
 
-  Widget _buildFooter() {
+  /// Footer for assistant bubbles — cost/duration metadata + action buttons.
+  Widget _buildAssistantFooter() {
     return WDiv(
       className: 'flex flex-row items-center gap-2 mt-2',
       children: [
-        if (message.costUsd != null)
+        // Cost / duration metadata.
+        if (widget.message.costUsd != null)
           WText(
             trans('conversation_chat.cost_format', {
-              'amount': message.costUsd!.toStringAsFixed(4),
+              'amount': widget.message.costUsd!.toStringAsFixed(4),
             }),
             className: 'text-xs text-slate-400 font-mono',
           ),
-        if (message.durationMs != null)
+        if (widget.message.durationMs != null)
           WText(
-            '${message.durationMs}ms',
+            '${widget.message.durationMs}ms',
             className: 'text-xs text-slate-400 font-mono',
           ),
+        // Timestamp.
+        WText(
+          _formatTimeAgo(widget.message.createdAt),
+          className: 'text-[10px] text-slate-400',
+        ),
+        // Spacer pushes action buttons to the right.
+        WDiv(className: 'flex-1'),
+        // Action buttons.
+        _buildActionButton(
+          icon: _showSource ? Icons.visibility : Icons.code,
+          onTap: () => setState(() => _showSource = !_showSource),
+        ),
+        _buildActionButton(
+          icon: _copied ? Icons.check : Icons.copy,
+          onTap: _handleCopy,
+        ),
       ],
+    );
+  }
+
+  /// Copies the message content to clipboard with brief visual feedback.
+  void _handleCopy() {
+    Clipboard.setData(ClipboardData(text: widget.message.content));
+    setState(() => _copied = true);
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _copied = false);
+    });
+  }
+
+  /// A small ghost-style icon action button for the footer.
+  Widget _buildActionButton({
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return WAnchor(
+      onTap: onTap,
+      child: WDiv(
+        className: 'p-1 rounded',
+        child: WIcon(icon, className: 'text-sm text-slate-400'),
+      ),
     );
   }
 
   // -----------------------------------------------------------------------
   // Helpers
   // -----------------------------------------------------------------------
-
-  /// Whether the message has cost or duration data to show in the footer.
-  bool get _hasFooterData =>
-      message.costUsd != null || message.durationMs != null;
 
   /// Derives avatar initials from the agent role name (e.g. "Business Analyst"
   /// → "BA", "Developer" → "D"). Falls back to first letter of slug or "AI".

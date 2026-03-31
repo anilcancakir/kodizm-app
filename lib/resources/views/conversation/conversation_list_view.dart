@@ -287,10 +287,23 @@ class _ConversationListViewState extends State<ConversationListView> {
           WDiv(
             className: 'flex-1 flex flex-col gap-1',
             children: [
-              WText(
-                displayTitle,
-                className:
-                    'text-sm font-semibold text-slate-800 dark:text-white',
+              WDiv(
+                className: 'flex flex-row items-center gap-2',
+                children: [
+                  WText(
+                    displayTitle,
+                    className:
+                        'text-sm font-semibold text-slate-800 dark:text-white',
+                  ),
+                  if (conversation.isAutonomous)
+                    WDiv(
+                      className: 'px-1.5 py-0.5 rounded-full bg-teal-500/10',
+                      child: WText(
+                        trans('conversations.autonomous'),
+                        className: 'text-[10px] font-medium text-teal-600',
+                      ),
+                    ),
+                ],
               ),
               WText(
                 trans('conversations.messages_count', {

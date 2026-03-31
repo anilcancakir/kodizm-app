@@ -90,13 +90,13 @@ class TerminalEventTile extends StatelessWidget {
               WDiv(
                 className: 'px-1.5 py-0.5 rounded bg-teal-500/15',
                 child: WText(
-                  trans('agent_run.subagent_indicator'),
+                  trans('conversation_chat.subagent_indicator'),
                   className: 'text-[10px] font-bold text-teal-400',
                 ),
               ),
               if (turnNumber != null)
                 WText(
-                  trans('agent_run.turn_label', {
+                  trans('conversation_chat.turn_label', {
                     'number': turnNumber.toString(),
                   }),
                   className: 'text-[10px] text-slate-500',
@@ -201,7 +201,7 @@ class TerminalEventTile extends StatelessWidget {
       return WDiv(
         className: 'px-4 py-2 bg-red-500/10 rounded-lg mx-2 my-1',
         child: WText(
-          trans('agent_run.result_error'),
+          trans('conversation_chat.result_error'),
           className: 'text-sm text-red-400 font-mono',
         ),
       );
@@ -210,7 +210,7 @@ class TerminalEventTile extends StatelessWidget {
     return WDiv(
       className: 'px-4 py-2 bg-emerald-500/10 rounded-lg mx-2 my-1',
       child: WText(
-        trans('agent_run.result_success'),
+        trans('conversation_chat.result_success'),
         className: 'text-sm text-emerald-400 font-mono',
       ),
     );

@@ -153,7 +153,7 @@ void main() {
 
     // Should show the success label.
     expect(
-      find.textContaining(trans('agent_run.result_success')),
+      find.textContaining(trans('conversation_chat.result_success')),
       findsOneWidget,
     );
   });
@@ -173,7 +173,7 @@ void main() {
 
     // Should show the error label.
     expect(
-      find.textContaining(trans('agent_run.result_error')),
+      find.textContaining(trans('conversation_chat.result_error')),
       findsOneWidget,
     );
   });

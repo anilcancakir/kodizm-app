@@ -1,4 +1,4 @@
-/// A single streaming event emitted during a task run execution.
+/// A single streaming event emitted during a session execution.
 ///
 /// Maps directly to `StreamEventResource` from the Kodizm API.
 /// Events are received over WebSocket and represent real-time agent output.
@@ -16,14 +16,13 @@ class StreamEvent {
   /// Creates a [StreamEvent] with all fields.
   const StreamEvent({
     required this.id,
-    required this.taskRunId,
+    required this.sessionId,
     required this.type,
     required this.data,
     required this.isQuestion,
     required this.occurredAt,
     this.contentText,
     this.filePath,
-    this.sessionId,
     this.subagentId,
     this.parentEventId,
     this.model,
@@ -36,8 +35,8 @@ class StreamEvent {
   /// The unique identifier of this event (UUID).
   final String id;
 
-  /// The identifier of the parent task run (UUID).
-  final String taskRunId;
+  /// The identifier of the parent session (UUID).
+  final String sessionId;
 
   /// The event type string (e.g. `'system'`, `'assistant_delta'`, `'tool_result'`).
   /// Preserved as-is from the API — no transformation applied.
@@ -58,7 +57,6 @@ class StreamEvent {
   /// UTC timestamp when the event occurred on the server.
   final DateTime occurredAt;
 
-  final String? sessionId;
   final String? subagentId;
   final String? parentEventId;
   final String? model;
@@ -71,14 +69,13 @@ class StreamEvent {
   factory StreamEvent.fromMap(Map<String, dynamic> map) {
     return StreamEvent(
       id: map['id'] as String,
-      taskRunId: map['task_run_id'] as String,
+      sessionId: map['session_id'] as String,
       type: map['type'] as String,
       data: map['data'] as Map<String, dynamic>,
       contentText: map['content_text'] as String?,
       filePath: map['file_path'] as String?,
       isQuestion: map['is_question'] as bool,
       occurredAt: DateTime.parse(map['occurred_at'] as String),
-      sessionId: map['session_id'] as String?,
       subagentId: map['subagent_id'] as String?,
       parentEventId: map['parent_event_id'] as String?,
       model: map['model'] as String?,

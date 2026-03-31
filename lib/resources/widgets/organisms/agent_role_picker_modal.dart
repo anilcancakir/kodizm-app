@@ -180,7 +180,7 @@ class _AgentRolePickerModalState extends State<AgentRolePickerModal> {
     );
   }
 
-  /// Builds the scrollable body: role list, loading state, or error state.
+  /// Builds the body: role list or empty state.
   Widget _buildBody() {
     if (widget.roles.isEmpty) {
       return _buildEmptyState();

@@ -1,8 +1,8 @@
 import 'package:magic/magic.dart';
 
 import '../models/agent_role.dart';
+import '../models/conversation.dart';
 import '../models/task.dart';
-import '../models/task_run.dart';
 import '../models/task_section.dart';
 
 // ---------------------------------------------------------------------------
@@ -146,7 +146,7 @@ class TaskState extends MagicController with MagicStateMixin<List<Task>> {
 
   Task? _selectedTask;
   List<TaskSection> _sections = [];
-  List<TaskRun> _runs = [];
+  List<Conversation> _conversations = [];
   List<AgentRole> _agentRoles = [];
   bool _startingRun = false;
 
@@ -156,8 +156,8 @@ class TaskState extends MagicController with MagicStateMixin<List<Task>> {
   /// The sections belonging to the selected task (set by [fetchSections]).
   List<TaskSection> get sections => _sections;
 
-  /// The runs belonging to the selected task (set by [fetchRuns]).
-  List<TaskRun> get runs => _runs;
+  /// The conversations belonging to the selected task (set by [fetchConversations]).
+  List<Conversation> get conversations => _conversations;
 
   /// The agent roles available for the active team (set by [fetchAgentRoles]).
   List<AgentRole> get agentRoles => _agentRoles;
@@ -372,35 +372,40 @@ class TaskState extends MagicController with MagicStateMixin<List<Task>> {
   }
 
   // ---------------------------------------------------------------------------
-  // Runs
+  // Conversations (formerly Runs)
   // ---------------------------------------------------------------------------
 
-  /// Fetch all runs for the given task and store them in [runs].
+  /// Fetch all conversations for the given task and store them in [conversations].
   ///
-  /// Calls [refreshUI] after updating [_runs].
-  Future<void> fetchRuns(String teamId, String projectId, String taskId) async {
+  /// Calls [refreshUI] after updating [_conversations].
+  Future<void> fetchConversations(
+    String teamId,
+    String projectId,
+    String taskId,
+  ) async {
     final response = await _http.get(
-      '/teams/$teamId/projects/$projectId/tasks/$taskId/runs',
+      '/teams/$teamId/projects/$projectId/conversations',
+      query: {'task_id': taskId},
     );
 
     if (response.successful) {
       final List<dynamic> items =
           (response.data as Map<String, dynamic>)['data'] as List<dynamic>;
-      _runs = items
-          .map((item) => TaskRun.fromMap(item as Map<String, dynamic>))
+      _conversations = items
+          .map((item) => Conversation.fromMap(item as Map<String, dynamic>))
           .toList();
     } else {
-      _runs = [];
+      _conversations = [];
     }
 
     refreshUI();
   }
 
-  /// Dispatch a new agent run for the given task.
+  /// Dispatch a new autonomous conversation run for the given task.
   ///
   /// Sets [startingRun] to `true` during the request. Returns the created
-  /// [TaskRun] on success, or `null` on failure.
-  Future<TaskRun?> startRun(
+  /// [Conversation] on success, or `null` on failure.
+  Future<Conversation?> startRun(
     String teamId,
     String projectId,
     String taskId,
@@ -410,18 +415,18 @@ class TaskState extends MagicController with MagicStateMixin<List<Task>> {
     refreshUI();
 
     final response = await _http.post(
-      '/teams/$teamId/projects/$projectId/tasks/$taskId/runs',
+      '/teams/$teamId/projects/$projectId/tasks/$taskId/run',
       data: {'agent_role_id': agentRoleId},
     );
 
     _startingRun = false;
 
     if (response.successful) {
-      final Map<String, dynamic> runData =
+      final Map<String, dynamic> convData =
           (response.data as Map<String, dynamic>)['data']
               as Map<String, dynamic>;
       refreshUI();
-      return TaskRun.fromMap(runData);
+      return Conversation.fromMap(convData);
     }
 
     refreshUI();

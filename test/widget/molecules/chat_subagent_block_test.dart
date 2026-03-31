@@ -66,7 +66,7 @@ void main() {
         expect(find.byType(CircularProgressIndicator), findsOneWidget);
 
         // Should show "Running..." text via trans().
-        final runningText = trans('conversation_chat.event_subagent_running');
+        final runningText = trans('conversation_chat.event_subagent_working');
         expect(find.text(runningText), findsOneWidget);
 
         // Should show description.

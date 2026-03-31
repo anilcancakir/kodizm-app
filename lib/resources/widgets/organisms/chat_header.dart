@@ -28,6 +28,7 @@ class ChatHeader extends StatelessWidget {
     required this.debugExpanded,
     this.sessionPhase,
     this.runningCostUsd,
+    this.firstMessagePreview,
     this.onComplete,
     this.onToggleDebug,
     super.key,
@@ -42,6 +43,10 @@ class ChatHeader extends StatelessWidget {
   /// Live running cost from the session WebSocket channel.
   final String? runningCostUsd;
 
+  /// Truncated first user message — shown as title fallback when
+  /// [Conversation.title] is null.
+  final String? firstMessagePreview;
+
   /// Whether the debug panel is currently expanded.
   final bool debugExpanded;
 
@@ -54,17 +59,6 @@ class ChatHeader extends StatelessWidget {
   // -------
   // Helpers
   // -------
-
-  String _roleClassName(String? slug) {
-    return switch (slug) {
-      'ba' => 'bg-indigo-500/10 text-indigo-500',
-      'lead' => 'bg-primary-500/10 text-primary-500',
-      'dev' => 'bg-teal-500/10 text-teal-500',
-      'reviewer' => 'bg-violet-500/10 text-violet-500',
-      'qa' => 'bg-emerald-500/10 text-emerald-500',
-      _ => 'bg-slate-500/10 text-slate-500',
-    };
-  }
 
   String _sessionPhaseClassName(String phase) {
     return switch (phase) {
@@ -145,21 +139,13 @@ class ChatHeader extends StatelessWidget {
           ),
         ),
 
-        // Agent role badge
-        WDiv(
-          className:
-              'px-2 py-0.5 rounded-full ${_roleClassName(conversation.agentRoleSlug)}',
-          child: WText(
-            conversation.agentRoleName ?? trans('common.unknown'),
-            className: 'text-xs font-semibold',
-          ),
-        ),
-
         // Title — flex-1 absorbs remaining space, min-w-0 + truncate prevents overflow
         WDiv(
           className: 'flex-1 min-w-0',
           child: WText(
-            conversation.title ?? trans('conversation_chat.title'),
+            conversation.title ??
+                firstMessagePreview ??
+                trans('conversation_chat.title'),
             className:
                 'text-sm font-semibold text-slate-800 dark:text-white truncate',
           ),
@@ -266,7 +252,7 @@ class _ChatConfigSheet extends StatelessWidget {
           className: 'flex flex-row items-center gap-3',
           children: [
             WText(
-              trans('agent_run.status'),
+              trans('conversation_chat.status_label'),
               className: 'text-sm text-slate-500 dark:text-slate-400',
             ),
             WDiv(

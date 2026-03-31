@@ -386,6 +386,8 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
         _handleMessageEvent(wsEvent);
       case '.conversation.status':
         _handleStatusEvent(wsEvent);
+      case '.conversation.title':
+        _handleTitleEvent(wsEvent);
     }
 
     refreshUI();
@@ -777,6 +779,16 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
     }
   }
 
+  /// Handle `.conversation.title` — update the conversation title in real-time
+  /// when the CC sidecar generates an AI title.
+  void _handleTitleEvent(WebSocketEvent wsEvent) {
+    final title = wsEvent.data['title'] as String?;
+
+    if (title != null && _conversation != null) {
+      _conversation = _conversation!.copyWith(title: title);
+    }
+  }
+
   /// Handle events arriving on the `private-session.{sessionId}` channel.
   ///
   /// Routes `.session.cost` to update [_runningCostUsd] and
@@ -784,7 +796,7 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   void _handleSessionEvent(WebSocketEvent wsEvent) {
     switch (wsEvent.eventName) {
       case '.session.cost':
-        _runningCostUsd = wsEvent.data['running_cost_usd'] as String?;
+        _runningCostUsd = wsEvent.data['running_total_usd'] as String?;
       case '.session.status':
         _sessionPhase = wsEvent.data['phase'] as String?;
     }

@@ -833,7 +833,7 @@ void main() {
           id: 'ws:session:cost:1',
           channel: 'private-session.sess-uuid-001',
           eventName: '.session.cost',
-          data: {'running_cost_usd': '0.0042'},
+          data: {'running_total_usd': '0.0042'},
           receivedAt: DateTime.now(),
         ),
       );

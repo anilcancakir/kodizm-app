@@ -149,7 +149,7 @@ class _ChatSubagentBlockState extends State<ChatSubagentBlock> {
           child: CircularProgressIndicator(strokeWidth: 2),
         ),
         WText(
-          trans('conversation_chat.event_subagent_running'),
+          trans('conversation_chat.event_subagent_working'),
           className: 'text-xs text-slate-400',
         ),
       ],

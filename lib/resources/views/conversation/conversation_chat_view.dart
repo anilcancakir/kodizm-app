@@ -6,6 +6,7 @@ import 'package:magic/magic.dart';
 
 import '../../../app/events/websocket_event.dart';
 import '../../../app/models/agent_role.dart';
+import '../../../app/models/chat_item.dart';
 import '../../../app/models/conversation.dart';
 import '../../../app/models/user.dart';
 import '../../../app/services/websocket_service.dart';
@@ -150,7 +151,7 @@ class _ConversationChatViewState extends State<ConversationChatView> {
   }
 
   /// Auto-creates a conversation with the given [agentRoleId] — used when
-  /// navigating from a task's "Chat with BA" button.
+  /// navigating from a task's "Chat with BA" button or conversation list.
   Future<void> _autoCreateWithAgentRole(String agentRoleId) async {
     if (_teamId.isEmpty) return;
 
@@ -223,6 +224,19 @@ class _ConversationChatViewState extends State<ConversationChatView> {
     );
     _updateUrlWithConversationId();
     if (mounted) setState(() => _isCreating = false);
+  }
+
+  /// Returns a truncated preview of the first user message — used as title
+  /// fallback when [Conversation.title] is null.
+  String? _firstUserMessagePreview() {
+    for (final item in _state.chatItems) {
+      if (item is ChatMessageItem && item.message.role == 'user') {
+        final content = item.message.content.trim();
+        if (content.isEmpty) continue;
+        return content.length > 60 ? '${content.substring(0, 60)}...' : content;
+      }
+    }
+    return null;
   }
 
   Future<void> _handleSendMessage() async {
@@ -344,6 +358,7 @@ class _ConversationChatViewState extends State<ConversationChatView> {
           conversation: conversation,
           sessionPhase: _state.sessionPhase,
           runningCostUsd: _state.runningCostUsd,
+          firstMessagePreview: _firstUserMessagePreview(),
           debugExpanded: _rawEventsExpanded,
           onComplete: _handleComplete,
           onToggleDebug: () =>
@@ -601,7 +616,7 @@ class _ConversationChatViewState extends State<ConversationChatView> {
 
           // Status
           _InfoRow(
-            label: trans('agent_run.status'),
+            label: trans('conversation_chat.status_label'),
             value: conversation.status,
           ),
 
@@ -652,7 +667,7 @@ class _ConversationChatViewState extends State<ConversationChatView> {
           // Session ID
           if (_state.sessionId != null)
             _InfoRow(
-              label: trans('agent_run.session_id'),
+              label: trans('conversation_chat.session_id'),
               value: _truncateId(_state.sessionId!),
             ),
 

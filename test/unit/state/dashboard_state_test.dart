@@ -10,7 +10,7 @@ import 'package:app/app/state/dashboard_state.dart';
 const Map<String, dynamic> kApiPayload = {
   'active_runs': [
     {
-      'task_run_id': 'run-uuid-001',
+      'conversation_id': 'run-uuid-001',
       'task_id': 'task-uuid-001',
       'task_title': 'Implement login screen',
       'agent_role': 'Dev',
@@ -25,7 +25,7 @@ const Map<String, dynamic> kApiPayload = {
   },
   'recent_runs': [
     {
-      'task_run_id': 'run-uuid-002',
+      'conversation_id': 'run-uuid-002',
       'task_id': 'task-uuid-002',
       'task_title': 'Review PR #12',
       'agent_role': 'Reviewer',
@@ -178,7 +178,7 @@ void main() {
 
         // Active runs.
         expect(data.activeRuns.length, equals(1));
-        expect(data.activeRuns.first.taskRunId, equals('run-uuid-001'));
+        expect(data.activeRuns.first.conversationId, equals('run-uuid-001'));
         expect(data.activeRuns.first.agentRole, equals('Dev'));
         expect(data.activeRuns.first.costUsd, equals(0.42));
 
@@ -190,7 +190,7 @@ void main() {
 
         // Recent runs.
         expect(data.recentRuns.length, equals(1));
-        expect(data.recentRuns.first.taskRunId, equals('run-uuid-002'));
+        expect(data.recentRuns.first.conversationId, equals('run-uuid-002'));
         expect(data.recentRuns.first.status, equals('done'));
         expect(data.recentRuns.first.durationMs, equals(4500));
 

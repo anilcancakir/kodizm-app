@@ -139,7 +139,6 @@ void main() {
     await tester.pump();
 
     expect(find.text('My Test Conv'), findsOneWidget);
-    expect(find.text('Business Analyst'), findsOneWidget);
     // cost_format: "$:amount" → "$0.0012"
     expect(find.text('\$0.0012'), findsOneWidget);
   });

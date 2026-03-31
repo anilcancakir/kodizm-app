@@ -18,7 +18,7 @@ const Map<String, dynamic> kUsagePayload = {
     {
       'id': 'rec-uuid-001',
       'team_id': 'team-uuid-001',
-      'task_run_id': 'run-uuid-001',
+      'conversation_id': 'run-uuid-001',
       'model': 'claude-3-5-sonnet-20241022',
       'input_tokens': 1000,
       'output_tokens': 500,
@@ -27,7 +27,7 @@ const Map<String, dynamic> kUsagePayload = {
       'cost_usd': '0.003000',
       'period': '2025-03',
       'recorded_at': '2025-03-15T10:00:00.000Z',
-      'task_run': {
+      'conversation': {
         'agent_role_name': 'Dev',
         'task': {'title': 'Implement login', 'project_id': 'proj-uuid-001'},
       },
@@ -35,7 +35,7 @@ const Map<String, dynamic> kUsagePayload = {
     {
       'id': 'rec-uuid-002',
       'team_id': 'team-uuid-001',
-      'task_run_id': 'run-uuid-002',
+      'conversation_id': 'run-uuid-002',
       'model': 'claude-3-5-sonnet-20241022',
       'input_tokens': 800,
       'output_tokens': 300,
@@ -44,7 +44,7 @@ const Map<String, dynamic> kUsagePayload = {
       'cost_usd': '0.002000',
       'period': '2025-03',
       'recorded_at': '2025-03-16T11:00:00.000Z',
-      'task_run': {
+      'conversation': {
         'agent_role_name': 'Reviewer',
         'task': {'title': 'Review PR', 'project_id': 'proj-uuid-001'},
       },
@@ -52,7 +52,7 @@ const Map<String, dynamic> kUsagePayload = {
     {
       'id': 'rec-uuid-003',
       'team_id': 'team-uuid-001',
-      'task_run_id': 'run-uuid-003',
+      'conversation_id': 'run-uuid-003',
       'model': 'claude-3-5-sonnet-20241022',
       'input_tokens': 1200,
       'output_tokens': 600,
@@ -61,7 +61,7 @@ const Map<String, dynamic> kUsagePayload = {
       'cost_usd': '0.004000',
       'period': '2025-03',
       'recorded_at': '2025-03-17T12:00:00.000Z',
-      'task_run': {
+      'conversation': {
         'agent_role_name': 'Dev',
         'task': {'title': 'Add unit tests', 'project_id': 'proj-uuid-001'},
       },

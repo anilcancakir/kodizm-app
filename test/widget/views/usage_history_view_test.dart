@@ -18,7 +18,7 @@ const Map<String, dynamic> kUsageResponse = {
     {
       'id': 'usage-001',
       'team_id': 'team-001',
-      'task_run_id': 'run-001',
+      'conversation_id': 'run-001',
       'model': 'claude-3-5-sonnet',
       'input_tokens': 1500,
       'output_tokens': 300,
@@ -27,7 +27,7 @@ const Map<String, dynamic> kUsageResponse = {
       'cost_usd': '0.00420',
       'period': '2025-03',
       'recorded_at': '2025-03-15T10:00:00.000Z',
-      'task_run': {
+      'conversation': {
         'agent_role_name': 'Dev',
         'task': {'title': 'Implement login', 'project_id': 'proj-001'},
       },

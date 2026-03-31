@@ -556,11 +556,11 @@ void main() {
   // 15. Header shows agent role badge
   // -----------------------------------------------------------------------
 
-  testWidgets('header shows agent role name', (tester) async {
+  testWidgets('header shows conversation title', (tester) async {
     await pumpWithConversation(tester);
 
-    // Agent role name from fixture.
-    expect(find.text('Business Analyst'), findsWidgets);
+    // Conversation title from fixture.
+    expect(find.text('Test Conversation'), findsOneWidget);
   });
 
   // -----------------------------------------------------------------------

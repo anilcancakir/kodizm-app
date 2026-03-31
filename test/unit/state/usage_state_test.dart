@@ -10,7 +10,7 @@ import 'package:app/app/state/usage_state.dart';
 Map<String, dynamic> _makeRecord(String id) => {
   'id': id,
   'team_id': 'team-uuid-001',
-  'task_run_id': 'run-uuid-001',
+  'conversation_id': 'run-uuid-001',
   'model': 'claude-3-5-sonnet-20241022',
   'input_tokens': 1000,
   'output_tokens': 200,
@@ -19,7 +19,7 @@ Map<String, dynamic> _makeRecord(String id) => {
   'cost_usd': '0.00420',
   'period': '2025-03',
   'recorded_at': '2025-03-15T10:00:00.000Z',
-  'task_run': {
+  'conversation': {
     'agent_role_name': 'Dev',
     'task': {'title': 'Implement login', 'project_id': 'proj-uuid-001'},
   },

@@ -74,7 +74,6 @@ const Map<String, dynamic> kShare = {
 
 const Map<String, dynamic> kStreamEventFixture = {
   'id': 'evt-uuid-001',
-  'task_run_id': 'run-uuid-001',
   'type': 'assistant_delta',
   'data': {'delta': 'Hello'},
   'content_text': 'Hello',
@@ -637,7 +636,6 @@ void main() {
           eventName: '.session.stream',
           data: {
             'id': 'evt-ws-001',
-            'task_run_id': 'run-uuid-001',
             'type': 'assistant_delta',
             'data': {'delta': 'Hello world'},
             'content_text': 'Hello world',

@@ -14,14 +14,14 @@ import 'package:app/resources/widgets/organisms/question_panel.dart';
 
 AgentQuestion _pendingQuestion() => AgentQuestion(
   id: 'q-001',
-  taskRunId: 'run-001',
+  conversationId: 'run-001',
   questionText: 'Should I proceed with the refactor?',
   createdAt: DateTime.utc(2025, 6, 10),
 );
 
 AgentQuestion _answeredQuestion() => AgentQuestion(
   id: 'q-002',
-  taskRunId: 'run-001',
+  conversationId: 'run-001',
   questionText: 'Which database?',
   answerText: 'PostgreSQL',
   answeredAt: DateTime.utc(2025, 6, 10, 1),

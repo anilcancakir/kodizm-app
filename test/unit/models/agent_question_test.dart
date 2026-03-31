@@ -8,7 +8,7 @@ void main() {
 
     const Map<String, dynamic> fullFixture = {
       'id': 'question-uuid-1',
-      'task_run_id': 'run-uuid-1',
+      'conversation_id': 'run-uuid-1',
       'stream_event_id': 'event-uuid-1',
       'question_text': 'Should I proceed with the refactor?',
       'answer_text': 'Yes, go ahead.',
@@ -19,7 +19,7 @@ void main() {
 
     const Map<String, dynamic> minimalFixture = {
       'id': 'question-uuid-2',
-      'task_run_id': 'run-uuid-2',
+      'conversation_id': 'run-uuid-2',
       'stream_event_id': null,
       'question_text': 'Which branch should I target?',
       'answer_text': null,
@@ -34,7 +34,7 @@ void main() {
       final question = AgentQuestion.fromMap(fullFixture);
 
       expect(question.id, 'question-uuid-1');
-      expect(question.taskRunId, 'run-uuid-1');
+      expect(question.conversationId, 'run-uuid-1');
       expect(question.streamEventId, 'event-uuid-1');
       expect(question.questionText, 'Should I proceed with the refactor?');
       expect(question.answerText, 'Yes, go ahead.');
@@ -82,7 +82,7 @@ void main() {
         expect(updated.answeredByUserId, 'user-uuid-99');
         // Immutable fields must be preserved.
         expect(updated.id, original.id);
-        expect(updated.taskRunId, original.taskRunId);
+        expect(updated.conversationId, original.conversationId);
         expect(updated.questionText, original.questionText);
         expect(updated.createdAt, original.createdAt);
       },

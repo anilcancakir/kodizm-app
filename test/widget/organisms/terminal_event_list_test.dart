@@ -38,7 +38,7 @@ StreamEvent _event({
 }) {
   return StreamEvent(
     id: id,
-    taskRunId: 'run-1',
+    sessionId: 'run-1',
     type: type,
     data: data,
     contentText: contentText,

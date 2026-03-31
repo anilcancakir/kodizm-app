@@ -16,7 +16,7 @@ import 'package:app/resources/views/dashboard_view.dart';
 const Map<String, dynamic> kApiPayload = {
   'active_runs': [
     {
-      'task_run_id': 'run-uuid-001',
+      'conversation_id': 'run-uuid-001',
       'task_id': 'task-uuid-001',
       'task_title': 'Implement login screen',
       'agent_role': 'Dev',
@@ -25,7 +25,7 @@ const Map<String, dynamic> kApiPayload = {
       'cost_usd': 0.42,
     },
     {
-      'task_run_id': 'run-uuid-003',
+      'conversation_id': 'run-uuid-003',
       'task_id': 'task-uuid-003',
       'task_title': 'Analyze requirements',
       'agent_role': 'BA',
@@ -40,7 +40,7 @@ const Map<String, dynamic> kApiPayload = {
   },
   'recent_runs': [
     {
-      'task_run_id': 'run-uuid-002',
+      'conversation_id': 'run-uuid-002',
       'task_id': 'task-uuid-002',
       'task_title': 'Review PR #12',
       'agent_role': 'Reviewer',

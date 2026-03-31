@@ -11,7 +11,7 @@ void main() {
     const Map<String, dynamic> kApiPayload = {
       'id': 'usage-uuid-001',
       'team_id': 'team-uuid-001',
-      'task_run_id': 'run-uuid-001',
+      'conversation_id': 'run-uuid-001',
       'model': 'claude-3-5-sonnet-20241022',
       'input_tokens': 1500,
       'output_tokens': 300,
@@ -20,7 +20,7 @@ void main() {
       'cost_usd': '0.00420',
       'period': '2025-03',
       'recorded_at': '2025-03-15T12:00:00.000Z',
-      'task_run': {
+      'conversation': {
         'agent_role_name': 'Dev',
         'task': {'title': 'Implement login', 'project_id': 'proj-uuid-001'},
       },
@@ -35,7 +35,7 @@ void main() {
 
       expect(record.id, equals('usage-uuid-001'));
       expect(record.teamId, equals('team-uuid-001'));
-      expect(record.taskRunId, equals('run-uuid-001'));
+      expect(record.conversationId, equals('run-uuid-001'));
       expect(record.model, equals('claude-3-5-sonnet-20241022'));
       expect(record.inputTokens, equals(1500));
       expect(record.outputTokens, equals(300));
@@ -55,7 +55,7 @@ void main() {
       expect(record.costUsd, isA<double>());
     });
 
-    test('fromMap extracts nested task_run fields correctly', () {
+    test('fromMap extracts nested conversation fields correctly', () {
       final record = UsageRecord.fromMap(kApiPayload);
 
       expect(record.agentRoleName, equals('Dev'));
@@ -67,11 +67,11 @@ void main() {
     // Nullable fields
     // ---------------------------------------------------------------------------
 
-    test('nullable fields return null when task_run is absent', () {
+    test('nullable fields return null when conversation is absent', () {
       const minimal = {
         'id': 'usage-uuid-002',
         'team_id': 'team-uuid-001',
-        'task_run_id': null,
+        'conversation_id': null,
         'model': null,
         'input_tokens': null,
         'output_tokens': null,
@@ -80,12 +80,12 @@ void main() {
         'cost_usd': '0.00100',
         'period': '2025-03',
         'recorded_at': '2025-03-16T08:00:00.000Z',
-        'task_run': null,
+        'conversation': null,
       };
 
       final record = UsageRecord.fromMap(minimal);
 
-      expect(record.taskRunId, isNull);
+      expect(record.conversationId, isNull);
       expect(record.model, isNull);
       expect(record.inputTokens, isNull);
       expect(record.outputTokens, isNull);
@@ -97,11 +97,11 @@ void main() {
     });
 
     test(
-      'nested task fields return null when task is absent inside task_run',
+      'nested task fields return null when task is absent inside conversation',
       () {
         final map = {
           ...kApiPayload,
-          'task_run': {'agent_role_name': 'QA', 'task': null},
+          'conversation': {'agent_role_name': 'QA', 'task': null},
         };
 
         final record = UsageRecord.fromMap(map);

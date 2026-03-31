@@ -30,7 +30,7 @@ const Map<String, dynamic> kUsageByRoleResponse = {
     {
       'id': 'usage-001',
       'team_id': 'team-uuid-001',
-      'task_run_id': 'run-001',
+      'conversation_id': 'run-001',
       'model': 'claude-3-5-sonnet',
       'input_tokens': 1000,
       'output_tokens': 500,
@@ -39,7 +39,7 @@ const Map<String, dynamic> kUsageByRoleResponse = {
       'cost_usd': '2.5000',
       'period': '2026-03',
       'recorded_at': '2026-03-10T08:00:00.000Z',
-      'task_run': {
+      'conversation': {
         'agent_role_name': 'Dev',
         'task': {'title': 'Implement login', 'project_id': 'proj-001'},
       },
@@ -47,7 +47,7 @@ const Map<String, dynamic> kUsageByRoleResponse = {
     {
       'id': 'usage-002',
       'team_id': 'team-uuid-001',
-      'task_run_id': 'run-002',
+      'conversation_id': 'run-002',
       'model': 'claude-3-5-sonnet',
       'input_tokens': 800,
       'output_tokens': 400,
@@ -56,7 +56,7 @@ const Map<String, dynamic> kUsageByRoleResponse = {
       'cost_usd': '1.2000',
       'period': '2026-03',
       'recorded_at': '2026-03-10T09:00:00.000Z',
-      'task_run': {
+      'conversation': {
         'agent_role_name': 'QA',
         'task': {'title': 'Test login', 'project_id': 'proj-001'},
       },

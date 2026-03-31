@@ -99,7 +99,6 @@ const Map<String, dynamic> kSessionNoRecords = {
 const List<Map<String, dynamic>> kEvents = [
   {
     'id': 'evt-001',
-    'task_run_id': 'run-001',
     'type': 'system',
     'data': <String, dynamic>{},
     'content_text': 'Session started',

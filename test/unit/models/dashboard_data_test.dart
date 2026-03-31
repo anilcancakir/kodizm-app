@@ -10,7 +10,7 @@ void main() {
   group('ActiveRun.fromMap', () {
     test('parses all required fields correctly', () {
       final map = {
-        'task_run_id': 'run-uuid-1',
+        'conversation_id': 'run-uuid-1',
         'task_id': 'task-uuid-1',
         'task_title': 'Implement login',
         'agent_role': 'Dev',
@@ -21,7 +21,7 @@ void main() {
 
       final run = ActiveRun.fromMap(map);
 
-      expect(run.taskRunId, 'run-uuid-1');
+      expect(run.conversationId, 'run-uuid-1');
       expect(run.taskId, 'task-uuid-1');
       expect(run.taskTitle, 'Implement login');
       expect(run.agentRole, 'Dev');
@@ -32,7 +32,7 @@ void main() {
 
     test('handles null costUsd gracefully', () {
       final map = {
-        'task_run_id': 'run-uuid-2',
+        'conversation_id': 'run-uuid-2',
         'task_id': 'task-uuid-2',
         'task_title': 'Write tests',
         'agent_role': 'QA',
@@ -48,7 +48,7 @@ void main() {
 
     test('parses startedAt as UTC DateTime', () {
       final map = {
-        'task_run_id': 'run-uuid-3',
+        'conversation_id': 'run-uuid-3',
         'task_id': 'task-uuid-3',
         'task_title': 'Design API',
         'agent_role': 'BA',
@@ -102,7 +102,7 @@ void main() {
   group('RecentRun.fromMap', () {
     test('parses all fields including nullable ones', () {
       final map = {
-        'task_run_id': 'run-uuid-10',
+        'conversation_id': 'run-uuid-10',
         'task_id': 'task-uuid-10',
         'task_title': 'Refactor auth',
         'agent_role': 'Lead',
@@ -114,7 +114,7 @@ void main() {
 
       final run = RecentRun.fromMap(map);
 
-      expect(run.taskRunId, 'run-uuid-10');
+      expect(run.conversationId, 'run-uuid-10');
       expect(run.taskId, 'task-uuid-10');
       expect(run.taskTitle, 'Refactor auth');
       expect(run.agentRole, 'Lead');
@@ -126,7 +126,7 @@ void main() {
 
     test('handles null durationMs and completedAt', () {
       final map = {
-        'task_run_id': 'run-uuid-11',
+        'conversation_id': 'run-uuid-11',
         'task_id': 'task-uuid-11',
         'task_title': 'Review PR',
         'agent_role': 'Reviewer',
@@ -172,7 +172,7 @@ void main() {
       final map = {
         'active_runs': [
           {
-            'task_run_id': 'run-1',
+            'conversation_id': 'run-1',
             'task_id': 'task-1',
             'task_title': 'Build feature',
             'agent_role': 'Dev',
@@ -187,7 +187,7 @@ void main() {
         },
         'recent_runs': [
           {
-            'task_run_id': 'run-99',
+            'conversation_id': 'run-99',
             'task_id': 'task-99',
             'task_title': 'Fix bug',
             'agent_role': 'QA',
@@ -208,10 +208,10 @@ void main() {
       final data = DashboardData.fromMap(map);
 
       expect(data.activeRuns, hasLength(1));
-      expect(data.activeRuns.first.taskRunId, 'run-1');
+      expect(data.activeRuns.first.conversationId, 'run-1');
       expect(data.tasksSummary.total, 10);
       expect(data.recentRuns, hasLength(1));
-      expect(data.recentRuns.first.taskRunId, 'run-99');
+      expect(data.recentRuns.first.conversationId, 'run-99');
       expect(data.balance, 50.0);
       expect(data.monthlyUsage.period, '2024-01');
     });

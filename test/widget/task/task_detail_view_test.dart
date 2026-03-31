@@ -49,19 +49,25 @@ const Map<String, dynamic> kSection = {
   'updated_at': '2026-03-21T10:00:00.000Z',
 };
 
-const Map<String, dynamic> kRun = {
-  'id': 'run-uuid-001',
-  'task_id': 'task-uuid-001',
-  'agent_role_id': 'role-uuid-001',
-  'agent_role': {'name': 'Developer'},
+const Map<String, dynamic> kConversation = {
+  'id': 'conv-uuid-001',
+  'project_id': 'proj-uuid-001',
+  'user': {'id': 'user-uuid-001', 'name': 'Test User'},
+  'agent_role': {'id': 'role-uuid-001', 'name': 'Developer', 'slug': 'dev'},
+  'title': null,
   'status': 'completed',
   'model': 'claude-3-5-sonnet',
-  'total_cost_usd': 0.42,
-  'duration_ms': 45000,
-  'num_turns': 12,
+  'total_cost_usd': '0.42',
+  'total_input_tokens': 1000,
+  'total_output_tokens': 500,
+  'messages_count': 12,
+  'last_activity_at': '2026-03-22T08:45:00.000Z',
   'started_at': '2026-03-22T08:00:00.000Z',
   'completed_at': '2026-03-22T08:45:00.000Z',
   'created_at': '2026-03-22T08:00:00.000Z',
+  'updated_at': '2026-03-22T08:45:00.000Z',
+  'type': 'autonomous',
+  'task_id': 'task-uuid-001',
 };
 
 // ---------------------------------------------------------------------------
@@ -226,10 +232,10 @@ void main() {
           statusCode: 200,
         );
       }
-      if (url.contains('/runs')) {
+      if (url.contains('/conversations')) {
         return MagicResponse(
           data: {
-            'data': [kRun],
+            'data': [kConversation],
           },
           statusCode: 200,
         );
@@ -366,9 +372,6 @@ void main() {
 
     // The run row is rendered — confirmed by cost.
     expect(find.text('\$0.42'), findsOneWidget);
-
-    // Duration: 45000ms = 45s.
-    expect(find.text('45s'), findsOneWidget);
   });
 
   // -------------------------------------------------------------------------

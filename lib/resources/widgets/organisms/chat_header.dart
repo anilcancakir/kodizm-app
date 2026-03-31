@@ -132,7 +132,7 @@ class ChatHeader extends StatelessWidget {
       children: [
         // Back button
         WAnchor(
-          onTap: () => MagicRoute.back(),
+          onTap: () => MagicRoute.back(fallback: '/conversations'),
           child: WIcon(
             Icons.arrow_back_rounded,
             className: 'text-lg text-slate-500 dark:text-slate-400',

@@ -505,9 +505,7 @@ void main() {
 
       expect(
         http.calls.first.url,
-        equals(
-          '/teams/team-uuid-001/projects/proj-uuid-001/tasks/task-uuid-001/conversations',
-        ),
+        equals('/teams/team-uuid-001/projects/proj-uuid-001/conversations'),
       );
     });
 

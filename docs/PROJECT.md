@@ -14,8 +14,8 @@ Flutter frontend for Kodizm -- a multi-agent SDLC orchestrator. Single codebase 
 | Routing | MagicRoute | Auth-guarded group with AppLayout, GoRouter under the hood |
 | Auth | Sanctum token via magic_starter | Auth.check(), Auth.user<User>(), Auth.logout() |
 | Models | Magic ORM + Immutable VOs | 21 models, all IDs are String UUIDs |
-| Widgets | Atomic design | 5 atoms, 3 molecules, 5 organisms |
-| i18n | trans() from en.json | 26 sections, 633+ keys |
+| Widgets | Atomic design | 9 atoms, 2 molecules, 14 organisms |
+| i18n | trans() from en.json | 37 sections, 765+ keys |
 | Design | docs/DESIGN.md | Primary Navy + Amber Gold, Albert Sans + JetBrains Mono |
 
 ## Feature Map
@@ -23,11 +23,10 @@ Flutter frontend for Kodizm -- a multi-agent SDLC orchestrator. Single codebase 
 | Feature | Views | State | Models | Routes |
 |---------|-------|-------|--------|--------|
 | Dashboard | DashboardView | DashboardState | DashboardData, ActiveRun, TasksSummary, RecentRun, MonthlyUsage | `/`, `/dashboard` |
-| Projects | ProjectListView, ProjectCreateView, ProjectDetailView | ProjectState | Project | `/projects` |
-| Tasks | TaskListView, TaskCreateView, TaskDetailView | TaskState | Task, TaskSection, TaskRun, AgentRole | `/projects/:id/tasks` |
-| Agent Runs | AgentRunView | AgentRunState | TaskRunDetail, StreamEvent, FileChange, AgentQuestion, Session | `.../runs/:rid` |
+| Projects | ProjectListView, ProjectDetailView | ProjectState | Project, ProjectRepository | `/projects` |
+| Tasks | TaskListView, TaskCreateView, TaskDetailView | TaskState | Task, TaskSection, AgentRole | `/projects/:id/tasks` |
+| Conversations | ConversationListView, ConversationChatView | ConversationListState, ConversationChatState | Conversation, ConversationMessage, ChatItem | `/projects/:id/conversations`, `/projects/:id/chat`, `/projects/:id/chats/:conversationId` |
 | Knowledge | KnowledgeListView, KnowledgeDetailView | DocumentState | ProjectDocument | `.../knowledge` |
-| Conversations | ConversationListView, ConversationChatView | ConversationListState, ConversationChatState | Conversation, ConversationMessage | `.../conversations` |
 | Sessions | SessionListView, SessionDetailView | SessionState | Session, SessionUsageRecord, SessionShare | `/sessions` |
 | Billing | BillingView, UsageHistoryView | BillingState, UsageState | TeamBalance, UsageRecord | `/billing`, `/usage` |
 | AI Tokens | AiTokenListView | AiTokenState | AiToken | `/settings/ai-tokens` |
@@ -39,12 +38,11 @@ Flutter frontend for Kodizm -- a multi-agent SDLC orchestrator. Single codebase 
 | Document | Description |
 |----------|-------------|
 | [sessions.md](sessions.md) | Session models, SessionState, session views, WebSocket events |
-| [agent-run.md](agent-run.md) | AgentRunState, AgentRunView, terminal events, question panel |
-| [conversations.md](conversations.md) | Conversation models, state classes, chat views |
+| [conversations.md](conversations.md) | Conversation models (interactive + autonomous), state classes, chat views |
 | [projects-and-tasks.md](projects-and-tasks.md) | Project/Task models, state, views, routes |
 | [models.md](models.md) | Complete 21-model inventory (ORM + immutable VOs) |
-| [state-management.md](state-management.md) | All 12 state classes with interfaces and methods |
-| [views-and-routes.md](views-and-routes.md) | All 20 views, 22+ routes, navigation structure |
+| [state-management.md](state-management.md) | All 11 state classes with interfaces and methods |
+| [views-and-routes.md](views-and-routes.md) | All 16 views, 22+ routes, navigation structure |
 | [widgets.md](widgets.md) | Atoms, molecules, organisms inventory |
 | [design-system.md](design-system.md) | Design token quick reference (links to DESIGN.md) |
 | [websocket.md](websocket.md) | WebSocketService, channel patterns, per-state integration |

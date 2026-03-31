@@ -1,5 +1,6 @@
 import 'package:magic/magic.dart';
 
+import '../models/agent_role.dart';
 import '../models/conversation.dart';
 
 // ---------------------------------------------------------------------------
@@ -18,6 +19,13 @@ abstract class ConversationListHttpClient {
     Map<String, String>? headers,
   });
 
+  /// Perform a POST request.
+  Future<MagicResponse> post(
+    String url, {
+    dynamic data,
+    Map<String, String>? headers,
+  });
+
   /// Perform a DELETE request.
   Future<MagicResponse> delete(String url, {Map<String, String>? headers});
 }
@@ -32,6 +40,13 @@ class _MagicConversationHttpClient implements ConversationListHttpClient {
     Map<String, dynamic>? query,
     Map<String, String>? headers,
   }) => Http.get(url, query: query, headers: headers);
+
+  @override
+  Future<MagicResponse> post(
+    String url, {
+    dynamic data,
+    Map<String, String>? headers,
+  }) => Http.post(url, data: data, headers: headers);
 
   @override
   Future<MagicResponse> delete(String url, {Map<String, String>? headers}) =>
@@ -120,6 +135,48 @@ class ConversationListState extends MagicController
     } else {
       setError(response.errorMessage ?? 'Failed to delete conversation');
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Agent roles
+  // ---------------------------------------------------------------------------
+
+  /// Fetch the available agent roles for the given [teamId].
+  ///
+  /// Returns the list of [AgentRole] or an empty list on failure.
+  Future<List<AgentRole>> fetchAgentRoles(String teamId) async {
+    final response = await _http.get('/teams/$teamId/agent-roles');
+    if (!response.successful) return [];
+
+    final List<dynamic> items =
+        (response.data as Map<String, dynamic>)['data'] as List<dynamic>;
+    return items
+        .map((item) => AgentRole.fromMap(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Create
+  // ---------------------------------------------------------------------------
+
+  /// Create a new conversation for the given [agentRoleId].
+  ///
+  /// Returns the created [Conversation] or `null` on failure.
+  Future<Conversation?> createConversation(
+    String teamId,
+    String projectId,
+    String agentRoleId,
+  ) async {
+    final response = await _http.post(
+      '/teams/$teamId/projects/$projectId/conversations',
+      data: {'agent_role_id': agentRoleId},
+    );
+
+    if (!response.successful) return null;
+
+    final Map<String, dynamic> data =
+        (response.data as Map<String, dynamic>)['data'] as Map<String, dynamic>;
+    return Conversation.fromMap(data);
   }
 
   // ---------------------------------------------------------------------------

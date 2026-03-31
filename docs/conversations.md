@@ -1,13 +1,34 @@
 # Conversations
 
-Interactive chat between users and AI agent roles within a project.
+Unified execution model for both interactive chat and autonomous task execution.
+
+## Dual-Mode Architecture
+
+Conversations serve two purposes, distinguished by `type`:
+
+| Type | Purpose | Trigger | Task Link |
+|------|---------|---------|-----------|
+| `interactive` | User-driven chat with agent | User starts conversation | Optional (via `conversation_task` pivot) |
+| `autonomous` | Task execution by agent | System launches for task | Required (`task_id` FK + pivot) |
+
+Both modes share the same model, API resources, state classes, and WebSocket channels.
 
 ## Models
 
 | Model | File | Pattern | Key Fields |
 |-------|------|---------|------------|
-| `Conversation` | `lib/app/models/conversation.dart` | Immutable VO + copyWith | id, projectId, userId, agentRoleId, status, model, totalCostUsd, messagesCount, title, userName, agentRoleName/Slug |
+| `Conversation` | `lib/app/models/conversation.dart` | Immutable VO + copyWith | id, projectId, userId, agentRoleId, status, model, totalCostUsd, messagesCount, title, userName, agentRoleName/Slug, type, taskId, prompt |
 | `ConversationMessage` | `lib/app/models/conversation_message.dart` | Immutable VO + copyWith | id, conversationId, role, content, costUsd, usage, durationMs, numTurns, error, metadata |
+| `ChatItem` | `lib/app/models/chat_item.dart` | Sealed union | TextItem, ToolUseItem, ToolResultItem, ThinkingItem, ErrorItem |
+
+### Key Fields (added for MCP dual-mode)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `type` | `String` | `'interactive'` or `'autonomous'` |
+| `taskId` | `String?` | FK to task (always set for autonomous, optional for interactive) |
+| `prompt` | `String?` | Initial prompt (autonomous mode starting instructions) |
+| `linkedConversationsCount` | `int?` | Count of linked conversations via pivot table (on Task model) |
 
 ### Nested Relations
 
@@ -79,10 +100,16 @@ The session channel is subscribed dynamically when `session_id` first appears in
 | View | File | Route |
 |------|------|-------|
 | `ConversationListView` | `lib/resources/views/conversation/conversation_list_view.dart` | `/projects/:projectId/conversations` |
-| `ConversationChatView` | `lib/resources/views/conversation/conversation_chat_view.dart` | `/projects/:projectId/chat` |
+| `ConversationChatView` | `lib/resources/views/conversation/conversation_chat_view.dart` | `/projects/:projectId/chat` (new), `/projects/:projectId/chats/:conversationId` (existing) |
+
+### Chat Layout
+
+`ConversationChatView` uses a dedicated `ChatLayout` (defined in `routes/app.dart`):
+- **Desktop** (lg+): AppLayout shell with bounded content area
+- **Mobile**: Bare fullscreen with SafeArea for immersive chat
 
 ## Related Docs
 
 - [WebSocket](websocket.md) -- WS channel patterns
 - [State Management](state-management.md) -- all state classes
-- [Widgets](widgets.md) -- ChatMessageBubble, ChatToolUseCard, StreamingIndicator
+- [Widgets](widgets.md) -- ChatMessageBubble, ChatToolUseCard, StreamingIndicator, ChatInputBar

@@ -54,7 +54,8 @@ Accessor: `repositories` — parsed from the API-included `repositories` array v
 | assignedAgentRoleId | String? | Assigned agent |
 | description, acceptanceCriteria | String? | Detail-shape only |
 | branchName | String? | Git branch |
-| totalCostUsd | String? | Accumulated run cost |
+| totalCostUsd | String? | Accumulated cost |
+| linkedConversationsCount | int? | Count of linked conversations via pivot |
 | assignedAgentRoleName | String? | Nested relation (detail) |
 | createdByUserName | String? | Nested relation (detail) |
 
@@ -63,9 +64,9 @@ Accessor: `repositories` — parsed from the API-included `repositories` array v
 | Model | File | Pattern | Key Fields |
 |-------|------|---------|------------|
 | `TaskSection` | `lib/app/models/task_section.dart` | Immutable VO | id, taskId, type, title, content, version, createdByAgentRoleName |
-| `TaskRun` | `lib/app/models/task_run.dart` | Immutable VO | id, taskId, agentRoleId/Name, status, model, totalCostUsd |
-| `TaskRunDetail` | `lib/app/models/task_run_detail.dart` | Immutable VO + copyWith | Extends TaskRun with prompt, sessionId, worktreePath, usage, durationMs |
 | `AgentRole` | `lib/app/models/agent_role.dart` | Immutable VO | id, name, slug, scope, cliBackend, preferredModel, systemPrompt, toolPermissions |
+
+Task execution is handled by the unified `Conversation` model (see [Conversations](conversations.md)).
 
 ## State Classes
 
@@ -114,8 +115,6 @@ HTTP interface: Injectable `HttpClient` (GET/POST/PUT/DELETE).
 | `deleteTask(...)` | Delete task |
 | `transitionStatus(...)` | Change task status |
 | `fetchSections(...)` | Load task sections |
-| `fetchRuns(...)` | Load task runs |
-| `startRun(...)` | Start agent execution run |
 | `fetchAgentRoles(teamId)` | Load available agent roles |
 | `sortTasks(field)` | Local sort by priority/status/date |
 
@@ -126,7 +125,6 @@ HTTP interface: `TaskHttpClient` (GET/POST/PUT/DELETE).
 | View | File | Route | State |
 |------|------|-------|-------|
 | `ProjectListView` | `lib/resources/views/project/project_list_view.dart` | `/projects` | `ProjectState` |
-| `ProjectCreateView` | `lib/resources/views/project/project_create_view.dart` | `/projects/create` | `ProjectState` |
 | `ProjectDetailView` | `lib/resources/views/project/project_detail_view.dart` | `/projects/:id` | `ProjectState`, `ProjectRepositoryState` |
 | `TaskListView` | `lib/resources/views/task/task_list_view.dart` | `/projects/:projectId/tasks` | `TaskState` |
 | `TaskCreateView` | `lib/resources/views/task/task_create_view.dart` | `/projects/:projectId/tasks/create` | `TaskState` |
@@ -134,6 +132,6 @@ HTTP interface: `TaskHttpClient` (GET/POST/PUT/DELETE).
 
 ## Related Docs
 
-- [Agent Run](agent-run.md) -- run execution and streaming
+- [Conversations](conversations.md) -- conversation execution and chat
 - [State Management](state-management.md) -- all state classes
 - [Views and Routes](views-and-routes.md) -- complete route map

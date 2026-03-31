@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:magic/magic.dart';
+import 'package:magic_starter/magic_starter.dart';
 
-import '../../../app/models/agent_role.dart';
 import '../../../app/models/conversation.dart';
 import '../../../app/models/user.dart';
-import '../../../app/state/conversation_chat_state.dart';
 import '../../../app/state/conversation_list_state.dart';
 import '../../widgets/organisms/agent_role_picker_modal.dart';
-import 'package:magic_starter/magic_starter.dart';
 
 /// Conversation list view — displays all conversations for a given project.
 ///
@@ -49,21 +47,25 @@ class _ConversationListViewState extends State<ConversationListView> {
     await _state.loadConversations(teamId, widget.projectId);
   }
 
-  /// Shows the agent role picker and navigates directly to a new chat.
+  /// Shows the agent role picker, creates a conversation, navigates to detail.
   Future<void> _handleNewConversation() async {
     final teamId = Auth.user<User>()?.currentTeam?.id;
     if (teamId == null) return;
 
-    final chatState = ConversationChatState();
-    final roles = await chatState.fetchAgentRoles(teamId);
+    final roles = await _state.fetchAgentRoles(teamId);
     if (!mounted || roles.isEmpty) return;
 
-    final AgentRole? selected = await AgentRolePickerModal.show(context, roles);
+    final selected = await AgentRolePickerModal.show(context, roles);
     if (selected == null || !mounted) return;
 
-    MagicRoute.to(
-      '/projects/${widget.projectId}/chat?agentRoleId=${selected.id}',
+    final conversation = await _state.createConversation(
+      teamId,
+      widget.projectId,
+      selected.id,
     );
+    if (conversation == null || !mounted) return;
+
+    MagicRoute.to('/projects/${widget.projectId}/chats/${conversation.id}');
   }
 
   // -----------------------------------------------------------------------

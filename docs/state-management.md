@@ -1,6 +1,6 @@
 # State Management
 
-13 state classes. All except `SettingsState` extend `MagicController with MagicStateMixin<T>`.
+11 state classes. All except `SettingsState` extend `MagicController with MagicStateMixin<T>`.
 
 ## Architecture
 
@@ -17,7 +17,6 @@
 | `ProjectState` | `project_state.dart` | `List<Project>` | `HttpClient` (GET/POST/PUT/DELETE) | -- |
 | `ProjectRepositoryState` | `project_repository_state.dart` | `List<ProjectRepository>` | `HttpClient` (GET/POST/PUT/DELETE) | -- |
 | `TaskState` | `task_state.dart` | `List<Task>` | `TaskHttpClient` (GET/POST/PUT/DELETE) | -- |
-| `AgentRunState` | `agent_run_state.dart` | `void` | `AgentRunHttpClient` (GET/POST) + `SessionAgentHttpClient` (GET) | Via view: `private-task-run.{runId}` |
 | `DocumentState` | `document_state.dart` | `List<ProjectDocument>` | `DocumentHttpClient` (GET) | -- |
 | `ConversationListState` | `conversation_list_state.dart` | `List<Conversation>` | `ConversationListHttpClient` (GET/DELETE) | -- |
 | `ConversationChatState` | `conversation_chat_state.dart` | `void` | `ConversationChatHttpClient` (GET/POST) | `private-conversation.{id}`, `private-session.{id}` |
@@ -63,20 +62,17 @@ All files in `lib/app/state/`.
 | `fetchTasks` (with filters), `fetchTask` | Load list or single |
 | `createTask`, `updateTask`, `deleteTask` | CRUD |
 | `transitionStatus` | Status change |
-| `fetchSections`, `fetchRuns` | Load related data |
-| `startRun` | Launch agent execution |
-| `fetchAgentRoles` | Load agent roles for run dialog |
+| `fetchSections` | Load task sections |
+| `fetchAgentRoles` | Load agent roles for assignment |
 | `sortTasks(field)` | Local sort (priority, status, date) |
 
-### AgentRunState
+### ConversationListState
 
 | Method | Description |
 |--------|-------------|
-| `loadRunDetail` | Load run + associated session |
-| `loadExistingEvents` | Cursor-paginated event replay |
-| `addEvent(WebSocketEvent)` | Process live WS event |
-| `loadQuestions`, `answerQuestion` | Q&A lifecycle |
-| `cancelRun` | Cancel active run |
+| `loadConversations` | Fetch all conversations for a project |
+| `deleteConversation` | Delete + reload list |
+| `reset` | Clear state |
 
 ### ConversationChatState
 
@@ -132,9 +128,8 @@ All files in `lib/app/state/`.
 
 | Consumer | Dependency | Purpose |
 |----------|-----------|---------|
-| `AgentRunState` | `SessionAgentHttpClient` | Fetch session for run detail |
 | `ConversationChatState` | Agent roles API | Auto-select first agent role |
-| `TaskState` | Agent roles API | Populate "start run" dialog |
+| `TaskState` | Agent roles API | Populate agent role assignment |
 | `BillingState` | `UsageRecord` model | Parse usage breakdown internally |
 
 ## Testing Pattern

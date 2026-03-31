@@ -140,7 +140,6 @@ class _AgentRolePickerModalState extends State<AgentRolePickerModal> {
   @override
   Widget build(BuildContext context) {
     final theme = MagicStarter.modalTheme;
-
     return MagicStarterDialogShell(
       title: trans('conversations.select_agent'),
       description: trans('conversations.select_agent_subtitle'),

@@ -1,6 +1,6 @@
 # Models
 
-Complete inventory of 22 model classes. Two patterns: Magic ORM and Immutable Value Objects.
+Complete inventory of 21 model classes. Two patterns: Magic ORM and Immutable Value Objects.
 
 ## Magic ORM Models
 
@@ -24,22 +24,21 @@ Plain Dart classes with `const` constructors, `fromMap` factory, and optional `c
 
 | Model | File | Key Fields | copyWith | API Source |
 |-------|------|-----------|----------|-----------|
+| `Conversation` | `conversation.dart` | id, projectId, userId, agentRoleId, status, model, totalCostUsd, messagesCount, title, userName, agentRoleName/Slug, type, taskId, prompt | Yes | `/projects/{id}/conversations` |
+| `ConversationMessage` | `conversation_message.dart` | id, conversationId, role, content, costUsd, usage, durationMs, numTurns, error, metadata | Yes | `/conversations/{id}/messages` |
+| `ChatItem` | `chat_item.dart` | Sealed union: TextItem, ToolUseItem, ToolResultItem, ThinkingItem, ErrorItem | No | Parsed from ConversationMessage |
 | `ProjectRepository` | `project_repository.dart` | id, projectId, name, repositoryUrl, defaultBranch, sshPublicKey, repoStatus, repoError, lastSyncedAt, mountPath | No | `/projects/{id}/repositories` |
 | `DashboardData` | `dashboard_data.dart` | activeRuns, tasksSummary, recentRuns, balance, monthlyUsage | No | `/teams/{id}/dashboard` |
-| `ActiveRun` | `dashboard_data.dart` | taskRunId, taskId, taskTitle, agentRole, status, costUsd | No | Nested in DashboardData |
+| `ActiveRun` | `dashboard_data.dart` | conversationId, taskId, taskTitle, agentRole, status, costUsd | No | Nested in DashboardData |
 | `TasksSummary` | `dashboard_data.dart` | total, byStatus (Map) | No | Nested in DashboardData |
-| `RecentRun` | `dashboard_data.dart` | taskRunId, taskTitle, agentRole, status, costUsd, durationMs | No | Nested in DashboardData |
+| `RecentRun` | `dashboard_data.dart` | conversationId, taskId, taskTitle, agentRole, status, costUsd, durationMs, completedAt | No | Nested in DashboardData |
 | `MonthlyUsage` | `dashboard_data.dart` | totalCostUsd, period, runCount | No | Nested in DashboardData |
 | `TaskSection` | `task_section.dart` | id, taskId, type, title, content, version, createdByAgentRoleName | No | `/tasks/{id}/sections` |
-| `TaskRun` | `task_run.dart` | id, taskId, agentRoleId/Name, status, model, totalCostUsd | No | `/tasks/{id}/runs` |
-| `TaskRunDetail` | `task_run_detail.dart` | Extends TaskRun + prompt, sessionId, worktreePath, usage, durationMs | Yes | `/tasks/{id}/runs/{id}` |
 | `AgentRole` | `agent_role.dart` | id, name, slug, scope, cliBackend, preferredModel, systemPrompt, toolPermissions (17 fields) | No | `/teams/{id}/agent-roles` |
-| `StreamEvent` | `stream_event.dart` | id, taskRunId, type, data, contentText, filePath, isQuestion, sessionId, subagentId, parentEventId, model, turnNumber, metadata | No | `/task-runs/{id}/stream-events` |
+| `StreamEvent` | `stream_event.dart` | id, conversationId, type, data, contentText, filePath, isQuestion, sessionId, subagentId, parentEventId, model, turnNumber, metadata | No | `/conversations/{id}/stream-events` |
 | `FileChange` | `file_change.dart` | filePath, operation (M/A/D) | No | Extracted from StreamEvent |
-| `AgentQuestion` | `agent_question.dart` | id, taskRunId, questionText, answerText, answeredAt | Yes | `/runs/{id}/questions` |
+| `AgentQuestion` | `agent_question.dart` | id, conversationId, questionText, answerText, answeredAt | Yes | `/conversations/{id}/questions` |
 | `ProjectDocument` | `project_document.dart` | id, projectId, title, content, category, createdByUserName, createdByAgentRoleName | No | `/projects/{id}/documents` |
-| `Conversation` | `conversation.dart` | id, projectId, userId, agentRoleId, status, model, totalCostUsd, messagesCount, title, userName, agentRoleName/Slug | Yes | `/projects/{id}/conversations` |
-| `ConversationMessage` | `conversation_message.dart` | id, conversationId, role, content, costUsd, usage, durationMs, numTurns, error, metadata | Yes | `/conversations/{id}/messages` |
 | `Session` | `session.dart` | id, type, phase, model, totalCostUsd, token counts (4), warmUntil, usageRecords, shares | Yes | `/v1/sessions` |
 | `SessionUsageRecord` | `session_usage_record.dart` | id, sessionId, turnNumber, model, token counts (4), costUsd, isSubagent, subagentType | No | Nested in Session |
 | `SessionShare` | `session_share.dart` | id, sessionId, shareableType, shareableId, permission, sharedBy | No | Nested in Session |
@@ -55,6 +54,8 @@ Plain Dart classes with `const` constructors, `fromMap` factory, and optional `c
 - `fromMap()` uses `setRawAttributes(map, sync: true)` for ORM models
 - Nested relations flattened in `fromMap()` (e.g., Conversation.userId from `user.id`)
 - All files in `lib/app/models/` except `WebSocketEvent` in `lib/app/events/`
+- `Conversation` serves dual purpose: interactive (user-driven chat) and autonomous (task execution) via `type` field
+- Dashboard aggregate models (`ActiveRun`, `RecentRun`) reference `conversationId` (not legacy `taskRunId`)
 
 ## Related Docs
 

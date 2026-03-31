@@ -20,10 +20,9 @@ View initState
 |---------|-------------|
 | Injectable HTTP clients | Abstract interfaces (`TaskHttpClient`, etc.) with production `Http` facade delegation |
 | MagicStateMixin lifecycle | `setLoading()` -> `setSuccess(data)` or `setError(msg)` -> `refreshUI()` |
-| Manual refreshUI | For `void`-typed states (`AgentRunState`, `ConversationChatState`, `SessionState`) managing secondary fields |
+| Manual refreshUI | For `void`-typed states (`ConversationChatState`, `SessionState`) managing secondary fields |
 | Singleton state | `Magic.findOrPut(StateClass.new)` -- lazy, shared across views |
 | Optimistic updates | `ConversationChatState.sendMessage` appends user message before API response |
-| Cursor pagination | `AgentRunState.loadExistingEvents` uses `after_id` + `has_more` for paginated fetch |
 
 ## WebSocket Flow (Real-Time)
 
@@ -51,10 +50,9 @@ View dispose
 
 | Pattern | Used By | Description |
 |---------|---------|-------------|
-| View-managed | `AgentRunView` | View subscribes/unsubscribes in lifecycle, forwards to state |
-| State-managed | `SessionState` | State owns subscribe/unsubscribe via public methods |
 | Hybrid (state-internal) | `ConversationChatState` | State subscribes internally, view triggers via `createConversation`/`reset` |
-| Dynamic secondary | `AgentRunView`, `ConversationChatState` | Session channel subscribed when sessionId becomes known |
+| State-managed | `SessionState` | State owns subscribe/unsubscribe via public methods |
+| Dynamic secondary | `ConversationChatState` | Session channel subscribed when sessionId becomes known |
 
 ### Event Routing
 
@@ -62,11 +60,6 @@ State classes route WebSocket events by `eventName`:
 
 | State | Event Name | Mutation |
 |-------|-----------|----------|
-| `AgentRunState` | `.agent.system` | Update runDetail (sessionId, model) |
-| `AgentRunState` | `.agent.assistant` | Increment turnCount, append StreamEvent |
-| `AgentRunState` | `.agent.result` | Update cost/duration, append StreamEvent |
-| `AgentRunState` | `.agent.question` | Append AgentQuestion, append StreamEvent |
-| `AgentRunState` | `.agent.status` | Update runDetail.status (no StreamEvent) |
 | `ConversationChatState` | `.conversation.message` | Route by type: text/question/permission/tool_use |
 | `ConversationChatState` | `.conversation.status` | Update conversation status, extract sessionId |
 | `SessionState` | `.session.status` | Update session phase |

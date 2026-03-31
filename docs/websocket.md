@@ -59,7 +59,7 @@ Ring buffer of 100 entries. Dedup key: `$channel:$eventName:$rawData`. Duplicate
 |-------|------|-------------|
 | `id` | String | Composite: `$channel:$eventName:${data.hashCode}` |
 | `channel` | String | e.g. `private-project.abc` |
-| `eventName` | String | e.g. `.agent.system`, `.conversation.message` |
+| `eventName` | String | e.g. `.conversation.message`, `.session.status` |
 | `data` | Map | Decoded JSON payload |
 | `receivedAt` | DateTime | Local receive timestamp |
 
@@ -67,24 +67,15 @@ Ring buffer of 100 entries. Dedup key: `$channel:$eventName:$rawData`. Duplicate
 
 | Channel Pattern | Subscribed By | Events |
 |----------------|--------------|--------|
-| `private-task-run.{runId}` | `AgentRunView` | `.agent.system`, `.agent.assistant`, `.agent.result`, `.agent.question`, `.agent.status` |
 | `private-conversation.{id}` | `ConversationChatState` | `.conversation.message`, `.conversation.status` |
-| `private-session.{sessionId}` | `SessionState`, `ConversationChatState`, `AgentRunView` | `.session.status`, `.session.cost`, `.session.stream`, `.session.question` |
+| `private-session.{sessionId}` | `SessionState`, `ConversationChatState` | `.session.status`, `.session.cost`, `.session.stream`, `.session.question` |
 
 ## Per-State Integration
 
 | State Class | Subscribe Method | Unsubscribe Method | Event Handler |
 |-------------|-----------------|-------------------|---------------|
-| `AgentRunState` | Via view (`AgentRunView.initState`) | Via view (`dispose`) | `addEvent(WebSocketEvent)` |
 | `ConversationChatState` | Internal (`_ws.subscribe`) | `reset()` | `addEvent(WebSocketEvent)` |
 | `SessionState` | `subscribeToSession(id)` | `unsubscribeFromSession()` | `handleWebSocketEvent(WebSocketEvent)` |
-
-### AgentRunView Dual-Channel Pattern
-
-The `AgentRunView` manages two channels simultaneously:
-
-1. `private-task-run.{runId}` -- subscribed immediately in `initState`
-2. `private-session.{sessionId}` -- subscribed dynamically when session loads (via state listener)
 
 ### ConversationChatState Dynamic Session Channel
 
@@ -92,11 +83,10 @@ The conversation chat state subscribes to a session channel dynamically when `se
 
 ## Testing
 
-`WebSocketService` accepts injectable `channelFactory` and `configProvider` for test isolation. State classes accept injectable `SessionWebSocket` / `ConversationChatWebSocket` abstractions.
+`WebSocketService` accepts injectable `channelFactory` and `configProvider` for test isolation. State classes accept injectable `ConversationChatWebSocket` abstractions.
 
 ## Related Docs
 
-- [Agent Run](agent-run.md) -- run-level WS event processing
 - [Conversations](conversations.md) -- conversation WS events
 - [Sessions](sessions.md) -- session WS events
 - [Data Flow](data-flow.md) -- full data flow patterns

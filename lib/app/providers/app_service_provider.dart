@@ -52,27 +52,12 @@ class AppServiceProvider extends ServiceProvider {
           path: '/conversations',
         ),
         MagicStarterNavItem(
-          icon: Icons.account_balance_wallet_outlined,
-          labelKey: 'nav.billing',
-          path: '/billing',
-        ),
-        MagicStarterNavItem(
-          icon: Icons.devices_outlined,
-          labelKey: 'nav.sessions',
-          path: '/sessions',
-        ),
-        MagicStarterNavItem(
           icon: Icons.settings_outlined,
           labelKey: 'nav.settings',
           path: MagicStarterConfig.profileRoute(),
         ),
       ],
       bottomItems: [
-        MagicStarterNavItem(
-          icon: Icons.dashboard_outlined,
-          labelKey: 'nav.dashboard',
-          path: MagicStarterConfig.homeRoute(),
-        ),
         MagicStarterNavItem(
           icon: Icons.folder_outlined,
           labelKey: 'nav.projects',
@@ -87,16 +72,6 @@ class AppServiceProvider extends ServiceProvider {
           icon: Icons.chat_outlined,
           labelKey: 'nav.conversations',
           path: '/conversations',
-        ),
-        MagicStarterNavItem(
-          icon: Icons.account_balance_wallet_outlined,
-          labelKey: 'nav.billing',
-          path: '/billing',
-        ),
-        MagicStarterNavItem(
-          icon: Icons.devices_outlined,
-          labelKey: 'nav.sessions',
-          path: '/sessions',
         ),
         MagicStarterNavItem(
           icon: Icons.settings_outlined,

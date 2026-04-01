@@ -309,44 +309,8 @@ void main() {
   // 1. SSH key regeneration shows MagicStarterConfirmDialog with danger variant
   // -------------------------------------------------------------------------
 
-  testWidgets(
-    'regenerate SSH key button shows MagicStarterConfirmDialog with danger variant',
-    (tester) async {
-      await state.fetchProject('team-uuid-001', 'proj-uuid-001');
-      await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
-
-      // Scroll the regenerate button into view.
-      await tester.ensureVisible(
-        find.text(trans('projects.regenerate_ssh_key')),
-      );
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text(trans('projects.regenerate_ssh_key')));
-      await tester.pumpAndSettle();
-
-      // MagicStarterConfirmDialog should appear.
-      expect(find.byType(MagicStarterConfirmDialog), findsOneWidget);
-
-      // Title and description from i18n keys.
-      expect(
-        find.text(trans('projects.regenerate_ssh_confirm_title')),
-        findsOneWidget,
-      );
-      expect(
-        find.text(trans('projects.regenerate_ssh_confirm_body')),
-        findsOneWidget,
-      );
-
-      // Confirm action label.
-      expect(
-        find.text(trans('projects.regenerate_ssh_confirm_action')),
-        findsOneWidget,
-      );
-
-      // Cancel button.
-      expect(find.text(trans('common.cancel')), findsOneWidget);
-    },
-  );
+  // Removed: 'regenerate SSH key button shows confirm dialog' — button removed
+  // from project detail view in redesign.
 
   // -------------------------------------------------------------------------
   // 2. Repository deletion shows MagicStarterConfirmDialog with danger variant
@@ -398,36 +362,5 @@ void main() {
     },
   );
 
-  // -------------------------------------------------------------------------
-  // 3. Dismissing the confirm dialog leaves the view intact
-  // -------------------------------------------------------------------------
-
-  testWidgets(
-    'cancelling regenerate SSH dialog dismisses without triggering state mutation',
-    (tester) async {
-      await state.fetchProject('team-uuid-001', 'proj-uuid-001');
-      await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
-
-      await tester.ensureVisible(
-        find.text(trans('projects.regenerate_ssh_key')),
-      );
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text(trans('projects.regenerate_ssh_key')));
-      await tester.pumpAndSettle();
-
-      // Dialog is open.
-      expect(find.byType(MagicStarterConfirmDialog), findsOneWidget);
-
-      // Tap cancel.
-      await tester.tap(find.text(trans('common.cancel')));
-      await tester.pumpAndSettle();
-
-      // Dialog is closed.
-      expect(find.byType(MagicStarterConfirmDialog), findsNothing);
-
-      // Project detail view is still visible.
-      expect(find.text('Alpha'), findsWidgets);
-    },
-  );
+  // Removed: 'cancelling regenerate SSH dialog' — button removed from view.
 }

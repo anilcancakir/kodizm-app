@@ -536,15 +536,7 @@ void main() {
   // 6. Recent tasks placeholder is shown
   // -------------------------------------------------------------------------
 
-  testWidgets('renders recent tasks placeholder', (tester) async {
-    _configureResponder(http);
-    await _preloadState(state);
-
-    await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
-
-    expect(find.text(trans('projects.recent_tasks')), findsOneWidget);
-    expect(find.text(trans('projects.tasks_placeholder')), findsOneWidget);
-  });
+  // Removed: 'renders recent tasks placeholder' — section removed in redesign.
 
   // -------------------------------------------------------------------------
   // 7. Shows loading when no project loaded
@@ -641,33 +633,13 @@ void main() {
   // 10. Project-level SSH key section is rendered
   // -------------------------------------------------------------------------
 
-  testWidgets('renders project-level SSH public key', (tester) async {
-    _configureResponder(http);
-    await _preloadState(state);
-
-    await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
-
-    // The project's SSH public key value should be visible somewhere on the page.
-    expect(
-      find.text('ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFakeKey'),
-      findsOneWidget,
-    );
-  });
+  // Removed: 'renders project-level SSH public key' — moved to repo section.
 
   // -------------------------------------------------------------------------
   // 11. Project-level "Regenerate SSH Key" button is rendered
   // -------------------------------------------------------------------------
 
-  testWidgets('renders Regenerate SSH Key button at project level', (
-    tester,
-  ) async {
-    _configureResponder(http);
-    await _preloadState(state);
-
-    await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
-
-    expect(find.text(trans('projects.regenerate_ssh_key')), findsOneWidget);
-  });
+  // Removed: 'renders Regenerate SSH Key button' — moved to repo section.
 
   // -------------------------------------------------------------------------
   // 12. Project short_name is shown in the header area

@@ -21,8 +21,6 @@ class AgentRole {
     this.slug = '',
     this.cliBackend = '',
     this.preferredModel,
-    this.systemPrompt,
-    this.promptAppend,
     this.backendConfig,
     this.toolPermissions,
     this.isActive = true,
@@ -60,12 +58,6 @@ class AgentRole {
   /// The preferred model identifier for this role (e.g. `'claude-sonnet-4-5'`).
   final String? preferredModel;
 
-  /// The system prompt injected at the start of every agent conversation.
-  final String? systemPrompt;
-
-  /// Additional prompt text appended after the main prompt.
-  final String? promptAppend;
-
   /// Backend-specific configuration as a JSON object (e.g. temperature, max_tokens).
   final Map<String, dynamic>? backendConfig;
 
@@ -101,8 +93,6 @@ class AgentRole {
       description: map['description'] as String?,
       cliBackend: map['cli_backend'] as String? ?? '',
       preferredModel: map['preferred_model'] as String?,
-      systemPrompt: map['system_prompt'] as String?,
-      promptAppend: map['prompt_append'] as String?,
       backendConfig: map['backend_config'] as Map<String, dynamic>?,
       toolPermissions: map['tool_permissions'] as Map<String, dynamic>?,
       scope: map['scope'] as String,

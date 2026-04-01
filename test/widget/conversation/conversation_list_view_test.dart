@@ -86,6 +86,16 @@ class _FakeConversationHttpClient implements ConversationListHttpClient {
   }
 
   @override
+  Future<MagicResponse> post(
+    String url, {
+    dynamic data,
+    Map<String, String>? headers,
+  }) async {
+    calls.add('POST $url');
+    return _responder(url);
+  }
+
+  @override
   Future<MagicResponse> delete(
     String url, {
     Map<String, String>? headers,

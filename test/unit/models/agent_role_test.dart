@@ -73,8 +73,6 @@ void main() {
       'description': 'Gathers requirements and writes analysis sections.',
       'cli_backend': 'claude',
       'preferred_model': 'claude-sonnet-4-5',
-      'system_prompt': 'You are a senior business analyst.',
-      'prompt_append': 'Always cite sources.',
       'backend_config': {'temperature': 0.7, 'max_tokens': 4096},
       'tool_permissions': {'web_search': true, 'code_execution': false},
       'scope': 'analysis',
@@ -94,8 +92,6 @@ void main() {
       'description': null,
       'cli_backend': 'claude',
       'preferred_model': null,
-      'system_prompt': null,
-      'prompt_append': null,
       'backend_config': null,
       'tool_permissions': null,
       'scope': 'implementation',
@@ -107,7 +103,7 @@ void main() {
 
     // -------
 
-    test('fromMap parses all 17 API fields correctly', () {
+    test('fromMap parses all API fields correctly', () {
       final role = AgentRole.fromMap(apiFixture);
 
       expect(role.id, 'role-uuid-api-1');
@@ -122,8 +118,6 @@ void main() {
       );
       expect(role.cliBackend, 'claude');
       expect(role.preferredModel, 'claude-sonnet-4-5');
-      expect(role.systemPrompt, 'You are a senior business analyst.');
-      expect(role.promptAppend, 'Always cite sources.');
       expect(role.backendConfig, {'temperature': 0.7, 'max_tokens': 4096});
       expect(role.toolPermissions, {
         'web_search': true,
@@ -148,8 +142,6 @@ void main() {
       expect(role.description, isNull);
       expect(role.cliBackend, 'claude');
       expect(role.preferredModel, isNull);
-      expect(role.systemPrompt, isNull);
-      expect(role.promptAppend, isNull);
       expect(role.backendConfig, isNull);
       expect(role.toolPermissions, isNull);
       expect(role.scope, 'implementation');
@@ -168,8 +160,6 @@ void main() {
         description: 'Leads the development team.',
         cliBackend: 'claude',
         preferredModel: 'claude-opus-4-5',
-        systemPrompt: 'You are a lead developer.',
-        promptAppend: null,
         backendConfig: {'temperature': 0.5},
         toolPermissions: {'code_execution': true},
         scope: 'implementation',
@@ -188,8 +178,6 @@ void main() {
       expect(role.description, 'Leads the development team.');
       expect(role.cliBackend, 'claude');
       expect(role.preferredModel, 'claude-opus-4-5');
-      expect(role.systemPrompt, 'You are a lead developer.');
-      expect(role.promptAppend, isNull);
       expect(role.backendConfig, {'temperature': 0.5});
       expect(role.toolPermissions, {'code_execution': true});
       expect(role.scope, 'implementation');

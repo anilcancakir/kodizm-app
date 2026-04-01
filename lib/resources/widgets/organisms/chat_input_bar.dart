@@ -23,8 +23,10 @@ class ChatInputBar extends StatefulWidget {
   const ChatInputBar({
     required this.controller,
     required this.isSending,
+    this.awaitingResponse = false,
     this.focusNode,
     this.onSend,
+    this.onStop,
     super.key,
   });
 
@@ -34,11 +36,17 @@ class ChatInputBar extends StatefulWidget {
   /// Whether a send is in progress — disables the send button when true.
   final bool isSending;
 
+  /// Whether the agent is currently processing — shows stop button when true.
+  final bool awaitingResponse;
+
   /// Optional focus node passed from the parent. Falls back to an internal one.
   final FocusNode? focusNode;
 
   /// Callback fired when the send button is tapped or Enter is pressed.
   final VoidCallback? onSend;
+
+  /// Callback fired when the stop button is tapped during agent processing.
+  final VoidCallback? onStop;
 
   @override
   State<ChatInputBar> createState() => _ChatInputBarState();
@@ -172,16 +180,32 @@ class _ChatInputBarState extends State<ChatInputBar> {
               ),
             ),
 
-            // Send button
-            WAnchor(
-              onTap: _canSend ? widget.onSend : null,
-              child: WDiv(
-                className: _canSend
-                    ? 'w-10 h-10 rounded-full bg-amber-400 flex items-center justify-center'
-                    : 'w-10 h-10 rounded-full bg-slate-300 dark:bg-slate-600 flex items-center justify-center',
-                child: WIcon(Icons.send, className: 'text-base text-slate-900'),
+            // Send / Stop button
+            if (widget.awaitingResponse)
+              WAnchor(
+                onTap: widget.onStop,
+                child: WDiv(
+                  className:
+                      'w-10 h-10 rounded-full bg-red-500 flex items-center justify-center',
+                  child: WIcon(
+                    Icons.stop_rounded,
+                    className: 'text-base text-white',
+                  ),
+                ),
+              )
+            else
+              WAnchor(
+                onTap: _canSend ? widget.onSend : null,
+                child: WDiv(
+                  className: _canSend
+                      ? 'w-10 h-10 rounded-full bg-amber-400 flex items-center justify-center'
+                      : 'w-10 h-10 rounded-full bg-slate-300 dark:bg-slate-600 flex items-center justify-center',
+                  child: WIcon(
+                    Icons.send,
+                    className: 'text-base text-slate-900',
+                  ),
+                ),
               ),
-            ),
           ],
         ),
       ],

@@ -141,6 +141,7 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   List<WebSocketEvent> _rawEvents = [];
   bool _isSending = false;
   bool _awaitingResponse = false;
+  bool _isStopping = false;
   String? _error;
   String? _warmUntil;
   String _teamId = '';
@@ -190,6 +191,9 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   /// first `.conversation.message` WS event arrives from the agent. Used
   /// to keep the typing bubble visible in the gap between POST and WS.
   bool get awaitingResponse => _awaitingResponse;
+
+  /// Whether a stop request is currently in progress.
+  bool get isStopping => _isStopping;
 
   /// The last error message, or `null` if no error.
   String? get error => _error;
@@ -366,6 +370,27 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
 
     _isSending = false;
     refreshUI();
+  }
+
+  /// Stop the currently running message.
+  ///
+  /// Sends a POST to the stop endpoint, which aborts the running agent and
+  /// creates a system interrupt message. The conversation remains Active.
+  Future<void> stopMessage() async {
+    if (_conversation == null || !_awaitingResponse || _isStopping) return;
+
+    _isStopping = true;
+    refreshUI();
+
+    try {
+      await _http.post(
+        '/teams/$_teamId/projects/$_projectId/conversations/${_conversation!.id}/stop',
+      );
+    } finally {
+      _awaitingResponse = false;
+      _isStopping = false;
+      refreshUI();
+    }
   }
 
   // ---------------------------------------------------------------------------

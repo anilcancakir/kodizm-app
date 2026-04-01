@@ -261,7 +261,8 @@
     "session_id": "Session ID",
     "status_label": "Status",
     "subagent_indicator": "Sub-agent",
-    "turn_label": "Turn :number"
+    "turn_label": "Turn :number",
+    "stop_message": "Stop"
   },
   "conversations": {
     "autonomous": "Autonomous",

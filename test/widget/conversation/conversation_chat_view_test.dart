@@ -730,6 +730,28 @@ void main() {
   });
 
   // -----------------------------------------------------------------------
+  // 20. Stop button appears when awaitingResponse is true
+  // -----------------------------------------------------------------------
+
+  testWidgets('stop button appears when awaitingResponse is true', (
+    tester,
+  ) async {
+    await pumpWithConversation(tester);
+
+    // Initially — send button visible, stop button not visible.
+    expect(find.byIcon(Icons.send), findsOneWidget);
+    expect(find.byIcon(Icons.stop_rounded), findsNothing);
+
+    // Simulate awaiting response.
+    state.setAwaitingResponseForTest(value: true);
+    await tester.pump();
+
+    // Stop button should now be visible, send button hidden.
+    expect(find.byIcon(Icons.stop_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.send), findsNothing);
+  });
+
+  // -----------------------------------------------------------------------
   // 18. ChatStreamEventRenderer renders for mixed ChatItem types
   // -----------------------------------------------------------------------
 

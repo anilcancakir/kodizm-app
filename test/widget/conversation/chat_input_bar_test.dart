@@ -50,7 +50,9 @@ Widget _buildWidget({
   required TextEditingController controller,
   FocusNode? focusNode,
   bool isSending = false,
+  bool awaitingResponse = false,
   VoidCallback? onSend,
+  VoidCallback? onStop,
 }) {
   return WindTheme(
     data: WindThemeData(),
@@ -61,7 +63,9 @@ Widget _buildWidget({
             controller: controller,
             focusNode: focusNode,
             isSending: isSending,
+            awaitingResponse: awaitingResponse,
             onSend: onSend,
+            onStop: onStop,
           ),
         ),
       ),
@@ -258,5 +262,67 @@ void main() {
     await tester.pump();
 
     expect(find.byIcon(Icons.attach_file_rounded), findsOneWidget);
+  });
+
+  // -----------------------------------------------------------------------
+  // 8. Stop button shows when awaitingResponse is true
+  // -----------------------------------------------------------------------
+
+  testWidgets('shows stop button when awaitingResponse is true', (
+    tester,
+  ) async {
+    _setViewport(tester);
+    final controller = TextEditingController();
+
+    await tester.pumpWidget(
+      _buildWidget(controller: controller, awaitingResponse: true),
+    );
+    await tester.pump();
+
+    expect(find.byIcon(Icons.stop_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.send), findsNothing);
+  });
+
+  // -----------------------------------------------------------------------
+  // 9. Stop button fires onStop callback
+  // -----------------------------------------------------------------------
+
+  testWidgets('onStop callback fires when stop button tapped', (tester) async {
+    _setViewport(tester);
+    final controller = TextEditingController();
+    var callCount = 0;
+
+    await tester.pumpWidget(
+      _buildWidget(
+        controller: controller,
+        awaitingResponse: true,
+        onStop: () => callCount++,
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byIcon(Icons.stop_rounded));
+    await tester.pump();
+
+    expect(callCount, equals(1));
+  });
+
+  // -----------------------------------------------------------------------
+  // 10. Send button shows when awaitingResponse is false
+  // -----------------------------------------------------------------------
+
+  testWidgets('shows send button when awaitingResponse is false', (
+    tester,
+  ) async {
+    _setViewport(tester);
+    final controller = TextEditingController();
+
+    await tester.pumpWidget(
+      _buildWidget(controller: controller, awaitingResponse: false),
+    );
+    await tester.pump();
+
+    expect(find.byIcon(Icons.send), findsOneWidget);
+    expect(find.byIcon(Icons.stop_rounded), findsNothing);
   });
 }

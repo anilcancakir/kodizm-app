@@ -389,7 +389,9 @@ class _ConversationChatViewState extends State<ConversationChatView> {
             controller: _inputController,
             focusNode: _inputFocusNode,
             isSending: _state.isSending,
+            awaitingResponse: _state.awaitingResponse,
             onSend: _handleSendMessage,
+            onStop: _state.stopMessage,
           ),
 
         // Debug panel — scrollable within remaining space

@@ -167,7 +167,8 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
 
   /// Returns a Tailwind className for the status dot based on the repo status string.
   static String _statusDotClassName(String? status) => switch (status) {
-    'connected' || 'cloned' => 'bg-emerald-500',
+    'connected' || 'cloned' || 'ready' => 'bg-emerald-500',
+    'onboarding' => 'bg-amber-500',
     'error' || 'failed' => 'bg-red-500',
     _ => 'bg-slate-300',
   };
@@ -659,7 +660,9 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
     final repoState = ProjectRepositoryState.instance;
     final status = repoState.repoStatuses[repo.id] ?? repo.repoStatus;
     final isCloning = status == 'cloning';
+    final isOnboarding = status == 'onboarding';
     final isCloned = status == 'cloned';
+    final isReady = status == 'ready';
     final isError = status == 'error';
     final errorMessage = repoState.repoErrors[repo.id] ?? repo.repoError;
 
@@ -676,13 +679,13 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
           className: 'flex flex-row items-center gap-2',
           children: [
             // Status indicator.
-            if (isCloning)
+            if (isCloning || isOnboarding)
               const SizedBox(
                 width: 10,
                 height: 10,
                 child: CircularProgressIndicator(strokeWidth: 1.5),
               )
-            else if (isCloned)
+            else if (isCloned || isReady)
               WIcon(Icons.check_circle, className: 'text-sm text-emerald-500')
             else if (isError)
               WIcon(Icons.error_outline, className: 'text-sm text-red-500')
@@ -787,9 +790,19 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                 trans('projects.clone_in_progress'),
                 className: 'text-xs text-slate-500 dark:text-slate-400',
               )
+            else if (isOnboarding)
+              WText(
+                trans('projects.onboarding_in_progress'),
+                className: 'text-xs text-amber-600 dark:text-amber-400',
+              )
             else if (isCloned)
               WText(
                 trans('projects.clone_complete'),
+                className: 'text-xs text-emerald-600 dark:text-emerald-400',
+              )
+            else if (isReady)
+              WText(
+                trans('projects.repository_ready'),
                 className: 'text-xs text-emerald-600 dark:text-emerald-400',
               )
             else if (isError)
@@ -814,12 +827,12 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
             ),
           ),
 
-        // Row 3: Action buttons — clone hidden when cloned or cloning.
+        // Row 3: Action buttons — clone hidden when cloned, cloning, or onboarding.
         WDiv(
           className: 'flex flex-row items-center gap-2',
           children: [
-            // Clone button — hidden when repo is already cloned or cloning.
-            if (!isCloned && !isCloning)
+            // Clone button — hidden when repo is already cloned, cloning, or onboarding.
+            if (!isCloned && !isCloning && !isOnboarding)
               WAnchor(
                 onTap: (project?.hasSshKey ?? false)
                     ? () => _cloneRepository(repo)
@@ -838,6 +851,38 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                     ),
                     WText(
                       trans('projects.clone_repo'),
+                      className:
+                          'text-xs font-medium text-slate-600 dark:text-slate-300',
+                    ),
+                  ],
+                ),
+              ),
+            // Re-analyze button — visible when repo is ready or cloned.
+            if (isReady || isCloned)
+              WAnchor(
+                onTap: () {
+                  final teamId = _teamId;
+                  if (teamId == null) return;
+                  ProjectRepositoryState.instance.reanalyzeRepository(
+                    teamId,
+                    widget.projectId,
+                    repo.id,
+                  );
+                },
+                child: WDiv(
+                  className: '''
+                    flex flex-row items-center gap-1
+                    px-3 py-1.5 rounded-lg
+                    bg-white dark:bg-gray-700
+                    border border-slate-200 dark:border-gray-600
+                  ''',
+                  children: [
+                    WIcon(
+                      Icons.refresh,
+                      className: 'text-xs text-slate-500 dark:text-slate-400',
+                    ),
+                    WText(
+                      trans('projects.reanalyze_repo'),
                       className:
                           'text-xs font-medium text-slate-600 dark:text-slate-300',
                     ),

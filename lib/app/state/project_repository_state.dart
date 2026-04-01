@@ -392,7 +392,7 @@ class ProjectRepositoryState extends MagicController
     refreshUI();
 
     // On terminal status, re-fetch full list for complete model data.
-    if (status == 'cloned' || status == 'error') {
+    if (status == 'cloned' || status == 'ready' || status == 'error') {
       if (_activeTeamId != null && _activeProjectId != null) {
         fetchRepositories(_activeTeamId!, _activeProjectId!);
       }
@@ -401,4 +401,27 @@ class ProjectRepositoryState extends MagicController
 
   String? _activeProjectId;
   String? _activeTeamId;
+
+  // ---------------------------------------------------------------------------
+  // Re-analysis
+  // ---------------------------------------------------------------------------
+
+  /// Triggers re-analysis of a repository's codebase.
+  ///
+  /// Sends POST to reanalyze endpoint and optimistically sets status to
+  /// `onboarding` so the UI reflects the in-progress state immediately.
+  /// The WebSocket will emit further status events as the job progresses.
+  Future<void> reanalyzeRepository(
+    String teamId,
+    String projectId,
+    String repoId,
+  ) async {
+    // Set optimistic status before the network round-trip.
+    _repoStatuses[repoId] = 'onboarding';
+    refreshUI();
+
+    await _http.post(
+      '/teams/$teamId/projects/$projectId/repositories/$repoId/repo/reanalyze',
+    );
+  }
 }

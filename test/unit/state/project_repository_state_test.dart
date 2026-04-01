@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
 
+import 'package:app/app/events/websocket_event.dart';
 import 'package:app/app/state/project_repository_state.dart';
 
 // ---------------------------------------------------------------------------
@@ -34,6 +35,31 @@ const Map<String, dynamic> kRepoB = {
   'created_at': '2025-01-05T09:00:00.000Z',
   'updated_at': '2025-01-05T09:00:00.000Z',
 };
+
+// ---------------------------------------------------------------------------
+// Fake WebSocket
+// ---------------------------------------------------------------------------
+
+/// Injectable WebSocket for testing without a real Pusher connection.
+class _FakeWebSocket implements RepoWebSocket {
+  String? subscribedChannel;
+  void Function(WebSocketEvent)? handler;
+
+  @override
+  void subscribe(String channel, void Function(WebSocketEvent) onEvent) {
+    subscribedChannel = channel;
+    handler = onEvent;
+  }
+
+  @override
+  void unsubscribe(String channel) {
+    subscribedChannel = null;
+    handler = null;
+  }
+
+  /// Emit a fake WebSocket event to the registered handler.
+  void emit(WebSocketEvent event) => handler?.call(event);
+}
 
 // ---------------------------------------------------------------------------
 // Fake HTTP client
@@ -476,6 +502,237 @@ void main() {
       // Only one call was made (PUT) — no GET for refresh.
       expect(http.calls.length, equals(1));
       expect(http.calls.first.method, equals('PUT'));
+    });
+
+    // -----------------------------------------------------------------------
+    // WebSocket handler tests — use _FakeWebSocket for event simulation
+    // -----------------------------------------------------------------------
+
+    group('WebSocket handler', () {
+      late _FakeWebSocket ws;
+      late ProjectRepositoryState wsState;
+
+      setUp(() {
+        ws = _FakeWebSocket();
+        wsState = ProjectRepositoryState(httpClient: http, ws: ws);
+      });
+
+      tearDown(() {
+        wsState.dispose();
+      });
+
+      WebSocketEvent makeRepoStatusEvent({
+        required String repoId,
+        required String status,
+        String projectId = 'proj-uuid-001',
+        String? error,
+      }) {
+        return WebSocketEvent(
+          id: 'test-id',
+          channel: 'private-team.team-uuid-001',
+          eventName: '.repo.status',
+          data: {
+            'project_id': projectId,
+            'repository_id': repoId,
+            'status': status,
+            'error': error,
+          },
+          receivedAt: DateTime.now(),
+        );
+      }
+
+      // 15. onboarding status — intermediate, updates map, no refetch
+      test(
+        'WebSocket onboarding status updates _repoStatuses without refetch',
+        () async {
+          http.alwaysReturn(
+            MagicResponse(
+              data: {
+                'data': [kRepoA],
+              },
+              statusCode: 200,
+            ),
+          );
+
+          wsState.subscribeToTeam('team-uuid-001', 'proj-uuid-001');
+          expect(ws.subscribedChannel, equals('private-team.team-uuid-001'));
+
+          ws.emit(
+            makeRepoStatusEvent(repoId: 'repo-uuid-001', status: 'onboarding'),
+          );
+
+          expect(wsState.repoStatuses['repo-uuid-001'], equals('onboarding'));
+          // No HTTP calls — onboarding is intermediate, no refetch.
+          expect(http.calls, isEmpty);
+        },
+      );
+
+      // 16. ready status — terminal, updates map AND triggers refetch
+      test(
+        'WebSocket ready status updates _repoStatuses and triggers fetchRepositories',
+        () async {
+          http.alwaysReturn(
+            MagicResponse(
+              data: {
+                'data': [kRepoA],
+              },
+              statusCode: 200,
+            ),
+          );
+
+          wsState.subscribeToTeam('team-uuid-001', 'proj-uuid-001');
+
+          ws.emit(
+            makeRepoStatusEvent(repoId: 'repo-uuid-001', status: 'ready'),
+          );
+
+          // Status is set immediately.
+          expect(wsState.repoStatuses['repo-uuid-001'], equals('ready'));
+
+          // Allow async fetchRepositories to complete.
+          await Future<void>.delayed(Duration.zero);
+
+          expect(http.calls.length, equals(1));
+          expect(http.calls.first.method, equals('GET'));
+          expect(
+            http.calls.first.url,
+            equals('/teams/team-uuid-001/projects/proj-uuid-001/repositories'),
+          );
+        },
+      );
+
+      // 17. cloned status — still triggers refetch (existing behaviour)
+      test(
+        'WebSocket cloned status still triggers fetchRepositories',
+        () async {
+          http.alwaysReturn(
+            MagicResponse(
+              data: {
+                'data': [kRepoA],
+              },
+              statusCode: 200,
+            ),
+          );
+
+          wsState.subscribeToTeam('team-uuid-001', 'proj-uuid-001');
+
+          ws.emit(
+            makeRepoStatusEvent(repoId: 'repo-uuid-001', status: 'cloned'),
+          );
+
+          expect(wsState.repoStatuses['repo-uuid-001'], equals('cloned'));
+
+          await Future<void>.delayed(Duration.zero);
+
+          expect(http.calls.length, equals(1));
+          expect(http.calls.first.method, equals('GET'));
+        },
+      );
+
+      // 18. error status — terminal, triggers refetch and stores error message
+      test(
+        'WebSocket error status triggers fetchRepositories and stores error',
+        () async {
+          http.alwaysReturn(
+            MagicResponse(data: {'data': <dynamic>[]}, statusCode: 200),
+          );
+
+          wsState.subscribeToTeam('team-uuid-001', 'proj-uuid-001');
+
+          ws.emit(
+            makeRepoStatusEvent(
+              repoId: 'repo-uuid-001',
+              status: 'error',
+              error: 'Clone failed: permission denied',
+            ),
+          );
+
+          expect(wsState.repoStatuses['repo-uuid-001'], equals('error'));
+          expect(
+            wsState.repoErrors['repo-uuid-001'],
+            equals('Clone failed: permission denied'),
+          );
+
+          await Future<void>.delayed(Duration.zero);
+
+          expect(http.calls.length, equals(1));
+          expect(http.calls.first.method, equals('GET'));
+        },
+      );
+
+      // 19. event for different project — ignored
+      test('WebSocket event for different project_id is ignored', () {
+        wsState.subscribeToTeam('team-uuid-001', 'proj-uuid-001');
+
+        ws.emit(
+          makeRepoStatusEvent(
+            repoId: 'repo-uuid-999',
+            status: 'cloning',
+            projectId: 'proj-uuid-OTHER',
+          ),
+        );
+
+        expect(wsState.repoStatuses['repo-uuid-999'], isNull);
+        expect(http.calls, isEmpty);
+      });
+    });
+
+    // -----------------------------------------------------------------------
+    // reanalyzeRepository tests
+    // -----------------------------------------------------------------------
+
+    group('reanalyzeRepository', () {
+      // 20. optimistic status set + correct POST URL
+      test(
+        'reanalyzeRepository sets onboarding status optimistically and posts to reanalyze endpoint',
+        () async {
+          http.alwaysReturn(MagicResponse(data: {'data': {}}, statusCode: 200));
+
+          // Status starts as null.
+          expect(state.repoStatuses['repo-uuid-001'], isNull);
+
+          final future = state.reanalyzeRepository(
+            'team-uuid-001',
+            'proj-uuid-001',
+            'repo-uuid-001',
+          );
+
+          // Optimistic status is set synchronously before await.
+          expect(state.repoStatuses['repo-uuid-001'], equals('onboarding'));
+
+          await future;
+
+          // POST was made to the correct URL.
+          expect(http.calls.length, equals(1));
+          expect(http.calls.first.method, equals('POST'));
+          expect(
+            http.calls.first.url,
+            equals(
+              '/teams/team-uuid-001/projects/proj-uuid-001/repositories/repo-uuid-001/repo/reanalyze',
+            ),
+          );
+        },
+      );
+
+      // 21. optimistic status persists even on failure
+      test(
+        'reanalyzeRepository keeps onboarding status after server failure',
+        () async {
+          http.alwaysReturn(
+            MagicResponse(data: {'message': 'Server Error'}, statusCode: 500),
+          );
+
+          await state.reanalyzeRepository(
+            'team-uuid-001',
+            'proj-uuid-001',
+            'repo-uuid-001',
+          );
+
+          // Optimistic status is kept — WebSocket will correct it when the job
+          // fails and emits an error event.
+          expect(state.repoStatuses['repo-uuid-001'], equals('onboarding'));
+        },
+      );
     });
   });
 }

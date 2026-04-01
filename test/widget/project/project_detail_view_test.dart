@@ -867,31 +867,32 @@ void main() {
   // 19. Clone button hidden when repo is cloned or cloning
   // -------------------------------------------------------------------------
 
-  testWidgets('clone button is hidden when repo status is cloned or cloning', (
-    tester,
-  ) async {
-    _configureResponder(http);
-    await _preloadState(state);
+  testWidgets(
+    'clone button is hidden when repo status is cloned, cloning, or onboarding',
+    (tester) async {
+      _configureResponder(http);
+      await _preloadState(state);
 
-    repoHttp.alwaysReturn(
-      MagicResponse(
-        data: {
-          'data': [
-            {...kRepoApiRepo, 'repo_status': 'cloned'},
-            {...kRepoFrontendRepo, 'repo_status': 'cloning'},
-          ],
-        },
-        statusCode: 200,
-      ),
-    );
-    await repoState.fetchRepositories('team-uuid-001', 'proj-uuid-001');
+      repoHttp.alwaysReturn(
+        MagicResponse(
+          data: {
+            'data': [
+              {...kRepoApiRepo, 'repo_status': 'cloned'},
+              {...kRepoFrontendRepo, 'repo_status': 'onboarding'},
+            ],
+          },
+          statusCode: 200,
+        ),
+      );
+      await repoState.fetchRepositories('team-uuid-001', 'proj-uuid-001');
 
-    // settle: false — cloning repo has an animating CircularProgressIndicator.
-    await _pumpTestWidget(tester, projectId: 'proj-uuid-001', settle: false);
+      // settle: false — onboarding repo has an animating CircularProgressIndicator.
+      await _pumpTestWidget(tester, projectId: 'proj-uuid-001', settle: false);
 
-    // Neither repo should show the manual clone button.
-    expect(find.text(trans('projects.clone_repo')), findsNothing);
-  });
+      // Neither repo should show the manual clone button.
+      expect(find.text(trans('projects.clone_repo')), findsNothing);
+    },
+  );
 
   // -------------------------------------------------------------------------
   // 20. startStatusPolling stores status in per-repo map
@@ -926,4 +927,144 @@ void main() {
     // The Frontend repo (cloning) should show spinner.
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
   });
+
+  // -------------------------------------------------------------------------
+  // 21. Onboarding status shows spinner and setting-up text
+  // -------------------------------------------------------------------------
+
+  testWidgets(
+    'repo card shows spinner and onboarding-in-progress text when status is onboarding',
+    (tester) async {
+      _configureResponder(http);
+      await _preloadState(state);
+
+      repoHttp.alwaysReturn(
+        MagicResponse(
+          data: {
+            'data': [
+              {...kRepoFrontendRepo, 'repo_status': 'onboarding'},
+            ],
+          },
+          statusCode: 200,
+        ),
+      );
+      await repoState.fetchRepositories('team-uuid-001', 'proj-uuid-001');
+
+      // settle: false — CircularProgressIndicator animates forever.
+      await _pumpTestWidget(tester, projectId: 'proj-uuid-001', settle: false);
+
+      // A spinner should be present for the onboarding repo.
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+      // The onboarding i18n string should appear.
+      expect(
+        find.text(trans('projects.onboarding_in_progress')),
+        findsOneWidget,
+      );
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // 22. Ready status shows checkmark and ready text
+  // -------------------------------------------------------------------------
+
+  testWidgets(
+    'repo card shows check_circle icon and repository-ready text when status is ready',
+    (tester) async {
+      _configureResponder(http);
+      await _preloadState(state);
+
+      repoHttp.alwaysReturn(
+        MagicResponse(
+          data: {
+            'data': [
+              {...kRepoApiRepo, 'repo_status': 'ready'},
+            ],
+          },
+          statusCode: 200,
+        ),
+      );
+      await repoState.fetchRepositories('team-uuid-001', 'proj-uuid-001');
+
+      await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
+
+      // Checkmark icon for ready repos.
+      expect(find.byIcon(Icons.check_circle), findsOneWidget);
+
+      // Repository ready text.
+      expect(find.text(trans('projects.repository_ready')), findsOneWidget);
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // 23. Re-analyze button visible when status is ready or cloned
+  // -------------------------------------------------------------------------
+
+  testWidgets(
+    'Re-analyze button is visible when repo status is ready or cloned',
+    (tester) async {
+      _configureResponder(http);
+      await _preloadState(state);
+
+      repoHttp.alwaysReturn(
+        MagicResponse(
+          data: {
+            'data': [
+              {...kRepoApiRepo, 'repo_status': 'ready'},
+              {...kRepoFrontendRepo, 'repo_status': 'cloned'},
+            ],
+          },
+          statusCode: 200,
+        ),
+      );
+      await repoState.fetchRepositories('team-uuid-001', 'proj-uuid-001');
+
+      await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
+
+      // Both repos show the Re-analyze button.
+      expect(find.text(trans('projects.reanalyze_repo')), findsNWidgets(2));
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // 24. Re-analyze button calls reanalyzeRepository on state
+  // -------------------------------------------------------------------------
+
+  testWidgets(
+    'tapping Re-analyze button triggers a POST to the reanalyze endpoint',
+    (tester) async {
+      _configureResponder(http);
+      await _preloadState(state);
+
+      repoHttp.alwaysReturn(
+        MagicResponse(
+          data: {
+            'data': [
+              {...kRepoApiRepo, 'repo_status': 'ready'},
+            ],
+          },
+          statusCode: 200,
+        ),
+      );
+      await repoState.fetchRepositories('team-uuid-001', 'proj-uuid-001');
+
+      await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
+
+      final callsBefore = List.from(repoHttp.calls);
+
+      // Tap Re-analyze button. Use pump (not pumpAndSettle) because the
+      // optimistic status change triggers a CircularProgressIndicator which
+      // animates indefinitely.
+      await tester.tap(find.text(trans('projects.reanalyze_repo')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // A POST call should have been made.
+      final newCalls = repoHttp.calls
+          .skip(callsBefore.length)
+          .where((c) => c.method == 'POST')
+          .toList();
+      expect(newCalls, isNotEmpty);
+    },
+  );
 }

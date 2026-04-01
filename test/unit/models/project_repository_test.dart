@@ -14,7 +14,7 @@ void main() {
       'name': 'kodizm-api',
       'repository_url': 'git@github.com:acme/kodizm-api.git',
       'default_branch': 'main',
-      'repo_status': 'synced',
+      'repo_status': 'cloned',
       'repo_error': null,
       'last_synced_at': '2024-06-20T12:00:00.000Z',
       'mount_path': '/workspace',
@@ -40,7 +40,7 @@ void main() {
       final repo = ProjectRepository.fromMap(kApiPayload);
 
       expect(repo.repositoryUrl, equals('git@github.com:acme/kodizm-api.git'));
-      expect(repo.repoStatus, equals('synced'));
+      expect(repo.repoStatus, equals('cloned'));
       expect(repo.repoError, isNull);
       expect(repo.lastSyncedAt, equals('2024-06-20T12:00:00.000Z'));
       expect(repo.createdAt, equals('2024-01-15T10:30:00.000Z'));
@@ -163,6 +163,69 @@ void main() {
       final copy = repo.copyWith(name: 'new-name');
 
       expect(copy.isMain, isTrue);
+    });
+
+    // ---------------------------------------------------------------------------
+    // Repository Status values
+    // ---------------------------------------------------------------------------
+
+    test('fromMap correctly hydrates not_cloned status', () {
+      final repo = ProjectRepository.fromMap({
+        ...kApiPayload,
+        'repo_status': 'not_cloned',
+      });
+
+      expect(repo.repoStatus, equals('not_cloned'));
+    });
+
+    test('fromMap correctly hydrates cloning status', () {
+      final repo = ProjectRepository.fromMap({
+        ...kApiPayload,
+        'repo_status': 'cloning',
+      });
+
+      expect(repo.repoStatus, equals('cloning'));
+    });
+
+    test('fromMap correctly hydrates cloned status', () {
+      final repo = ProjectRepository.fromMap({
+        ...kApiPayload,
+        'repo_status': 'cloned',
+      });
+
+      expect(repo.repoStatus, equals('cloned'));
+    });
+
+    test('fromMap correctly hydrates onboarding status', () {
+      final repo = ProjectRepository.fromMap({
+        ...kApiPayload,
+        'repo_status': 'onboarding',
+      });
+
+      expect(repo.repoStatus, equals('onboarding'));
+    });
+
+    test('fromMap correctly hydrates ready status', () {
+      final repo = ProjectRepository.fromMap({
+        ...kApiPayload,
+        'repo_status': 'ready',
+      });
+
+      expect(repo.repoStatus, equals('ready'));
+    });
+
+    test('fromMap correctly hydrates error status', () {
+      final repo = ProjectRepository.fromMap({
+        ...kApiPayload,
+        'repo_status': 'error',
+        'repo_error': 'Failed to clone repository: authentication denied',
+      });
+
+      expect(repo.repoStatus, equals('error'));
+      expect(
+        repo.repoError,
+        equals('Failed to clone repository: authentication denied'),
+      );
     });
 
     // ---------------------------------------------------------------------------

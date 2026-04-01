@@ -567,6 +567,9 @@
     "clone_in_progress": "Cloning...",
     "clone_complete": "Cloned",
     "clone_failed": "Clone failed",
+    "onboarding_in_progress": "Setting up...",
+    "repository_ready": "Ready",
+    "reanalyze_repo": "Re-analyze",
     "environment": {
       "title": "Environment",
       "subtitle": "Configure runtime versions and services for this project",

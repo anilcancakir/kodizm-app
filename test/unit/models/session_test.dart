@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:app/app/models/session.dart';
 import 'package:app/app/models/session_usage_record.dart';
 import 'package:app/app/models/session_share.dart';
+import 'package:app/app/models/project_container.dart';
 
 void main() {
   group('Session', () {
@@ -51,6 +52,23 @@ void main() {
           'updated_at': '2025-03-10T09:00:00.000Z',
         },
       ],
+      'execution_mode': 'native',
+      'container_name': 'kodizm-proj-abc123',
+      'worktree_path': '/workspace/feature-branch',
+      'worktree_branch': 'feature/auth-refactor',
+      'project_container': {
+        'id': 'pc-uuid-1',
+        'container_name': 'kodizm-proj-abc123',
+        'volume_name': 'kodizm-vol-abc123',
+        'status': 'running',
+        'docker_host_id': 'dh-uuid-1',
+        'last_activity_at': null,
+        'health_checked_at': null,
+        'bootstrapped_at': null,
+        'last_error': null,
+        'created_at': '2025-03-10T08:59:00.000Z',
+        'updated_at': '2025-03-10T09:00:00.000Z',
+      },
     };
 
     const Map<String, dynamic> warmFixture = {
@@ -211,6 +229,78 @@ void main() {
       expect(updated.totalInputTokens, session.totalInputTokens);
       expect(updated.usageRecords, session.usageRecords);
       expect(updated.shares, session.shares);
+    });
+
+    // -------
+
+    test('fromMap parses executionMode when present', () {
+      final session = Session.fromMap(fullFixture);
+
+      expect(session.executionMode, 'native');
+    });
+
+    test('fromMap parses containerName when present', () {
+      final session = Session.fromMap(fullFixture);
+
+      expect(session.containerName, 'kodizm-proj-abc123');
+    });
+
+    test('fromMap parses worktreePath and worktreeBranch when present', () {
+      final session = Session.fromMap(fullFixture);
+
+      expect(session.worktreePath, '/workspace/feature-branch');
+      expect(session.worktreeBranch, 'feature/auth-refactor');
+    });
+
+    test('fromMap parses nested projectContainer when present', () {
+      final session = Session.fromMap(fullFixture);
+
+      expect(session.projectContainer, isA<ProjectContainer>());
+      expect(session.projectContainer!.id, 'pc-uuid-1');
+      expect(session.projectContainer!.containerName, 'kodizm-proj-abc123');
+      expect(session.projectContainer!.volumeName, 'kodizm-vol-abc123');
+      expect(session.projectContainer!.status, 'running');
+    });
+
+    test('fromMap defaults executionMode to null when absent', () {
+      final session = Session.fromMap(noRelationsFixture);
+
+      expect(session.executionMode, isNull);
+    });
+
+    test('fromMap defaults projectContainer to null when absent', () {
+      final session = Session.fromMap(noRelationsFixture);
+
+      expect(session.projectContainer, isNull);
+    });
+
+    test('copyWith replaces executionMode', () {
+      final session = Session.fromMap(fullFixture);
+      final updated = session.copyWith(executionMode: 'sidecar');
+
+      expect(updated.executionMode, 'sidecar');
+      expect(updated.id, session.id);
+    });
+
+    test(
+      'copyWith clears projectContainer with clearProjectContainer flag',
+      () {
+        final session = Session.fromMap(fullFixture);
+        final updated = session.copyWith(clearProjectContainer: true);
+
+        expect(updated.projectContainer, isNull);
+      },
+    );
+
+    test('copyWith retains new fields when not specified', () {
+      final session = Session.fromMap(fullFixture);
+      final updated = session.copyWith(phase: 'warm');
+
+      expect(updated.executionMode, session.executionMode);
+      expect(updated.containerName, session.containerName);
+      expect(updated.worktreePath, session.worktreePath);
+      expect(updated.worktreeBranch, session.worktreeBranch);
+      expect(updated.projectContainer, session.projectContainer);
     });
   });
 }

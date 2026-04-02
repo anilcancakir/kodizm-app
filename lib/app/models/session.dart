@@ -1,7 +1,8 @@
+import 'project_container.dart';
 import 'session_share.dart';
 import 'session_usage_record.dart';
 
-/// An AI agent execution session managed by the Kodizm sidecar bridge.
+/// An AI agent execution session managed by the Kodizm Claude Code CLI.
 ///
 /// Maps directly to `SessionResource` from the Kodizm API. A session
 /// represents one lifecycle of a container (provision → execute → warm → dead),
@@ -34,6 +35,11 @@ class Session {
     this.warmUntil,
     this.startedAt,
     this.completedAt,
+    this.executionMode,
+    this.containerName,
+    this.worktreePath,
+    this.worktreeBranch,
+    this.projectContainer,
   });
 
   // -------
@@ -96,6 +102,29 @@ class Session {
 
   // -------
 
+  /// The execution mode for this session — `'native'` (CLI) or legacy.
+  /// Null for legacy sessions created before the native CLI architecture.
+  final String? executionMode;
+
+  /// The Docker container name associated with this session
+  /// (e.g. `'kodizm-proj-abc123'`). Null when not running in a container.
+  final String? containerName;
+
+  /// The absolute filesystem path to the git worktree used for this session
+  /// (e.g. `'/workspace/feature-branch'`). Null when no worktree is active.
+  final String? worktreePath;
+
+  /// The git branch checked out in the worktree for this session
+  /// (e.g. `'feature/auth-refactor'`). Null when no worktree is active.
+  final String? worktreeBranch;
+
+  /// The [ProjectContainer] associated with this session, loaded via the
+  /// `project_container` relation. Null when the relation is not loaded or
+  /// no container has been provisioned.
+  final ProjectContainer? projectContainer;
+
+  // -------
+
   /// Parses a [Session] from a JSON-decoded map.
   ///
   /// [totalCostUsd] is parsed via [double.parse] because the API returns it as
@@ -123,6 +152,15 @@ class Session {
           : null,
       completedAt: map['completed_at'] != null
           ? DateTime.parse(map['completed_at'] as String)
+          : null,
+      executionMode: map['execution_mode'] as String?,
+      containerName: map['container_name'] as String?,
+      worktreePath: map['worktree_path'] as String?,
+      worktreeBranch: map['worktree_branch'] as String?,
+      projectContainer: map['project_container'] != null
+          ? ProjectContainer.fromMap(
+              map['project_container'] as Map<String, dynamic>,
+            )
           : null,
       createdAt: DateTime.parse(map['created_at'] as String),
       updatedAt: DateTime.parse(map['updated_at'] as String),
@@ -159,6 +197,12 @@ class Session {
     DateTime? completedAt,
     List<SessionUsageRecord>? usageRecords,
     List<SessionShare>? shares,
+    String? executionMode,
+    String? containerName,
+    String? worktreePath,
+    String? worktreeBranch,
+    ProjectContainer? projectContainer,
+    bool clearProjectContainer = false,
   }) {
     return Session(
       id: id,
@@ -178,6 +222,13 @@ class Session {
       updatedAt: updatedAt,
       usageRecords: usageRecords ?? this.usageRecords,
       shares: shares ?? this.shares,
+      executionMode: executionMode ?? this.executionMode,
+      containerName: containerName ?? this.containerName,
+      worktreePath: worktreePath ?? this.worktreePath,
+      worktreeBranch: worktreeBranch ?? this.worktreeBranch,
+      projectContainer: clearProjectContainer
+          ? null
+          : (projectContainer ?? this.projectContainer),
     );
   }
 }

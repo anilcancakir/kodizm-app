@@ -4,7 +4,7 @@ import 'package:app/app/models/conversation_message.dart';
 
 /// A sealed union of every renderable item in a conversation chat timeline.
 ///
-/// Each subclass represents a distinct event type emitted by the sidecar bridge
+/// Each subclass represents a distinct event type emitted by the Claude Code CLI
 /// (text, tool_use, thinking, subagent, file_change, error, result) or a
 /// persisted [ConversationMessage] loaded from the API.
 ///
@@ -104,8 +104,8 @@ final class ChatToolUseItem extends ChatItem {
   /// The input payload passed to the tool. May be null when input is not provided.
   final dynamic input;
 
-  /// The sidecar-assigned tool use identifier used to correlate an incoming
-  /// `tool_result` event back to this card. Null until the bridge emits the id.
+  /// The CLI-assigned tool use identifier used to correlate an incoming
+  /// `tool_result` event back to this card. Null until the CLI emits the id.
   final String? toolUseId;
 
   /// The output payload returned by the tool. Null until the matching
@@ -251,7 +251,7 @@ final class ChatFileChangeItem extends ChatItem {
 
 // -------
 
-/// A chat item representing an error emitted by the sidecar bridge.
+/// A chat item representing an error emitted by the Claude Code CLI.
 ///
 /// ## Usage
 /// ```dart

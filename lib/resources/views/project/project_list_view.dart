@@ -398,14 +398,14 @@ class _ProjectCard extends StatelessWidget {
           WDiv(
             className: 'flex flex-row items-center justify-between',
             children: [
-              if (project.techStack != null)
+              if (project.techStack.isNotEmpty)
                 WDiv(
                   className: '''
                     px-3 py-1 rounded-full
                     bg-slate-100 dark:bg-gray-700
                   ''',
                   child: WText(
-                    project.techStack!,
+                    project.techStack.join(', '),
                     className:
                         'text-xs font-medium text-slate-700 dark:text-slate-300',
                   ),

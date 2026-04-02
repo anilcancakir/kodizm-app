@@ -92,11 +92,15 @@ class Project extends Model with HasTimestamps, InteractsWithPersistence {
   /// Set the project description.
   set description(String? value) => setAttribute('description', value);
 
-  /// Get the optional tech stack description (e.g. `Laravel, PostgreSQL`).
-  String? get techStack => getAttribute('tech_stack') as String?;
+  /// Get the optional tech stack list (e.g. `['laravel', 'phpunit']`).
+  List<String> get techStack {
+    final raw = getAttribute('tech_stack');
+    if (raw is List) return raw.cast<String>();
+    return [];
+  }
 
-  /// Set the tech stack description.
-  set techStack(String? value) => setAttribute('tech_stack', value);
+  /// Set the tech stack list.
+  set techStack(List<String>? value) => setAttribute('tech_stack', value);
 
   /// Get the execution mode (`'manual'` or `'auto'`).
   ///

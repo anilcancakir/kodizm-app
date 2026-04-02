@@ -119,7 +119,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
     _nameController.text = project.name ?? '';
     _shortNameController.text = project.shortName ?? '';
     _descriptionController.text = project.description ?? '';
-    _techStackController.text = project.techStack ?? '';
+    _techStackController.text = project.techStack.join(', ');
 
     // If the project already has a short_name, treat it as manually set.
     _shortNameManuallyEdited = (project.shortName ?? '').isNotEmpty;
@@ -192,7 +192,11 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
       'name': _nameController.text.trim(),
       'short_name': _shortNameController.text.trim(),
       'description': _descriptionController.text.trim(),
-      'tech_stack': _techStackController.text.trim(),
+      'tech_stack': _techStackController.text
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList(),
     };
 
     await ProjectState.instance.updateProject(teamId, widget.projectId, data);
@@ -556,14 +560,14 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
             className: 'text-xs font-bold text-amber-700 dark:text-amber-400',
           ),
         ),
-      if (project.techStack != null)
+      if (project.techStack.isNotEmpty)
         WDiv(
           className: '''
             px-3 py-1 rounded-full
             bg-slate-100 dark:bg-gray-700
           ''',
           child: WText(
-            project.techStack!,
+            project.techStack.join(', '),
             className: 'text-xs font-medium text-slate-700 dark:text-slate-300',
           ),
         ),

@@ -138,7 +138,11 @@ class _ProjectCreateModalState extends State<ProjectCreateModal> {
       if (_descriptionController.text.trim().isNotEmpty)
         'description': _descriptionController.text.trim(),
       if (_techStackController.text.trim().isNotEmpty)
-        'tech_stack': _techStackController.text.trim(),
+        'tech_stack': _techStackController.text
+            .split(',')
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList(),
     };
 
     final project = await ProjectState.instance.createProject(teamId, data);

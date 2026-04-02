@@ -31,6 +31,10 @@ const Map<String, dynamic> kSessionDetail = {
   'warm_until': null,
   'started_at': '2025-06-10T08:00:00.000Z',
   'completed_at': null,
+  'execution_mode': 'native',
+  'container_name': 'kodizm-proj-abc123',
+  'worktree_path': '/workspace/feature-branch',
+  'worktree_branch': 'feature/auth-refactor',
   'created_at': '2025-06-10T08:00:00.000Z',
   'updated_at': '2025-06-10T08:30:00.000Z',
   'usage_records': [
@@ -565,5 +569,53 @@ void main() {
 
     // kSessionDetail.type = 'autonomous'
     expect(find.textContaining('autonomous'), findsWidgets);
+  });
+
+  // -------------------------------------------------------------------------
+  // 22. Execution context card shows native mode badge
+  // -------------------------------------------------------------------------
+
+  testWidgets('shows execution context card with native mode badge', (
+    tester,
+  ) async {
+    await _pumpView(tester);
+
+    // trans('sessions.execution_context') = 'Execution Context'
+    expect(find.text('Execution Context'), findsOneWidget);
+    // trans('sessions.mode_native') = 'Native CLI'
+    expect(find.text('Native CLI'), findsOneWidget);
+  });
+
+  // -------------------------------------------------------------------------
+  // 23. Execution context shows container name and worktree branch
+  // -------------------------------------------------------------------------
+
+  testWidgets('shows container name and worktree branch in execution context', (
+    tester,
+  ) async {
+    await _pumpView(tester);
+
+    // Container name from fixture
+    expect(find.text('kodizm-proj-abc123'), findsOneWidget);
+    // Worktree branch from fixture
+    expect(find.text('feature/auth-refactor'), findsOneWidget);
+  });
+
+  // -------------------------------------------------------------------------
+  // 24. Execution context hides fields when null
+  // -------------------------------------------------------------------------
+
+  testWidgets('hides execution context fields when null', (tester) async {
+    http.setSessionResponse(
+      MagicResponse(data: {'data': kSessionNoRecords}, statusCode: 200),
+    );
+
+    await _pumpView(tester, sessionId: 'sess-uuid-empty-001');
+
+    // Execution Context card still renders (always visible)
+    expect(find.text('Execution Context'), findsOneWidget);
+    // But no mode badge or container name
+    expect(find.text('Native CLI'), findsNothing);
+    expect(find.text('kodizm-proj-abc123'), findsNothing);
   });
 }

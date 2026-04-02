@@ -594,6 +594,21 @@
       "save": "Save Changes",
       "saved": "Environment settings saved successfully.",
       "save_failed": "Failed to save environment settings."
+    },
+    "container": {
+      "title": "Container",
+      "status": "Status",
+      "container_name": "Container Name",
+      "docker_host": "Docker Host",
+      "last_activity": "Last Activity",
+      "health_checked": "Health Checked",
+      "bootstrapped": "Bootstrapped",
+      "no_container": "No container provisioned for this project.",
+      "status_creating": "Creating",
+      "status_running": "Running",
+      "status_stopped": "Stopped",
+      "status_failed": "Failed",
+      "error_label": "Error"
     }
   },
   "teams": {
@@ -701,7 +716,13 @@
     "unshare": "Unshare",
     "usage_records": "Usage Records",
     "warm_until": "Warm until :time",
-    "write": "Write"
+    "write": "Write",
+    "execution_context": "Execution Context",
+    "execution_mode": "Execution Mode",
+    "container_name": "Container",
+    "worktree_branch": "Worktree Branch",
+    "mode_native": "Native CLI",
+    "mode_sidecar": "Legacy"
   },
   "tasks": {
     "chat_with_ba": "Chat with Agent",

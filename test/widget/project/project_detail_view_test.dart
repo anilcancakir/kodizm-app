@@ -1067,4 +1067,103 @@ void main() {
       expect(newCalls, isNotEmpty);
     },
   );
+
+  // -------------------------------------------------------------------------
+  // Container section — shows for admin, empty state when no container
+  // -------------------------------------------------------------------------
+
+  testWidgets(
+    'shows container section with empty state for admin when no container',
+    (tester) async {
+      _configureResponder(http);
+      await _preloadState(state);
+
+      await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
+
+      // Container section title visible for admin/owner.
+      expect(find.text(trans('projects.container.title')), findsOneWidget);
+
+      // Empty state message — kProject has no container.
+      expect(
+        find.text(trans('projects.container.no_container')),
+        findsOneWidget,
+      );
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // Container section — shows status badge when container exists
+  // -------------------------------------------------------------------------
+
+  testWidgets(
+    'shows container section with status badge when container exists',
+    (tester) async {
+      // Return a project WITH a container in the API response.
+      http.alwaysReturn(
+        MagicResponse(
+          data: {
+            'data': {
+              ...kProject,
+              'container': {
+                'id': 'pc-uuid-001',
+                'container_name': 'kodizm-proj-abc123',
+                'volume_name': 'kodizm-vol-abc123',
+                'status': 'running',
+                'docker_host_id': 'dh-uuid-001',
+                'last_activity_at': null,
+                'health_checked_at': null,
+                'bootstrapped_at': null,
+                'last_error': null,
+                'created_at': '2026-03-30T12:00:00.000Z',
+                'updated_at': '2026-04-01T10:00:00.000Z',
+              },
+            },
+          },
+          statusCode: 200,
+        ),
+      );
+      await state.fetchProject('team-uuid-001', 'proj-uuid-001');
+
+      await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
+
+      // Container section title.
+      expect(find.text(trans('projects.container.title')), findsOneWidget);
+
+      // Container name shown.
+      expect(find.text('kodizm-proj-abc123'), findsOneWidget);
+
+      // No empty state message.
+      expect(find.text(trans('projects.container.no_container')), findsNothing);
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // Container section — hidden for non-admin
+  // -------------------------------------------------------------------------
+
+  testWidgets('hides container section when user is not admin', (tester) async {
+    _configureResponder(http);
+    await _preloadState(state);
+
+    // Override Auth to a member role (not owner/admin).
+    Auth.guard().setUser(
+      User.fromMap({
+        'id': 'user-uuid-002',
+        'name': 'Regular Member',
+        'current_team': {
+          'id': 'team-uuid-001',
+          'name': 'Test Team',
+          'owner_id': 'user-uuid-001',
+          'user_role': 'member',
+        },
+      }),
+    );
+
+    await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
+
+    // Container section should NOT be visible.
+    expect(find.text(trans('projects.container.title')), findsNothing);
+    // Settings section is also hidden (same gate).
+    expect(find.text(trans('projects.settings')), findsNothing);
+  });
 }

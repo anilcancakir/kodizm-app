@@ -8,6 +8,7 @@ import '../../../app/models/project_repository.dart';
 import '../../../app/models/user.dart';
 import '../../../app/state/project_repository_state.dart';
 import '../../../app/state/project_state.dart';
+import '../../widgets/atoms/container_status_badge.dart';
 import '../../widgets/organisms/environment_config_section.dart';
 
 /// Project detail view — displays a single project's full information.
@@ -526,6 +527,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
 
             // Section cards.
             _buildRepositoriesSection(),
+            if (_canManageProject) _buildContainerSection(project),
             if (_hasRuntimeData) _buildEnvironmentSection(project),
             if (_canManageProject) _buildSettingsSection(project),
           ],
@@ -916,6 +918,107 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
         ),
       ],
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Container section
+  // ---------------------------------------------------------------------------
+
+  /// Builds the container status section — admin-gated, read-only.
+  ///
+  /// Shows container status badge, name, and metadata when a container
+  /// is provisioned. Shows an empty state message otherwise.
+  Widget _buildContainerSection(Project project) {
+    final container = project.container;
+
+    return MagicStarterCard(
+      title: trans('projects.container.title'),
+      child: container == null
+          ? WDiv(
+              className: 'w-full flex items-center justify-center py-6',
+              child: WText(
+                trans('projects.container.no_container'),
+                className: 'text-sm text-gray-400 dark:text-gray-500',
+              ),
+            )
+          : WDiv(
+              className: 'flex flex-col gap-3',
+              children: [
+                // Status + Container Name row.
+                WDiv(
+                  className: 'flex flex-row items-center gap-3',
+                  children: [
+                    ContainerStatusBadge(status: container.status),
+                    WText(
+                      container.containerName,
+                      className:
+                          'text-sm font-mono text-slate-700 dark:text-slate-300',
+                    ),
+                  ],
+                ),
+                // Detail rows.
+                _buildContainerDetailRow(
+                  trans('projects.container.docker_host'),
+                  container.dockerHostId,
+                ),
+                if (container.lastActivityAt != null)
+                  _buildContainerDetailRow(
+                    trans('projects.container.last_activity'),
+                    _formatDateTime(container.lastActivityAt!),
+                  ),
+                if (container.healthCheckedAt != null)
+                  _buildContainerDetailRow(
+                    trans('projects.container.health_checked'),
+                    _formatDateTime(container.healthCheckedAt!),
+                  ),
+                if (container.bootstrappedAt != null)
+                  _buildContainerDetailRow(
+                    trans('projects.container.bootstrapped'),
+                    _formatDateTime(container.bootstrappedAt!),
+                  ),
+                if (container.lastError != null)
+                  _buildContainerDetailRow(
+                    trans('projects.container.error_label'),
+                    container.lastError!,
+                    isError: true,
+                  ),
+              ],
+            ),
+    );
+  }
+
+  /// A label-value row in the container detail section.
+  Widget _buildContainerDetailRow(
+    String label,
+    String value, {
+    bool isError = false,
+  }) {
+    return WDiv(
+      className: 'flex flex-row items-center gap-3',
+      children: [
+        WText(
+          label,
+          className: 'text-xs text-slate-400 dark:text-slate-500 w-32',
+        ),
+        WDiv(
+          className: 'flex-1',
+          child: WText(
+            value,
+            className:
+                'text-sm ${isError ? 'text-red-500' : 'text-slate-700 dark:text-slate-300'}',
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Formats a [DateTime] as `YYYY-MM-DD HH:MM`.
+  static String _formatDateTime(DateTime dt) {
+    return '${dt.year}-'
+        '${dt.month.toString().padLeft(2, '0')}-'
+        '${dt.day.toString().padLeft(2, '0')} '
+        '${dt.hour.toString().padLeft(2, '0')}:'
+        '${dt.minute.toString().padLeft(2, '0')}';
   }
 
   // ---------------------------------------------------------------------------

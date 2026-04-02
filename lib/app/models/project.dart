@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:magic/magic.dart';
 
+import 'project_container.dart';
 import 'project_repository.dart';
 
 /// Project model.
@@ -167,6 +168,17 @@ class Project extends Model with HasTimestamps, InteractsWithPersistence {
   // ---------------------------------------------------------------------------
   // Relationship Accessors
   // ---------------------------------------------------------------------------
+
+  /// Get the container linked to this project.
+  ///
+  /// Parses the nested `container` map from the API response into
+  /// a typed [ProjectContainer] value object. Returns null when
+  /// the relation is not loaded or no container exists.
+  ProjectContainer? get container {
+    final raw = getAttribute('container') as Map<String, dynamic>?;
+    if (raw == null) return null;
+    return ProjectContainer.fromMap(raw);
+  }
 
   /// Get the list of repositories linked to this project.
   ///

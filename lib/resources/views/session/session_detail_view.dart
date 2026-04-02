@@ -162,6 +162,7 @@ class _SessionDetailViewState extends State<SessionDetailView> {
         WDiv(
           className: 'w-96 flex flex-col gap-4',
           children: [
+            _buildExecutionContextCard(session),
             _buildCostBreakdownCard(session),
             _buildUsageRecordsCard(session),
             _buildSharesCard(session),
@@ -179,6 +180,7 @@ class _SessionDetailViewState extends State<SessionDetailView> {
     return WDiv(
       className: 'flex flex-col gap-4',
       children: [
+        _buildExecutionContextCard(session),
         _buildEventsCard(),
         _buildCostBreakdownCard(session),
         _buildUsageRecordsCard(session),
@@ -343,6 +345,89 @@ class _SessionDetailViewState extends State<SessionDetailView> {
         WAnchor(
           onTap: () => _handleUnshare(share),
           child: WIcon(Icons.close, className: 'text-sm text-slate-400'),
+        ),
+      ],
+    );
+  }
+
+  // -----------------------------------------------------------------------
+  // Execution context card
+  // -----------------------------------------------------------------------
+
+  /// Builds the execution context card showing mode, container, and worktree.
+  ///
+  /// Only renders rows for fields that are non-null — legacy sessions
+  /// without execution context will render an empty card.
+  Widget _buildExecutionContextCard(Session session) {
+    return MagicStarterCard(
+      title: trans('sessions.execution_context'),
+      child: WDiv(
+        className: 'flex flex-col gap-3',
+        children: [
+          if (session.executionMode != null)
+            WDiv(
+              className: 'flex flex-row items-center gap-3',
+              children: [
+                WText(
+                  trans('sessions.execution_mode'),
+                  className: 'text-xs text-slate-400 dark:text-slate-500 w-32',
+                ),
+                WDiv(
+                  className:
+                      'px-2 py-0.5 rounded-full ${_executionModeBadgeClassName(session.executionMode!)}',
+                  child: WText(
+                    _executionModeLabel(session.executionMode!),
+                    className: 'text-xs font-semibold',
+                  ),
+                ),
+              ],
+            ),
+          if (session.containerName != null)
+            _buildInfoRow(
+              trans('sessions.container_name'),
+              session.containerName!,
+            ),
+          if (session.worktreeBranch != null)
+            _buildInfoRow(
+              trans('sessions.worktree_branch'),
+              session.worktreeBranch!,
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Badge className for execution mode — native is green, legacy is slate.
+  static String _executionModeBadgeClassName(String mode) {
+    return switch (mode) {
+      'native' => 'bg-green-500/10 text-green-500',
+      _ => 'bg-slate-500/10 text-slate-500',
+    };
+  }
+
+  /// i18n label for execution mode.
+  static String _executionModeLabel(String mode) {
+    return switch (mode) {
+      'native' => trans('sessions.mode_native'),
+      _ => trans('sessions.mode_sidecar'),
+    };
+  }
+
+  /// A label-value row used in info cards.
+  Widget _buildInfoRow(String label, String value) {
+    return WDiv(
+      className: 'flex flex-row items-center gap-3',
+      children: [
+        WText(
+          label,
+          className: 'text-xs text-slate-400 dark:text-slate-500 w-32',
+        ),
+        WDiv(
+          className: 'flex-1',
+          child: WText(
+            value,
+            className: 'text-sm font-mono text-slate-700 dark:text-slate-300',
+          ),
         ),
       ],
     );

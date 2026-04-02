@@ -948,7 +948,7 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
 
   /// Infer file operation type from the CLI tool name.
   ///
-  /// The bridge emits `toolName` (e.g. `'Write'`, `'Edit'`) but no explicit
+  /// The CLI emits `toolName` (e.g. `'Write'`, `'Edit'`) but no explicit
   /// operation code. Maps known tool names to Git-style single-letter codes.
   String _inferFileOperation(String? toolName) {
     return switch (toolName) {

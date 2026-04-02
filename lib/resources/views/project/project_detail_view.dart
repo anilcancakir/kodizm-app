@@ -50,6 +50,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   bool _saving = false;
   bool _deleting = false;
   bool _formPopulated = false;
+  bool _regeneratingKey = false;
 
   // ---------------------------------------------------------------------------
   // Add Repository form controllers
@@ -527,6 +528,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
 
             // Section cards.
             _buildRepositoriesSection(),
+            _buildSshKeySection(project),
             if (_canManageProject) _buildContainerSection(project),
             if (_hasRuntimeData) _buildEnvironmentSection(project),
             if (_canManageProject) _buildSettingsSection(project),
@@ -918,6 +920,228 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
         ),
       ],
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // SSH Key section
+  // ---------------------------------------------------------------------------
+
+  /// Builds the SSH deploy key section — shows key with copy + regenerate.
+  Widget _buildSshKeySection(Project project) {
+    return MagicStarterCard(
+      title: trans('projects.ssh_section_title'),
+      child: project.hasSshKey
+          ? WDiv(
+              className: 'flex flex-col gap-3',
+              children: [
+                // Key display + copy row.
+                WDiv(
+                  className: '''
+                    flex flex-row items-center gap-2
+                    p-3 rounded-lg
+                    bg-slate-50 dark:bg-gray-900
+                    border border-slate-200 dark:border-slate-700
+                  ''',
+                  children: [
+                    WIcon(
+                      Icons.key,
+                      className: 'text-sm text-slate-400 dark:text-slate-500',
+                    ),
+                    WDiv(
+                      className: 'flex-1 min-w-0',
+                      child: SelectableText(
+                        project.sshPublicKey ?? '',
+                        style: const TextStyle(
+                          fontFamily: 'JetBrains Mono',
+                          fontSize: 11,
+                        ),
+                        maxLines: 1,
+                      ),
+                    ),
+                    WAnchor(
+                      onTap: () {
+                        Clipboard.setData(
+                          ClipboardData(text: project.sshPublicKey ?? ''),
+                        );
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(trans('projects.ssh_key_copied')),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      },
+                      child: WDiv(
+                        className: '''
+                          flex flex-row items-center gap-1
+                          px-2 py-1 rounded-md
+                          bg-white dark:bg-gray-700
+                          border border-slate-200 dark:border-gray-600
+                        ''',
+                        children: [
+                          WIcon(
+                            Icons.copy,
+                            className:
+                                'text-xs text-slate-500 dark:text-slate-400',
+                          ),
+                          WText(
+                            trans('common.copy'),
+                            className: '''
+                              text-xs font-medium
+                              text-slate-600 dark:text-slate-300
+                            ''',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                // Regenerate button row.
+                WDiv(
+                  className: 'flex flex-row justify-end',
+                  children: [
+                    WAnchor(
+                      onTap: _regeneratingKey ? null : _confirmRegenerateSshKey,
+                      child: WDiv(
+                        className: '''
+                          flex flex-row items-center gap-1
+                          px-3 py-1.5 rounded-lg
+                          bg-white dark:bg-gray-700
+                          border border-slate-200 dark:border-gray-600
+                        ''',
+                        children: [
+                          if (_regeneratingKey)
+                            const SizedBox(
+                              width: 12,
+                              height: 12,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 1.5,
+                              ),
+                            )
+                          else
+                            WIcon(
+                              Icons.refresh,
+                              className:
+                                  'text-xs text-slate-500 dark:text-slate-400',
+                            ),
+                          WText(
+                            trans('projects.regenerate_ssh_key'),
+                            className: '''
+                              text-xs font-medium
+                              text-slate-600 dark:text-slate-300
+                            ''',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            )
+          : WDiv(
+              className: '''
+                flex flex-col items-center justify-center w-full
+                py-6 rounded-xl
+                bg-slate-50 dark:bg-gray-900
+              ''',
+              children: [
+                WIcon(
+                  Icons.key_off_outlined,
+                  className: 'text-3xl text-slate-300 dark:text-slate-600',
+                ),
+                const WSpacer(className: 'h-2'),
+                WText(
+                  trans('projects.no_ssh_key'),
+                  className: 'text-sm text-slate-400 dark:text-slate-500',
+                ),
+                const WSpacer(className: 'h-3'),
+                WAnchor(
+                  onTap: _regeneratingKey ? null : _generateSshKey,
+                  child: WDiv(
+                    className: '''
+                      flex flex-row items-center gap-1
+                      px-3 py-1.5 rounded-lg
+                      bg-amber-400 dark:bg-amber-500
+                    ''',
+                    children: [
+                      if (_regeneratingKey)
+                        const SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(strokeWidth: 1.5),
+                        )
+                      else
+                        WIcon(
+                          Icons.add,
+                          className: '''
+                            text-sm font-bold
+                            text-primary dark:text-primary-900
+                          ''',
+                        ),
+                      WText(
+                        trans('projects.generate_new_key'),
+                        className: '''
+                          text-sm font-medium
+                          text-primary dark:text-primary-900
+                        ''',
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+
+  /// Shows confirmation dialog before regenerating SSH key.
+  void _confirmRegenerateSshKey() {
+    showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(trans('projects.regenerate_ssh_confirm_title')),
+        content: Text(trans('projects.regenerate_ssh_confirm_body')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(trans('common.cancel')),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(trans('projects.regenerate_ssh_confirm_action')),
+          ),
+        ],
+      ),
+    ).then((confirmed) {
+      if (confirmed == true) _generateSshKey();
+    });
+  }
+
+  /// Generates or regenerates the SSH key for this project.
+  Future<void> _generateSshKey() async {
+    final teamId = _teamId;
+    if (teamId == null) return;
+
+    setState(() => _regeneratingKey = true);
+
+    final key = await ProjectState.instance.regenerateSshKey(
+      teamId,
+      widget.projectId,
+    );
+
+    if (mounted) {
+      setState(() => _regeneratingKey = false);
+
+      if (key != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(trans('projects.ssh_key_copied')),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+        Clipboard.setData(ClipboardData(text: key));
+      }
+    }
   }
 
   // ---------------------------------------------------------------------------

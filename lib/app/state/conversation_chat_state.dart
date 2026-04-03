@@ -154,6 +154,14 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   String? _runningCostUsd;
   String? _sessionPhase;
 
+  // Streaming text accumulator — builds up from text_delta events
+  StringBuffer _streamingTextBuffer = StringBuffer();
+  String? _streamingMessageId;
+
+  // Streaming thinking accumulator — builds up from thinking_delta events
+  StringBuffer _streamingThinkingBuffer = StringBuffer();
+  String? _streamingThinkingId;
+
   // Question/permission state
   Map<String, dynamic>? _pendingQuestion;
   Map<String, dynamic>? _pendingPermission;
@@ -487,13 +495,78 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
     if (response.successful) {
       final Map<String, dynamic> body = response.data as Map<String, dynamic>;
       final List<dynamic> items = body['data'] as List<dynamic>;
-      _chatItems = items
-          .map(
-            (item) => ChatMessageItem.fromConversationMessage(
-              ConversationMessage.fromMap(item as Map<String, dynamic>),
-            ),
-          )
-          .toList();
+      final List<ChatItem> loaded = [];
+
+      for (final item in items) {
+        final message = ConversationMessage.fromMap(
+          item as Map<String, dynamic>,
+        );
+
+        // Insert stream events before the assistant message
+        if (message.role == 'assistant' && message.streamEvents != null) {
+          for (final evt in message.streamEvents!) {
+            final e = evt as Map<String, dynamic>;
+            final evtType = e['type'] as String?;
+            final evtContent = e['content'] as String?;
+            final evtMeta = e['metadata'] as Map<String, dynamic>?;
+            final evtOccurred = e['occurred_at'] != null
+                ? DateTime.parse(e['occurred_at'] as String)
+                : message.createdAt;
+            final evtId = 'se_${loaded.length}_${message.id}';
+
+            switch (evtType) {
+              case 'tool_use':
+                loaded.add(
+                  ChatToolUseItem(
+                    id: evtId,
+                    occurredAt: evtOccurred,
+                    toolName: evtMeta?['toolName'] as String? ?? 'Unknown',
+                    input: evtMeta?['input'],
+                    toolUseId: evtMeta?['toolUseId'] as String?,
+                  ),
+                );
+              case 'tool_result':
+                final toolUseId = evtMeta?['toolUseId'] as String?;
+                if (toolUseId != null) {
+                  final idx = loaded.lastIndexWhere(
+                    (i) => i is ChatToolUseItem && i.toolUseId == toolUseId,
+                  );
+                  if (idx != -1) {
+                    final existing = loaded[idx] as ChatToolUseItem;
+                    loaded[idx] = ChatToolUseItem(
+                      id: existing.id,
+                      occurredAt: existing.occurredAt,
+                      toolName: existing.toolName,
+                      input: existing.input,
+                      toolUseId: existing.toolUseId,
+                      result: evtContent ?? evtMeta?['content'] as String?,
+                    );
+                  }
+                }
+              case 'thinking':
+                loaded.add(
+                  ChatThinkingItem(
+                    id: evtId,
+                    occurredAt: evtOccurred,
+                    content: evtContent,
+                  ),
+                );
+              case 'error':
+                loaded.add(
+                  ChatErrorItem(
+                    id: evtId,
+                    occurredAt: evtOccurred,
+                    errorText: evtContent ?? '',
+                  ),
+                );
+            }
+          }
+        }
+
+        loaded.add(ChatMessageItem.fromConversationMessage(message));
+      }
+
+      _chatItems = loaded;
     }
 
     refreshUI();
@@ -563,6 +636,10 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
     _pendingPermission = null;
     _pendingOptions = null;
     _isAnswering = false;
+    _streamingTextBuffer = StringBuffer();
+    _streamingMessageId = null;
+    _streamingThinkingBuffer = StringBuffer();
+    _streamingThinkingId = null;
 
     refreshUI();
   }
@@ -609,6 +686,7 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
       'result',
       'error',
       'text',
+      'text_delta',
       'assistant',
       'question',
       'permission',
@@ -618,17 +696,50 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
     }
     final content = wsEvent.data['content'] as String?;
     final metadata = wsEvent.data['metadata'] as Map<String, dynamic>?;
-    final metaData = metadata?['data'] as Map<String, dynamic>?;
     final occurredAt = wsEvent.data['occurred_at'] != null
         ? DateTime.parse(wsEvent.data['occurred_at'] as String)
         : DateTime.now().toUtc();
 
     switch (eventType) {
+      // -- text_delta: accumulate streaming text for real-time typing --
+      case 'text_delta':
+        if (content != null) {
+          _streamingTextBuffer.write(content);
+          final bufferedText = _streamingTextBuffer.toString();
+          _streamingMessageId ??=
+              'streaming_${DateTime.now().microsecondsSinceEpoch}';
+
+          final streamingMessage = ChatMessageItem.fromConversationMessage(
+            ConversationMessage(
+              id: _streamingMessageId!,
+              conversationId:
+                  wsEvent.data['conversation_id'] as String? ??
+                  _conversation?.id ??
+                  '',
+              role: 'assistant',
+              content: bufferedText,
+              createdAt: occurredAt,
+            ),
+          );
+
+          // Replace existing streaming item or append new one
+          final existingIndex = _chatItems.indexWhere(
+            (item) => item.id == _streamingMessageId,
+          );
+          if (existingIndex >= 0) {
+            _chatItems = List.of(_chatItems)
+              ..[existingIndex] = streamingMessage;
+          } else {
+            _chatItems = [..._chatItems, streamingMessage];
+          }
+        }
+        return; // refreshUI called by addEvent
+
       // -- AskUserQuestion tool_use: store options for later question correlation --
       case 'tool_use':
-        final toolName = metaData?['toolName'] as String?;
+        final toolName = metadata?['toolName'] as String?;
         if (toolName == 'AskUserQuestion') {
-          final input = metaData?['input'] as Map<String, dynamic>?;
+          final input = metadata?['input'] as Map<String, dynamic>?;
           final questions = input?['questions'] as List<dynamic>?;
           if (questions != null && questions.isNotEmpty) {
             final first = questions.first as Map<String, dynamic>;
@@ -639,34 +750,86 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
           return;
         }
         // Non-AskUserQuestion tool_use → append to active subagent or top-level
+        // Deduplicate: streaming content_block_start sends tool_use early,
+        // then the full assistant event sends it again. Skip if already seen.
+        final incomingToolUseId = metadata?['toolUseId'] as String?;
+        if (incomingToolUseId != null) {
+          final alreadyExists = _chatItems.any(
+            (item) =>
+                item is ChatToolUseItem && item.toolUseId == incomingToolUseId,
+          );
+          if (alreadyExists) return;
+        }
         final toolItem = ChatToolUseItem(
           id: 'evt_${DateTime.now().microsecondsSinceEpoch}',
           occurredAt: occurredAt,
           toolName: toolName ?? 'Unknown',
-          input: metaData?['input'],
-          toolUseId: metaData?['toolUseId'] as String?,
+          input: metadata?['input'],
+          toolUseId: incomingToolUseId,
         );
         _appendItemOrNest(toolItem);
 
       case 'tool_result':
-        final toolUseId = metaData?['toolUseId'] as String?;
+        final toolUseId = metadata?['toolUseId'] as String?;
         if (toolUseId != null) {
           _correlateToolResult(
             toolUseId,
-            content ?? metaData?['content'] as String?,
+            content ?? metadata?['content'] as String?,
           );
         }
 
       case 'thinking':
+        // Streaming content_block_start sends thinking with null content,
+        // then the full assistant event sends it with complete content.
+        // If there's already a streaming thinking item, replace it with the full one.
+        if (content != null &&
+            content.isNotEmpty &&
+            _streamingThinkingId != null) {
+          final idx = _chatItems.indexWhere(
+            (i) => i.id == _streamingThinkingId,
+          );
+          if (idx >= 0) {
+            _chatItems = List.of(_chatItems)
+              ..[idx] = ChatThinkingItem(
+                id: _streamingThinkingId!,
+                occurredAt: occurredAt,
+                content: content,
+              );
+            _streamingThinkingId = null;
+            _streamingThinkingBuffer = StringBuffer();
+            return;
+          }
+        }
+        _streamingThinkingId ??=
+            'thinking_${DateTime.now().microsecondsSinceEpoch}';
         final thinkingItem = ChatThinkingItem(
-          id: 'evt_${DateTime.now().microsecondsSinceEpoch}',
+          id: _streamingThinkingId!,
           occurredAt: occurredAt,
           content: content,
         );
         _appendItemOrNest(thinkingItem);
 
+      case 'thinking_delta':
+        if (content != null) {
+          _streamingThinkingBuffer.write(content);
+          if (_streamingThinkingId != null) {
+            final idx = _chatItems.indexWhere(
+              (i) => i.id == _streamingThinkingId,
+            );
+            if (idx >= 0) {
+              _chatItems = List.of(_chatItems)
+                ..[idx] = ChatThinkingItem(
+                  id: _streamingThinkingId!,
+                  occurredAt: occurredAt,
+                  content: _streamingThinkingBuffer.toString(),
+                );
+            }
+          }
+        }
+        return;
+
       case 'subagent_start':
-        final subagentId = metaData?['agentId'] as String? ?? '';
+        final subagentId = metadata?['agentId'] as String? ?? '';
         final index = _chatItems.length;
         _chatItems = [
           ..._chatItems,
@@ -674,7 +837,7 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
             id: 'evt_${DateTime.now().microsecondsSinceEpoch}',
             occurredAt: occurredAt,
             subagentId: subagentId,
-            description: metaData?['agentType'] as String?,
+            description: metadata?['agentType'] as String?,
             isComplete: false,
           ),
         ];
@@ -684,7 +847,7 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
         // Try inner data.agentId first, fallback to top-level subagent_id
         // (truncation may strip metadata.data but keeps top-level fields).
         final subagentId =
-            metaData?['agentId'] as String? ??
+            metadata?['agentId'] as String? ??
             metadata?['subagent_id'] as String? ??
             '';
         final index = _activeSubagents.remove(subagentId);
@@ -697,7 +860,7 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
               subagentId: existing.subagentId,
               description: existing.description,
               isComplete: true,
-              durationMs: metaData?['durationMs'] as int?,
+              durationMs: metadata?['durationMs'] as int?,
               children: existing.children,
             );
             _chatItems = List.of(_chatItems)..[index] = updated;
@@ -708,8 +871,8 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
         final fileItem = ChatFileChangeItem(
           id: 'evt_${DateTime.now().microsecondsSinceEpoch}',
           occurredAt: occurredAt,
-          operation: _inferFileOperation(metaData?['toolName'] as String?),
-          filePath: (metaData?['filePath'] as String?) ?? '',
+          operation: _inferFileOperation(metadata?['toolName'] as String?),
+          filePath: (metadata?['filePath'] as String?) ?? '',
         );
         _appendItemOrNest(fileItem);
 
@@ -726,21 +889,26 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
       case 'result':
         // Close any still-running subagents — the session is done.
         _closeAllActiveSubagents();
+        // Clear streaming state — result is the terminal event.
+        _streamingTextBuffer = StringBuffer();
+        _streamingMessageId = null;
+        _streamingThinkingBuffer = StringBuffer();
+        _streamingThinkingId = null;
         _chatItems = [
           ..._chatItems,
           ChatResultItem(
             id: 'evt_${DateTime.now().microsecondsSinceEpoch}',
             occurredAt: occurredAt,
-            isError: metaData?['isError'] == true,
+            isError: metadata?['isError'] == true,
             content: content,
           ),
         ];
 
       case 'question':
-        if (metaData != null) {
+        if (metadata != null) {
           _pendingQuestion = {
-            'questionId': metaData['questionId'] as String?,
-            'message': metaData['message'] as String?,
+            'questionId': metadata['questionId'] as String?,
+            'message': metadata['message'] as String?,
             'options': _pendingOptions,
           };
           _pendingOptions = null;
@@ -748,33 +916,46 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
         return;
 
       case 'permission':
-        if (metaData != null) {
+        if (metadata != null) {
           _pendingPermission = {
-            'questionId': metaData['questionId'] as String?,
-            'toolName': metaData['toolName'] as String?,
-            'input': metaData['input'],
+            'questionId': metadata['questionId'] as String?,
+            'toolName': metadata['toolName'] as String?,
+            'input': metadata['input'],
           };
         }
         return;
 
       case 'text' || 'assistant':
         if (content == null) return;
-        _chatItems = [
-          ..._chatItems,
-          ChatMessageItem.fromConversationMessage(
-            ConversationMessage(
-              id: 'ws_${DateTime.now().microsecondsSinceEpoch}_${_chatItems.length}',
-              conversationId:
-                  wsEvent.data['conversation_id'] as String? ??
-                  _conversation?.id ??
-                  '',
-              role: 'assistant',
-              content: content,
-              metadata: metadata,
-              createdAt: occurredAt,
-            ),
+        final finalMessage = ChatMessageItem.fromConversationMessage(
+          ConversationMessage(
+            id: 'ws_${DateTime.now().microsecondsSinceEpoch}_${_chatItems.length}',
+            conversationId:
+                wsEvent.data['conversation_id'] as String? ??
+                _conversation?.id ??
+                '',
+            role: 'assistant',
+            content: content,
+            metadata: metadata,
+            createdAt: occurredAt,
           ),
-        ];
+        );
+
+        // Replace streaming message with final, or append if no streaming
+        if (_streamingMessageId != null) {
+          final streamIdx = _chatItems.indexWhere(
+            (item) => item.id == _streamingMessageId,
+          );
+          if (streamIdx >= 0) {
+            _chatItems = List.of(_chatItems)..[streamIdx] = finalMessage;
+          } else {
+            _chatItems = [..._chatItems, finalMessage];
+          }
+          _streamingTextBuffer = StringBuffer();
+          _streamingMessageId = null;
+        } else {
+          _chatItems = [..._chatItems, finalMessage];
+        }
 
       default:
         // Unknown types silently ignored (already in _rawEvents).

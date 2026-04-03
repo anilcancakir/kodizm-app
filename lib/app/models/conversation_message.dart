@@ -22,6 +22,7 @@ class ConversationMessage {
     required this.content,
     required this.createdAt,
     this.metadata,
+    this.streamEvents,
     this.costUsd,
     this.usage,
     this.durationMs,
@@ -47,6 +48,9 @@ class ConversationMessage {
 
   /// Arbitrary metadata payload for this message. Null for most messages.
   final Map<String, dynamic>? metadata;
+
+  /// Stream events (tool_use, thinking, etc.) captured during this turn.
+  final List<dynamic>? streamEvents;
 
   /// Cost of this message in USD. Null for user messages or unprocessed messages.
   /// Parsed from the API string representation.
@@ -87,6 +91,7 @@ class ConversationMessage {
       role: map['role'] as String,
       content: map['content'] as String,
       metadata: map['metadata'] as Map<String, dynamic>?,
+      streamEvents: map['stream_events'] as List<dynamic>?,
       costUsd: costString != null ? double.parse(costString) : null,
       usage: map['usage'] as Map<String, dynamic>?,
       durationMs: map['duration_ms'] as int?,

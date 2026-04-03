@@ -4,6 +4,7 @@ import 'package:magic_starter/magic_starter.dart';
 import '../models/user.dart';
 import '../services/websocket_service.dart';
 import '../state/project_repository_state.dart';
+import '../state/skill_state.dart';
 
 /// Application Service Provider.
 ///
@@ -96,6 +97,9 @@ class AppServiceProvider extends ServiceProvider {
 
     // Register project repository state singleton.
     Magic.findOrPut(ProjectRepositoryState.new);
+
+    // Register skill state singleton.
+    Magic.findOrPut(SkillState.new);
 
     // Magic Starter: Supported locale options for profile settings.
     MagicStarter.useLocaleOptions({'en': 'English'});

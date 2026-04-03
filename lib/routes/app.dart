@@ -18,6 +18,9 @@ import '../resources/views/conversation/conversation_list_view.dart';
 import '../resources/views/nav/project_scoped_nav_view.dart';
 import '../resources/views/session/session_detail_view.dart';
 import '../resources/views/session/session_list_view.dart';
+import '../resources/views/skill/skill_detail_view.dart';
+import '../resources/views/skill/skill_list_view.dart';
+import '../resources/views/skill/skill_marketplace_view.dart';
 
 /// Application Route Definitions.
 ///
@@ -67,6 +70,17 @@ void registerAppRoutes() {
       MagicRoute.page(
         '/sessions/:sessionId',
         (String sessionId) => SessionDetailView(sessionId: sessionId),
+      );
+
+      // Skill routes.
+      MagicRoute.page('/skills', () => const SkillListView());
+      MagicRoute.page(
+        '/skills/marketplace',
+        () => const SkillMarketplaceView(),
+      );
+      MagicRoute.page(
+        '/skills/:id',
+        (String id) => SkillDetailView(skillId: id),
       );
 
       // Billing routes.

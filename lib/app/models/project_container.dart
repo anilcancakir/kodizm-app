@@ -15,8 +15,8 @@ class ProjectContainer {
   /// Creates a [ProjectContainer] with all fields.
   const ProjectContainer({
     required this.id,
-    required this.containerName,
-    required this.volumeName,
+    this.containerName,
+    this.volumeName,
     required this.status,
     required this.dockerHostId,
     required this.createdAt,
@@ -33,10 +33,12 @@ class ProjectContainer {
   final String id;
 
   /// The Docker container name used on the host (e.g. `'kodizm-proj-abc123'`).
-  final String containerName;
+  /// Null when the container has not been created yet or was reset.
+  final String? containerName;
 
   /// The Docker volume name bound to this container (e.g. `'kodizm-vol-abc123'`).
-  final String volumeName;
+  /// Null when the container has not been provisioned yet.
+  final String? volumeName;
 
   /// The current container status — `'creating'`, `'running'`, `'stopped'`,
   /// or `'failed'`.
@@ -76,8 +78,8 @@ class ProjectContainer {
   factory ProjectContainer.fromMap(Map<String, dynamic> map) {
     return ProjectContainer(
       id: map['id'] as String,
-      containerName: map['container_name'] as String,
-      volumeName: map['volume_name'] as String,
+      containerName: map['container_name'] as String?,
+      volumeName: map['volume_name'] as String?,
       status: map['status'] as String,
       dockerHostId: map['docker_host_id'] as String,
       lastActivityAt: map['last_activity_at'] != null

@@ -1177,11 +1177,12 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                   className: 'flex flex-row items-center gap-3',
                   children: [
                     ContainerStatusBadge(status: container.status),
-                    WText(
-                      container.containerName,
-                      className:
-                          'text-sm font-mono text-slate-700 dark:text-slate-300',
-                    ),
+                    if (container.containerName != null)
+                      WText(
+                        container.containerName!,
+                        className:
+                            'text-sm font-mono text-slate-700 dark:text-slate-300',
+                      ),
                   ],
                 ),
                 // Detail rows.

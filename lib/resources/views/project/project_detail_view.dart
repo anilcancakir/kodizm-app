@@ -10,6 +10,7 @@ import '../../../app/state/project_repository_state.dart';
 import '../../../app/state/project_state.dart';
 import '../../widgets/atoms/container_status_badge.dart';
 import '../../widgets/organisms/environment_config_section.dart';
+import '../../widgets/organisms/mcp_server_section.dart';
 
 /// Project detail view — displays a single project's full information.
 ///
@@ -535,6 +536,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
             _buildSshKeySection(project),
             if (_canManageProject) _buildContainerSection(project),
             if (_hasRuntimeData) _buildEnvironmentSection(project),
+            _buildMcpServersSection(),
             if (_canManageProject) _buildSettingsSection(project),
           ],
         );
@@ -1288,6 +1290,18 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
         await ProjectState.instance.fetchProject(teamId, widget.projectId);
       },
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // MCP Servers Section
+  // ---------------------------------------------------------------------------
+
+  /// Builds the MCP servers section showing project, team, and global servers.
+  Widget _buildMcpServersSection() {
+    final teamId = _teamId;
+    if (teamId == null) return const WSpacer(className: 'h-0');
+
+    return McpServerSection(teamId: teamId, projectId: widget.projectId);
   }
 
   // ---------------------------------------------------------------------------

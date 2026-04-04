@@ -18,6 +18,7 @@ import 'package:app/app/models/conversation_message.dart';
 ///   ChatFileChangeItem() => 'file_change',
 ///   ChatErrorItem()      => 'error',
 ///   ChatResultItem()     => 'result',
+///   ChatSystemItem()     => 'system',
 /// };
 /// ```
 @immutable
@@ -178,7 +179,9 @@ final class ChatSubagentItem extends ChatItem {
     required this.occurredAt,
     required this.subagentId,
     required this.isComplete,
+    this.agentName,
     this.description,
+    this.parentToolUseId,
     this.durationMs,
     this.children = const [],
   });
@@ -192,8 +195,14 @@ final class ChatSubagentItem extends ChatItem {
   /// The unique identifier of the sub-agent.
   final String subagentId;
 
+  /// The agent type name (e.g., "Explore", "librarian").
+  final String? agentName;
+
   /// A human-readable description of what the sub-agent is doing.
   final String? description;
+
+  /// The tool_use_id that spawned this sub-agent (links back to Agent tool call).
+  final String? parentToolUseId;
 
   /// Whether the sub-agent has completed its work.
   final bool isComplete;
@@ -315,4 +324,37 @@ final class ChatResultItem extends ChatItem {
 
   /// The result text content. Null when no content is provided.
   final String? content;
+}
+
+// -------
+
+/// A chat item representing a system-level event in the conversation.
+///
+/// Used for interruption notices, status transitions, and other platform
+/// messages that are neither user nor assistant authored.
+///
+/// ## Usage
+/// ```dart
+/// final item = ChatSystemItem(
+///   id: 'evt_600',
+///   occurredAt: DateTime.now().toUtc(),
+///   content: 'Request interrupted by user',
+/// );
+/// ```
+final class ChatSystemItem extends ChatItem {
+  /// Creates a [ChatSystemItem] with the given [content].
+  ChatSystemItem({
+    required this.id,
+    required this.occurredAt,
+    required this.content,
+  });
+
+  @override
+  final String id;
+
+  @override
+  final DateTime occurredAt;
+
+  /// The system message text.
+  final String content;
 }

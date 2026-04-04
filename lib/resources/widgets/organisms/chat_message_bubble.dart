@@ -33,6 +33,7 @@ class ChatMessageBubble extends StatefulWidget {
     this.agentRoleSlug,
     this.agentRoleName,
     this.userName,
+    this.onCancelMessage,
     super.key,
   });
 
@@ -50,6 +51,10 @@ class ChatMessageBubble extends StatefulWidget {
 
   /// Display name of the logged-in user — first letter used as monogram.
   final String? userName;
+
+  /// Called when the user taps the cancel button on a queued message.
+  /// Receives the message ID to cancel.
+  final void Function(String messageId)? onCancelMessage;
 
   @override
   State<ChatMessageBubble> createState() => _ChatMessageBubbleState();
@@ -75,8 +80,11 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
   // -----------------------------------------------------------------------
 
   Widget _buildUserBubble() {
+    final bool isCancelled = widget.message.status == 'cancelled';
+
     return WDiv(
-      className: 'w-full flex flex-row justify-end gap-2.5 mb-3',
+      className:
+          'w-full flex flex-row justify-end gap-2.5 mb-3${isCancelled ? ' opacity-50' : ''}',
       children: [
         WDiv(
           className: 'flex-1 min-w-0 flex flex-col items-end',
@@ -100,9 +108,65 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
                 ),
               ],
             ),
+            if (widget.message.status != null)
+              _buildStatusBadge(widget.message),
           ],
         ),
         _buildUserAvatar(),
+      ],
+    );
+  }
+
+  /// Status badge shown below user message bubbles when [message.status] is set.
+  ///
+  /// Displays a coloured pill label and, for queued messages, a cancel button
+  /// that invokes [onCancelMessage] when tapped.
+  Widget _buildStatusBadge(ConversationMessage message) {
+    final (
+      String? badgeClass,
+      String? labelKey,
+      bool showCancel,
+    ) = switch (message.status) {
+      'queued' => (
+        'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+        'conversation_chat.status_queued',
+        true,
+      ),
+      'delivering' => (
+        'bg-blue-500/10 text-blue-500',
+        'conversation_chat.status_delivering',
+        false,
+      ),
+      'cancelled' => (
+        'bg-slate-500/10 text-slate-400',
+        'conversation_chat.status_cancelled',
+        false,
+      ),
+      'failed' => (
+        'bg-red-500/10 text-red-500',
+        'conversation_chat.status_failed_delivery',
+        false,
+      ),
+      _ => (null, null, false),
+    };
+
+    if (badgeClass == null) return const SizedBox.shrink();
+
+    return WDiv(
+      className: 'flex flex-row items-center gap-2 mt-1',
+      children: [
+        WDiv(
+          className: 'px-2 py-0.5 rounded-full $badgeClass',
+          child: WText(trans(labelKey!), className: 'text-xs'),
+        ),
+        if (showCancel && widget.onCancelMessage != null)
+          WAnchor(
+            onTap: () => widget.onCancelMessage!(message.id),
+            child: WIcon(
+              Icons.close_rounded,
+              className: 'text-sm text-slate-400',
+            ),
+          ),
       ],
     );
   }

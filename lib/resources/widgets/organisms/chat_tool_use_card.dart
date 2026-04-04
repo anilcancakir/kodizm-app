@@ -63,7 +63,9 @@ class _ChatToolUseCardState extends State<ChatToolUseCard> {
               ),
               WIcon(Icons.build_outlined, className: 'text-sm text-blue-500'),
               WText(
-                trans('conversation_chat.tool_name', {'name': widget.toolName}),
+                trans('conversation_chat.tool_name', {
+                  'name': _displayToolName(widget.toolName),
+                }),
                 className:
                     'text-xs font-medium font-mono text-blue-600 dark:text-blue-300',
               ),
@@ -125,6 +127,22 @@ class _ChatToolUseCardState extends State<ChatToolUseCard> {
         ],
       ],
     );
+  }
+
+  /// Converts raw tool names to human-readable display names.
+  ///
+  /// MCP tools: `mcp__kodizm__search` → `Search`,
+  /// `mcp__kodizm__create-task-section` → `Create Task Section`.
+  /// Non-MCP tools pass through unchanged.
+  static String _displayToolName(String raw) {
+    if (raw.startsWith('mcp__kodizm__')) {
+      final slug = raw.substring('mcp__kodizm__'.length);
+      return slug
+          .split(RegExp(r'[-_]'))
+          .map((w) => w.isEmpty ? '' : '${w[0].toUpperCase()}${w.substring(1)}')
+          .join(' ');
+    }
+    return raw;
   }
 
   /// Pretty-prints a JSON-serialisable value with 2-space indentation.

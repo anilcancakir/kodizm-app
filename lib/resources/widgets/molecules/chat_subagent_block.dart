@@ -37,6 +37,7 @@ class ChatSubagentBlock extends StatefulWidget {
     required this.subagentId,
     required this.isComplete,
     required this.toolUseCount,
+    this.agentName,
     this.description,
     this.durationMs,
     this.children = const [],
@@ -45,6 +46,9 @@ class ChatSubagentBlock extends StatefulWidget {
 
   /// The unique identifier for this sub-agent.
   final String subagentId;
+
+  /// The agent type name (e.g., "Explore", "librarian").
+  final String? agentName;
 
   /// Optional description of the sub-agent's purpose.
   final String? description;
@@ -127,14 +131,10 @@ class _ChatSubagentBlockState extends State<ChatSubagentBlock> {
 
   /// Renders the teal sub-agent name badge.
   Widget _buildBadge() {
+    final label = widget.agentName ?? widget.description ?? widget.subagentId;
     return WDiv(
       className: 'px-1.5 py-0.5 rounded bg-teal-500/15',
-      child: WText(
-        trans('conversation_chat.event_subagent_start', {
-          'name': widget.subagentId,
-        }),
-        className: 'text-[10px] font-bold text-teal-500',
-      ),
+      child: WText(label, className: 'text-[10px] font-bold text-teal-500'),
     );
   }
 

@@ -28,6 +28,7 @@ class ConversationMessage {
     this.durationMs,
     this.numTurns,
     this.error,
+    this.status,
     this.startedAt,
     this.completedAt,
   });
@@ -68,6 +69,9 @@ class ConversationMessage {
   /// Error message if processing failed. Null on success.
   final String? error;
 
+  /// Status of the message (e.g. 'queued', 'processing', 'completed', 'failed'). Null if not set.
+  final String? status;
+
   /// UTC timestamp when message processing started. Null for user messages.
   final DateTime? startedAt;
 
@@ -97,6 +101,7 @@ class ConversationMessage {
       durationMs: map['duration_ms'] as int?,
       numTurns: map['num_turns'] as int?,
       error: map['error'] as String?,
+      status: map['status'] as String?,
       startedAt: map['started_at'] != null
           ? DateTime.parse(map['started_at'] as String)
           : null,
@@ -112,10 +117,12 @@ class ConversationMessage {
   /// Returns a copy of this [ConversationMessage] with the specified fields replaced.
   ///
   /// All fields not provided retain their current values.
+  /// To explicitly set [status] to null, pass a sentinel [_unset] value and handle separately.
   ConversationMessage copyWith({
     String? role,
     String? content,
     double? costUsd,
+    String? status = _unset,
     DateTime? completedAt,
   }) {
     return ConversationMessage(
@@ -129,9 +136,12 @@ class ConversationMessage {
       durationMs: durationMs,
       numTurns: numTurns,
       error: error,
+      status: identical(status, _unset) ? this.status : status,
       startedAt: startedAt,
       completedAt: completedAt ?? this.completedAt,
       createdAt: createdAt,
     );
   }
+
+  static const String _unset = '__UNSET__';
 }

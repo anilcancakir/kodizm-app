@@ -5,6 +5,7 @@ import '../../../app/models/chat_item.dart';
 import '../atoms/chat_error_block.dart';
 import '../atoms/chat_file_change_row.dart';
 import '../atoms/chat_result_block.dart';
+import '../atoms/chat_system_block.dart';
 import '../atoms/chat_thinking_block.dart';
 import '../molecules/chat_subagent_block.dart';
 import 'chat_message_bubble.dart';
@@ -36,6 +37,7 @@ class ChatStreamEventRenderer extends StatelessWidget {
     this.agentRoleSlug,
     this.agentRoleName,
     this.userName,
+    this.onCancelMessage,
     super.key,
   });
 
@@ -53,6 +55,12 @@ class ChatStreamEventRenderer extends StatelessWidget {
   /// Display name of the logged-in user forwarded to [ChatMessageBubble].
   final String? userName;
 
+  /// Called when the user taps the cancel button on a queued message.
+  /// Only shown for messages with status `queued`; messages with status
+  /// `cancelled` render as dimmed without a cancel affordance.
+  /// Forwarded to [ChatMessageBubble].
+  final void Function(String messageId)? onCancelMessage;
+
   // -------
 
   @override
@@ -63,6 +71,7 @@ class ChatStreamEventRenderer extends StatelessWidget {
         agentRoleSlug: agentRoleSlug,
         agentRoleName: agentRoleName,
         userName: userName,
+        onCancelMessage: onCancelMessage,
       ),
       ChatToolUseItem(:final toolName, :final input, :final result) => WDiv(
         className: 'pl-9 mb-2',
@@ -78,6 +87,7 @@ class ChatStreamEventRenderer extends StatelessWidget {
       ),
       ChatSubagentItem(
         :final subagentId,
+        :final agentName,
         :final description,
         :final isComplete,
         :final toolUseCount,
@@ -88,6 +98,7 @@ class ChatStreamEventRenderer extends StatelessWidget {
           className: 'pl-9 mb-2',
           child: ChatSubagentBlock(
             subagentId: subagentId,
+            agentName: agentName,
             description: description,
             isComplete: isComplete,
             toolUseCount: toolUseCount,
@@ -106,6 +117,10 @@ class ChatStreamEventRenderer extends StatelessWidget {
       ChatResultItem(:final isError, :final content) => WDiv(
         className: 'pl-9 mb-2',
         child: ChatResultBlock(isError: isError, content: content),
+      ),
+      ChatSystemItem(:final content) => WDiv(
+        className: 'mb-2',
+        child: ChatSystemBlock(content: content),
       ),
     };
   }

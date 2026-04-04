@@ -1,6 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:magic/magic.dart';
 import 'package:magic_starter/magic_starter.dart';
+
+import '../interceptors/debug_interceptor.dart';
 import '../models/user.dart';
 import '../services/websocket_service.dart';
 import '../state/project_repository_state.dart';
@@ -53,6 +56,11 @@ class AppServiceProvider extends ServiceProvider {
           path: '/conversations',
         ),
         MagicStarterNavItem(
+          icon: Icons.auto_awesome_outlined,
+          labelKey: 'nav.skills',
+          path: '/skills',
+        ),
+        MagicStarterNavItem(
           icon: Icons.settings_outlined,
           labelKey: 'nav.settings',
           path: MagicStarterConfig.profileRoute(),
@@ -87,6 +95,11 @@ class AppServiceProvider extends ServiceProvider {
       await Auth.logout();
       MagicRoute.to(MagicStarterConfig.loginRoute());
     });
+
+    // Debug interceptor — logs all HTTP requests/responses in dev mode.
+    if (kDebugMode) {
+      Magic.make<NetworkDriver>('network').addInterceptor(DebugInterceptor());
+    }
 
     // Connect WebSocket on boot so it's ready before any view subscribes.
     try {

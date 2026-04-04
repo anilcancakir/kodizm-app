@@ -52,11 +52,9 @@ class _TaskDetailViewState extends State<TaskDetailView> {
   static const Map<String, List<String>> _allowedTransitions = {
     'draft': ['analysis', 'failed'],
     'analysis': ['planning', 'failed'],
-    'planning': ['design', 'in_progress', 'failed'],
-    'design': ['in_progress', 'failed'],
+    'planning': ['in_progress', 'failed'],
     'in_progress': ['review', 'failed'],
-    'review': ['testing', 'in_progress', 'failed'],
-    'testing': ['done', 'in_progress', 'failed'],
+    'review': ['in_progress', 'done', 'failed'],
     'failed': ['draft'],
     'done': [],
   };
@@ -68,10 +66,8 @@ class _TaskDetailViewState extends State<TaskDetailView> {
   static const Map<String, String> _transitionLabelKeys = {
     'analysis': 'tasks.transition_start_analysis',
     'planning': 'tasks.transition_start_planning',
-    'design': 'tasks.transition_start_design',
     'in_progress': 'tasks.transition_start_development',
     'review': 'tasks.transition_submit_review',
-    'testing': 'tasks.transition_approve_testing',
     'done': 'tasks.transition_approve_done',
     'failed': 'tasks.transition_mark_failed',
     'draft': 'tasks.transition_reopen',

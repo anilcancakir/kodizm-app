@@ -13,10 +13,8 @@ String statusBadgeClassName(String status) {
     'draft' => 'bg-slate-300/15 text-slate-400',
     'analysis' => 'bg-indigo-500/15 text-indigo-500',
     'planning' => 'bg-blue-500/15 text-blue-500',
-    'design' => 'bg-violet-500/15 text-violet-500',
     'in_progress' => 'bg-amber-400/15 text-amber-500',
     'review' => 'bg-orange-500/15 text-orange-500',
-    'testing' => 'bg-teal-500/15 text-teal-500',
     'done' => 'bg-emerald-500/15 text-emerald-500',
     'failed' => 'bg-red-500/15 text-red-500',
     // Run lifecycle statuses
@@ -34,10 +32,8 @@ String statusDotClassName(String status) {
     'draft' => 'bg-slate-300',
     'analysis' => 'bg-indigo-500',
     'planning' => 'bg-blue-500',
-    'design' => 'bg-violet-500',
     'in_progress' => 'bg-amber-400',
     'review' => 'bg-orange-500',
-    'testing' => 'bg-teal-500',
     'done' => 'bg-emerald-500',
     'failed' => 'bg-red-500',
     // Run lifecycle statuses

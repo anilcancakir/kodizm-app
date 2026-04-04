@@ -203,6 +203,7 @@
     "permission_input": "Input",
     "permission_title": "Permission Request",
     "permission_tool": "Tool: :tool",
+    "input_disabled_hint": "Answer the question above first...",
     "placeholder": "Type a message...",
     "question_answered": "Answered",
     "question_submit": "Submit Answer",
@@ -262,7 +263,14 @@
     "status_label": "Status",
     "subagent_indicator": "Sub-agent",
     "turn_label": "Turn :number",
-    "stop_message": "Stop"
+    "stop_message": "Stop",
+    "event_interrupted": "Stopped by user",
+    "queue_count": ":count queued",
+    "queue_full": "Message queue is full",
+    "status_queued": "Queued",
+    "status_delivering": "Delivering",
+    "status_cancelled": "Cancelled",
+    "status_failed_delivery": "Delivery Failed"
   },
   "conversations": {
     "autonomous": "Autonomous",

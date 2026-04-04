@@ -3,6 +3,7 @@ import 'dart:collection';
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:magic/magic.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
@@ -88,6 +89,16 @@ class WebSocketService {
 
   Timer? _reconnectTimer;
   int _reconnectAttempt = 0;
+
+  /// Fires after a successful reconnection (after resubscription).
+  ///
+  /// Consumers (e.g. [ConversationChatState]) listen to this to catch up
+  /// on events missed during the disconnect window.
+  final StreamController<void> _onReconnect =
+      StreamController<void>.broadcast();
+
+  /// Stream that emits after each successful WS reconnection.
+  Stream<void> get onReconnect => _onReconnect.stream;
 
   // ---------------------------------------------------------------------------
   // Connection lifecycle
@@ -194,6 +205,12 @@ class WebSocketService {
   // ---------------------------------------------------------------------------
 
   void _onMessage(dynamic raw) {
+    if (kDebugMode) {
+      final preview = (raw as String).length > 500
+          ? '${(raw).substring(0, 500)}… (truncated)'
+          : raw;
+      Log.debug('WS ← $preview');
+    }
     final json = jsonDecode(raw as String) as Map<String, dynamic>;
     final event = json['event'] as String?;
 
@@ -339,6 +356,8 @@ class WebSocketService {
             _sendSubscribe(channel);
           }
         }
+
+        _onReconnect.add(null);
       } catch (e) {
         Log.error('WebSocket: reconnect failed — $e');
         _scheduleReconnect();
@@ -369,7 +388,11 @@ class WebSocketService {
   }
 
   void _send(Map<String, dynamic> payload) {
-    _channel?.sink.add(jsonEncode(payload));
+    final encoded = jsonEncode(payload);
+    if (kDebugMode) {
+      Log.debug('WS → $encoded');
+    }
+    _channel?.sink.add(encoded);
   }
 
   // ---------------------------------------------------------------------------
@@ -394,7 +417,11 @@ class WebSocketService {
         data: {'socket_id': _socketId, 'channel_name': channel},
       );
 
-      final authData = response.data as Map<String, dynamic>;
+      final authData = response.data as Map<String, dynamic>?;
+      if (authData == null || authData['auth'] == null) {
+        Log.error('WebSocket: auth response missing for $channel');
+        return;
+      }
       _send({
         'event': 'pusher:subscribe',
         'data': {'channel': channel, 'auth': authData['auth']},

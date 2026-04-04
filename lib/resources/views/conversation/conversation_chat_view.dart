@@ -39,6 +39,9 @@ class _WebSocketAdapter implements ConversationChatWebSocket {
   void unsubscribe(String channel) {
     _service.unsubscribe(channel);
   }
+
+  @override
+  Stream<void> get onReconnect => _service.onReconnect;
 }
 
 // ---------------------------------------------------------------------------
@@ -99,6 +102,7 @@ class _ConversationChatViewState extends State<ConversationChatView> {
     _state = Magic.findOrPut<ConversationChatState>(
       () => ConversationChatState(webSocket: wsAdapter),
     );
+    _state.attachView();
     _teamId = Auth.user<User>()?.currentTeam?.id ?? '';
 
     _scrollController.addListener(_onScrollChanged);
@@ -112,12 +116,15 @@ class _ConversationChatViewState extends State<ConversationChatView> {
     _scrollController.removeListener(_onScrollChanged);
     _scrollController.dispose();
     _inputFocusNode.dispose();
-    // Do NOT unsubscribe WS here — the singleton state manages its own
-    // subscriptions. In Flutter, dispose() of the old widget runs AFTER
-    // initState() of the new widget on route changes, so unsubscribing here
-    // would kill the channel that resubscribe() just set up.
-    // Full reset() in _maybeLoadConversation() handles cleanup when switching
-    // to a different conversation.
+    // Mark view detached. A post-frame callback checks if a new
+    // ConversationChatView re-attached — if not, the user navigated away
+    // from conversations entirely and stale WS subscriptions are cleaned up.
+    _state.detachView();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_state.hasActiveView) {
+        _state.unsubscribeChannels();
+      }
+    });
     super.dispose();
   }
 
@@ -389,7 +396,11 @@ class _ConversationChatViewState extends State<ConversationChatView> {
             controller: _inputController,
             focusNode: _inputFocusNode,
             isSending: _state.isSending,
-            awaitingResponse: _state.awaitingResponse,
+            disabled:
+                _state.pendingQuestion != null ||
+                _state.pendingPermission != null,
+            awaitingResponse: _state.isAgentRunning || _state.awaitingResponse,
+            queuedCount: _state.queuedCount,
             onSend: _handleSendMessage,
             onStop: _state.stopMessage,
           ),
@@ -451,6 +462,7 @@ class _ConversationChatViewState extends State<ConversationChatView> {
               agentRoleSlug: conversation.agentRoleSlug,
               agentRoleName: conversation.agentRoleName,
               userName: Auth.user<User>()?.name,
+              onCancelMessage: _state.cancelQueuedMessage,
             );
           },
         ),

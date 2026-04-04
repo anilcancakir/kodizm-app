@@ -36,6 +36,10 @@ class Conversation {
     this.type = 'interactive',
     this.taskId,
     this.prompt,
+    this.isExecuting = false,
+    this.activeSessionId,
+    this.activeSessionPhase,
+    this.activeSessionWarmUntil,
   });
 
   // -------
@@ -113,6 +117,19 @@ class Conversation {
   /// interactive chats where the user types messages directly.
   final String? prompt;
 
+  /// Whether this conversation has an actively executing session.
+  /// Set by the API based on the latest session's phase.
+  final bool isExecuting;
+
+  /// The active (non-dead) session ID, if any. From `active_session.id`.
+  final String? activeSessionId;
+
+  /// The active session's phase (e.g. `'warm'`, `'executing'`). From `active_session.phase`.
+  final String? activeSessionPhase;
+
+  /// ISO 8601 warm_until timestamp for the active session. From `active_session.warm_until`.
+  final String? activeSessionWarmUntil;
+
   /// UTC timestamp of the last update to this conversation record.
   final DateTime updatedAt;
 
@@ -132,6 +149,7 @@ class Conversation {
     final user = map['user'] as Map<String, dynamic>?;
     final agentRole = map['agent_role'] as Map<String, dynamic>?;
     final costString = map['total_cost_usd'] as String?;
+    final activeSession = map['active_session'] as Map<String, dynamic>?;
 
     return Conversation(
       id: map['id'] as String,
@@ -162,6 +180,10 @@ class Conversation {
       type: map['type'] as String? ?? 'interactive',
       taskId: map['task_id'] as String?,
       prompt: map['prompt'] as String?,
+      isExecuting: map['is_executing'] as bool? ?? false,
+      activeSessionId: activeSession?['id'] as String?,
+      activeSessionPhase: activeSession?['phase'] as String?,
+      activeSessionWarmUntil: activeSession?['warm_until'] as String?,
     );
   }
 
@@ -181,6 +203,10 @@ class Conversation {
     String? type,
     String? taskId,
     String? prompt,
+    bool? isExecuting,
+    String? activeSessionId,
+    String? activeSessionPhase,
+    String? activeSessionWarmUntil,
   }) {
     return Conversation(
       id: id,
@@ -205,6 +231,11 @@ class Conversation {
       type: type ?? this.type,
       taskId: taskId ?? this.taskId,
       prompt: prompt ?? this.prompt,
+      isExecuting: isExecuting ?? this.isExecuting,
+      activeSessionId: activeSessionId ?? this.activeSessionId,
+      activeSessionPhase: activeSessionPhase ?? this.activeSessionPhase,
+      activeSessionWarmUntil:
+          activeSessionWarmUntil ?? this.activeSessionWarmUntil,
     );
   }
 }

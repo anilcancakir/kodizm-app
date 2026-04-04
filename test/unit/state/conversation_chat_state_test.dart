@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
 
 import 'package:app/app/events/websocket_event.dart';
+import 'package:app/app/models/chat_item.dart';
 import 'package:app/app/state/conversation_chat_state.dart';
 
 // ---------------------------------------------------------------------------
@@ -44,6 +47,11 @@ class _FakeWebSocket implements ConversationChatWebSocket {
   final List<String> subscribedChannels = [];
   final List<String> unsubscribedChannels = [];
   final Map<String, void Function(WebSocketEvent)> _callbacks = {};
+  final StreamController<void> _reconnectController =
+      StreamController<void>.broadcast();
+
+  @override
+  Stream<void> get onReconnect => _reconnectController.stream;
 
   @override
   void subscribe(String channel, void Function(WebSocketEvent) onEvent) {
@@ -64,6 +72,9 @@ class _FakeWebSocket implements ConversationChatWebSocket {
   void emit(String channel, WebSocketEvent event) {
     _callbacks[channel]?.call(event);
   }
+
+  /// Simulate a WS reconnection.
+  void simulateReconnect() => _reconnectController.add(null);
 }
 
 // ---------------------------------------------------------------------------
@@ -148,6 +159,54 @@ WebSocketEvent _textEvent({String content = 'Hello!'}) {
       'type': 'text',
       'content': content,
       'metadata': null,
+      'occurred_at': '2026-03-27T10:01:00.000Z',
+    },
+    receivedAt: DateTime.utc(2026, 3, 27, 10, 1),
+  );
+}
+
+WebSocketEvent _subagentEvent({
+  required String type,
+  String? subagentId,
+  String? toolUseId,
+  String? description,
+  Map<String, dynamic>? extra,
+}) {
+  return WebSocketEvent(
+    id: 'ws-evt-${DateTime.now().microsecondsSinceEpoch}',
+    channel: 'private-conversation.$kConversationId',
+    eventName: '.conversation.message',
+    data: {
+      'conversation_id': kConversationId,
+      'type': type,
+      'content': description,
+      'metadata': {
+        'agentId': subagentId,
+        'task_id': subagentId,
+        'tool_use_id': toolUseId,
+        'description': description,
+        ...?extra,
+      },
+      'occurred_at': '2026-03-27T10:01:00.000Z',
+    },
+    receivedAt: DateTime.utc(2026, 3, 27, 10, 1),
+  );
+}
+
+WebSocketEvent _toolUseEvent({required String toolName, String? toolUseId}) {
+  return WebSocketEvent(
+    id: 'ws-evt-${DateTime.now().microsecondsSinceEpoch}',
+    channel: 'private-conversation.$kConversationId',
+    eventName: '.conversation.message',
+    data: {
+      'conversation_id': kConversationId,
+      'type': 'tool_use',
+      'content': null,
+      'metadata': {
+        'toolName': toolName,
+        'toolUseId':
+            toolUseId ?? 'tool_${DateTime.now().microsecondsSinceEpoch}',
+      },
       'occurred_at': '2026-03-27T10:01:00.000Z',
     },
     receivedAt: DateTime.utc(2026, 3, 27, 10, 1),
@@ -548,7 +607,7 @@ void main() {
       expect(http.calls, isEmpty);
     });
 
-    test('guards against concurrent sends', () async {
+    test('serialises concurrent sends via activeSendFuture', () async {
       await createConversation();
 
       http.responder = (url) {
@@ -557,15 +616,52 @@ void main() {
 
       // Start first send.
       final first = state.sendMessage('Hello');
-      // isSending should be true now — second send should be blocked.
+      // Second send awaits first POST then fires its own.
       final second = state.sendMessage('World');
       await Future.wait([first, second]);
 
-      // Only one POST to messages endpoint.
+      // Both POSTs fire — serialised, not dropped.
       final messagePosts = http.calls
           .where((c) => c.contains('/messages'))
           .toList();
-      expect(messagePosts, hasLength(1));
+      expect(messagePosts, hasLength(2));
+    });
+
+    test('guards against sending while question is pending', () async {
+      await createConversation();
+      final channel = 'private-conversation.$kConversationId';
+
+      // Simulate a question event arriving via WS.
+      ws.emit(
+        channel,
+        WebSocketEvent(
+          id: 'ws-question-1',
+          channel: channel,
+          eventName: '.conversation.message',
+          data: {
+            'conversation_id': kConversationId,
+            'type': 'question',
+            'content': 'Which database?',
+            'metadata': {'questionId': 'q-1', 'message': 'Which database?'},
+            'occurred_at': '2026-03-27T10:01:00.000Z',
+          },
+          receivedAt: DateTime.utc(2026, 3, 27, 10, 1),
+        ),
+      );
+
+      expect(state.pendingQuestion, isNotNull);
+
+      http.responder = (url) {
+        return MagicResponse(data: <String, dynamic>{}, statusCode: 200);
+      };
+
+      await state.sendMessage('Another message');
+
+      // No HTTP call — send was blocked by pending question guard.
+      final messagePosts = http.calls
+          .where((c) => c.contains('/messages'))
+          .toList();
+      expect(messagePosts, isEmpty);
     });
 
     test('optimistic message appended immediately', () async {
@@ -580,6 +676,562 @@ void main() {
       expect(state.chatItems, hasLength(1));
       expect(state.isSending, isFalse);
       expect(state.awaitingResponse, isTrue);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Parallel subagent nesting
+  // -----------------------------------------------------------------------
+
+  group('parallel subagent nesting', () {
+    test('interleaved events nest under correct subagent', () async {
+      await createConversation();
+      final channel = 'private-conversation.$kConversationId';
+
+      // Parent spawns Agent(Explore) tool_use — forced top-level.
+      ws.emit(
+        channel,
+        _toolUseEvent(toolName: 'Agent', toolUseId: 'toolu_explore'),
+      );
+
+      // Parent spawns Agent(librarian) tool_use — forced top-level.
+      ws.emit(
+        channel,
+        _toolUseEvent(toolName: 'Agent', toolUseId: 'toolu_librarian'),
+      );
+
+      // Explore subagent starts.
+      ws.emit(
+        channel,
+        _subagentEvent(
+          type: 'subagent_start',
+          subagentId: 'explore-001',
+          toolUseId: 'toolu_explore',
+          description: 'Explore codebase',
+        ),
+      );
+
+      // librarian subagent starts (parallel).
+      ws.emit(
+        channel,
+        _subagentEvent(
+          type: 'subagent_start',
+          subagentId: 'librarian-001',
+          toolUseId: 'toolu_librarian',
+          description: 'Research docs',
+        ),
+      );
+
+      // Explore emits progress → switches current to Explore.
+      ws.emit(
+        channel,
+        _subagentEvent(
+          type: 'subagent_progress',
+          subagentId: 'explore-001',
+          description: 'Searching files',
+        ),
+      );
+
+      // Explore tool_use — should nest under Explore, NOT librarian.
+      ws.emit(channel, _toolUseEvent(toolName: 'Grep', toolUseId: 'grep-001'));
+
+      // librarian emits progress → switches current to librarian.
+      ws.emit(
+        channel,
+        _subagentEvent(
+          type: 'subagent_progress',
+          subagentId: 'librarian-001',
+          description: 'Fetching docs',
+        ),
+      );
+
+      // librarian tool_use — should nest under librarian.
+      ws.emit(
+        channel,
+        _toolUseEvent(toolName: 'WebSearch', toolUseId: 'web-001'),
+      );
+
+      // Explore emits progress again → switch back.
+      ws.emit(
+        channel,
+        _subagentEvent(
+          type: 'subagent_progress',
+          subagentId: 'explore-001',
+          description: 'Reading file',
+        ),
+      );
+
+      // Another Explore tool_use.
+      ws.emit(channel, _toolUseEvent(toolName: 'Read', toolUseId: 'read-001'));
+
+      // Top-level: Agent(Explore), Agent(librarian), SubagentExplore,
+      //            SubagentLibrarian
+      expect(state.chatItems, hasLength(4));
+
+      // Skip the two Agent tool_use items (indices 0, 1).
+      final exploreBlock = state.chatItems[2] as ChatSubagentItem;
+      final librarianBlock = state.chatItems[3] as ChatSubagentItem;
+
+      expect(exploreBlock.subagentId, 'explore-001');
+      expect(librarianBlock.subagentId, 'librarian-001');
+
+      // Explore should have Grep + Read = 2 children.
+      expect(exploreBlock.children, hasLength(2));
+      expect((exploreBlock.children[0] as ChatToolUseItem).toolName, 'Grep');
+      expect((exploreBlock.children[1] as ChatToolUseItem).toolName, 'Read');
+
+      // librarian should have WebSearch = 1 child.
+      expect(librarianBlock.children, hasLength(1));
+      expect(
+        (librarianBlock.children[0] as ChatToolUseItem).toolName,
+        'WebSearch',
+      );
+    });
+
+    test('subagent_stop switches current to remaining active', () async {
+      await createConversation();
+      final channel = 'private-conversation.$kConversationId';
+
+      // Start two subagents.
+      ws.emit(
+        channel,
+        _subagentEvent(
+          type: 'subagent_start',
+          subagentId: 'alpha',
+          toolUseId: 'toolu_alpha',
+          description: 'Alpha',
+        ),
+      );
+      ws.emit(
+        channel,
+        _subagentEvent(
+          type: 'subagent_start',
+          subagentId: 'beta',
+          toolUseId: 'toolu_beta',
+          description: 'Beta',
+        ),
+      );
+
+      // Beta progress → current = beta.
+      ws.emit(
+        channel,
+        _subagentEvent(type: 'subagent_progress', subagentId: 'beta'),
+      );
+
+      // Stop beta → current should switch to alpha.
+      ws.emit(
+        channel,
+        _subagentEvent(type: 'subagent_stop', subagentId: 'beta'),
+      );
+
+      // Next tool_use should go to alpha (the remaining subagent).
+      ws.emit(channel, _toolUseEvent(toolName: 'Glob', toolUseId: 'glob-001'));
+
+      final alphaBlock = state.chatItems[0] as ChatSubagentItem;
+      expect(alphaBlock.subagentId, 'alpha');
+      expect(alphaBlock.children, hasLength(1));
+      expect((alphaBlock.children[0] as ChatToolUseItem).toolName, 'Glob');
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Pending events recovery (Step 4)
+  // -----------------------------------------------------------------------
+
+  group('Pending events recovery', () {
+    /// Helper: load conversation with pending_events in the API response.
+    Future<void> loadConversationWithPendingEvents(
+      List<Map<String, dynamic>> pendingEvents,
+    ) async {
+      http.responder = (url) {
+        if (url.contains('/messages')) return _messagesResponse();
+        if (url.contains('/conversations/')) {
+          return MagicResponse(
+            data: {
+              'data': {
+                'id': kConversationId,
+                'project_id': kProjectId,
+                'user': {'id': 'user-uuid-001', 'name': 'Test User'},
+                'agent_role': {
+                  'id': 'role-uuid-001',
+                  'name': 'Lead Developer',
+                  'slug': 'lead',
+                },
+                'title': 'Test',
+                'status': 'paused',
+                'model': 'claude-sonnet-4-6',
+                'total_cost_usd': '0.10',
+                'total_input_tokens': 1000,
+                'total_output_tokens': 500,
+                'messages_count': 2,
+                'last_activity_at': '2026-03-27T10:00:00.000Z',
+                'started_at': '2026-03-27T09:55:00.000Z',
+                'completed_at': null,
+                'created_at': '2026-03-27T09:55:00.000Z',
+                'updated_at': '2026-03-27T10:00:00.000Z',
+                'active_session': {
+                  'id': 'session-uuid-001',
+                  'phase': 'warm',
+                  'warm_until': '2026-03-27T10:30:00.000Z',
+                },
+                'pending_events': pendingEvents,
+                'pending_question': null,
+              },
+            },
+            statusCode: 200,
+          );
+        }
+        return MagicResponse(data: <String, dynamic>{}, statusCode: 404);
+      };
+
+      await state.loadConversation(kTeamId, kProjectId, kConversationId);
+    }
+
+    test('recovers thinking and tool_use from pending_events', () async {
+      await loadConversationWithPendingEvents([
+        {
+          'id': 'se-001',
+          'type': 'thinking',
+          'content_text': 'Analyzing the code...',
+          'data': {'type': 'thinking'},
+          'metadata': null,
+          'occurred_at': '2026-03-27T10:01:00.000Z',
+        },
+        {
+          'id': 'se-002',
+          'type': 'tool_use',
+          'content_text': null,
+          'data': {
+            'type': 'tool_use',
+            'metadata': {'toolName': 'Read', 'toolUseId': 'toolu_abc'},
+          },
+          'metadata': {'toolName': 'Read', 'toolUseId': 'toolu_abc'},
+          'occurred_at': '2026-03-27T10:01:05.000Z',
+        },
+      ]);
+
+      // Messages are empty, so chatItems should only contain pending events.
+      expect(state.chatItems, hasLength(2));
+      expect(state.chatItems[0], isA<ChatThinkingItem>());
+      expect(
+        (state.chatItems[0] as ChatThinkingItem).content,
+        'Analyzing the code...',
+      );
+      expect(state.chatItems[1], isA<ChatToolUseItem>());
+      expect((state.chatItems[1] as ChatToolUseItem).toolName, 'Read');
+    });
+
+    test('populates seenEventIds from pending_events', () async {
+      await loadConversationWithPendingEvents([
+        {
+          'id': 'se-aaa',
+          'type': 'thinking',
+          'content_text': 'Hmm',
+          'data': {},
+          'metadata': null,
+          'occurred_at': '2026-03-27T10:01:00.000Z',
+        },
+      ]);
+
+      // The WS event with the same stream_event_id should be skipped.
+      final channel = 'private-conversation.$kConversationId';
+      final beforeCount = state.chatItems.length;
+
+      ws.emit(
+        channel,
+        WebSocketEvent(
+          id: 'ws-dup',
+          channel: channel,
+          eventName: '.conversation.message',
+          data: {
+            'conversation_id': kConversationId,
+            'type': 'thinking',
+            'content': 'Hmm',
+            'metadata': {'stream_event_id': 'se-aaa'},
+            'occurred_at': '2026-03-27T10:01:00.000Z',
+          },
+          receivedAt: DateTime.utc(2026, 3, 27, 10, 1),
+        ),
+      );
+
+      expect(state.chatItems.length, beforeCount);
+    });
+
+    test('empty pending_events does not add items', () async {
+      await loadConversationWithPendingEvents([]);
+      expect(state.chatItems, isEmpty);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Event ID dedup (Step 5)
+  // -----------------------------------------------------------------------
+
+  group('Event ID dedup', () {
+    test('WS event with new stream_event_id is processed', () async {
+      await createConversation();
+      final channel = 'private-conversation.$kConversationId';
+
+      ws.emit(
+        channel,
+        WebSocketEvent(
+          id: 'ws-new',
+          channel: channel,
+          eventName: '.conversation.message',
+          data: {
+            'conversation_id': kConversationId,
+            'type': 'tool_use',
+            'content': null,
+            'metadata': {
+              'stream_event_id': 'se-new-001',
+              'toolName': 'Bash',
+              'toolUseId': 'toolu_new',
+            },
+            'occurred_at': '2026-03-27T10:02:00.000Z',
+          },
+          receivedAt: DateTime.utc(2026, 3, 27, 10, 2),
+        ),
+      );
+
+      expect(state.chatItems, hasLength(1));
+      expect(state.chatItems[0], isA<ChatToolUseItem>());
+    });
+
+    test('duplicate stream_event_id is silently skipped', () async {
+      await createConversation();
+      final channel = 'private-conversation.$kConversationId';
+
+      final event = WebSocketEvent(
+        id: 'ws-dup-1',
+        channel: channel,
+        eventName: '.conversation.message',
+        data: {
+          'conversation_id': kConversationId,
+          'type': 'tool_use',
+          'content': null,
+          'metadata': {
+            'stream_event_id': 'se-dup-001',
+            'toolName': 'Read',
+            'toolUseId': 'toolu_dup',
+          },
+          'occurred_at': '2026-03-27T10:02:00.000Z',
+        },
+        receivedAt: DateTime.utc(2026, 3, 27, 10, 2),
+      );
+
+      ws.emit(channel, event);
+      expect(state.chatItems, hasLength(1));
+
+      // Emit same stream_event_id again.
+      ws.emit(channel, event);
+      expect(state.chatItems, hasLength(1));
+    });
+
+    test('events without stream_event_id are always processed', () async {
+      await createConversation();
+      final channel = 'private-conversation.$kConversationId';
+
+      // Two events with null stream_event_id — both should be processed.
+      ws.emit(channel, _textEvent(content: 'First'));
+      ws.emit(channel, _textEvent(content: 'Second'));
+
+      // text events get accumulated into streaming message, so chatItems
+      // may be 1 (streaming). The key assertion: no crash, no skip.
+      expect(state.chatItems, isNotEmpty);
+    });
+
+    test('seenEventIds cleared on reset', () async {
+      await createConversation();
+      final channel = 'private-conversation.$kConversationId';
+
+      ws.emit(
+        channel,
+        WebSocketEvent(
+          id: 'ws-1',
+          channel: channel,
+          eventName: '.conversation.message',
+          data: {
+            'conversation_id': kConversationId,
+            'type': 'tool_use',
+            'content': null,
+            'metadata': {
+              'stream_event_id': 'se-reset-001',
+              'toolName': 'Edit',
+              'toolUseId': 'toolu_r',
+            },
+            'occurred_at': '2026-03-27T10:02:00.000Z',
+          },
+          receivedAt: DateTime.utc(2026, 3, 27, 10, 2),
+        ),
+      );
+      expect(state.chatItems, hasLength(1));
+
+      state.reset();
+      await createConversation();
+
+      // After reset, the same stream_event_id should be processed again.
+      ws.emit(
+        'private-conversation.$kConversationId',
+        WebSocketEvent(
+          id: 'ws-2',
+          channel: 'private-conversation.$kConversationId',
+          eventName: '.conversation.message',
+          data: {
+            'conversation_id': kConversationId,
+            'type': 'tool_use',
+            'content': null,
+            'metadata': {
+              'stream_event_id': 'se-reset-001',
+              'toolName': 'Edit',
+              'toolUseId': 'toolu_r',
+            },
+            'occurred_at': '2026-03-27T10:02:00.000Z',
+          },
+          receivedAt: DateTime.utc(2026, 3, 27, 10, 2),
+        ),
+      );
+      expect(state.chatItems, hasLength(1));
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // WS reconnect catch-up (Step 6)
+  // -----------------------------------------------------------------------
+
+  group('WS reconnect catch-up', () {
+    test('reconnect fetches pending_events and merges with dedup', () async {
+      // Load conversation with one pending event.
+      http.responder = (url) {
+        if (url.contains('/messages')) return _messagesResponse();
+        if (url.contains('/conversations/')) {
+          return MagicResponse(
+            data: {
+              'data': {
+                'id': kConversationId,
+                'project_id': kProjectId,
+                'user': {'id': 'user-uuid-001', 'name': 'Test User'},
+                'agent_role': {
+                  'id': 'role-uuid-001',
+                  'name': 'Lead Developer',
+                  'slug': 'lead',
+                },
+                'title': 'Test',
+                'status': 'paused',
+                'model': 'claude-sonnet-4-6',
+                'total_cost_usd': '0.10',
+                'total_input_tokens': 1000,
+                'total_output_tokens': 500,
+                'messages_count': 2,
+                'last_activity_at': '2026-03-27T10:00:00.000Z',
+                'started_at': '2026-03-27T09:55:00.000Z',
+                'completed_at': null,
+                'created_at': '2026-03-27T09:55:00.000Z',
+                'updated_at': '2026-03-27T10:00:00.000Z',
+                'active_session': {
+                  'id': 'session-uuid-001',
+                  'phase': 'warm',
+                  'warm_until': '2026-03-27T10:30:00.000Z',
+                },
+                'pending_events': [
+                  {
+                    'id': 'se-reconnect-001',
+                    'type': 'thinking',
+                    'content_text': 'Thinking after reconnect...',
+                    'data': {},
+                    'metadata': null,
+                    'occurred_at': '2026-03-27T10:01:00.000Z',
+                  },
+                ],
+                'pending_question': null,
+              },
+            },
+            statusCode: 200,
+          );
+        }
+        return MagicResponse(data: <String, dynamic>{}, statusCode: 404);
+      };
+
+      await state.loadConversation(kTeamId, kProjectId, kConversationId);
+      expect(state.chatItems, hasLength(1));
+
+      // Now change the API response to include a NEW event on reconnect.
+      http.responder = (url) {
+        if (url.contains('/messages')) return _messagesResponse();
+        if (url.contains('/conversations/')) {
+          return MagicResponse(
+            data: {
+              'data': {
+                'id': kConversationId,
+                'project_id': kProjectId,
+                'user': {'id': 'user-uuid-001', 'name': 'Test User'},
+                'agent_role': {
+                  'id': 'role-uuid-001',
+                  'name': 'Lead Developer',
+                  'slug': 'lead',
+                },
+                'title': 'Test',
+                'status': 'paused',
+                'model': 'claude-sonnet-4-6',
+                'total_cost_usd': '0.10',
+                'total_input_tokens': 1000,
+                'total_output_tokens': 500,
+                'messages_count': 2,
+                'last_activity_at': '2026-03-27T10:00:00.000Z',
+                'started_at': '2026-03-27T09:55:00.000Z',
+                'completed_at': null,
+                'created_at': '2026-03-27T09:55:00.000Z',
+                'updated_at': '2026-03-27T10:00:00.000Z',
+                'active_session': {
+                  'id': 'session-uuid-001',
+                  'phase': 'warm',
+                  'warm_until': '2026-03-27T10:30:00.000Z',
+                },
+                'pending_events': [
+                  // Same event (already seen — should be deduped).
+                  {
+                    'id': 'se-reconnect-001',
+                    'type': 'thinking',
+                    'content_text': 'Thinking after reconnect...',
+                    'data': {},
+                    'metadata': null,
+                    'occurred_at': '2026-03-27T10:01:00.000Z',
+                  },
+                  // New event missed during disconnect.
+                  {
+                    'id': 'se-reconnect-002',
+                    'type': 'tool_use',
+                    'content_text': null,
+                    'data': {
+                      'metadata': {
+                        'toolName': 'Grep',
+                        'toolUseId': 'toolu_grep',
+                      },
+                    },
+                    'metadata': {'toolName': 'Grep', 'toolUseId': 'toolu_grep'},
+                    'occurred_at': '2026-03-27T10:01:30.000Z',
+                  },
+                ],
+                'pending_question': null,
+              },
+            },
+            statusCode: 200,
+          );
+        }
+        return MagicResponse(data: <String, dynamic>{}, statusCode: 404);
+      };
+
+      // Simulate WS reconnect.
+      ws.simulateReconnect();
+
+      // Allow the async catch-up to complete.
+      await Future<void>.delayed(Duration.zero);
+
+      // Should have 2 items: original thinking + new tool_use.
+      // The duplicate se-reconnect-001 should be skipped.
+      expect(state.chatItems, hasLength(2));
+      expect(state.chatItems[0], isA<ChatThinkingItem>());
+      expect(state.chatItems[1], isA<ChatToolUseItem>());
+      expect((state.chatItems[1] as ChatToolUseItem).toolName, 'Grep');
     });
   });
 }

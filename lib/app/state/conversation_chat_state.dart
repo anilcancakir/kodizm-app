@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:magic/magic.dart';
 
@@ -65,6 +67,9 @@ abstract class ConversationChatWebSocket {
 
   /// Unsubscribe from [channel].
   void unsubscribe(String channel);
+
+  /// Stream that emits after each successful WS reconnection.
+  Stream<void> get onReconnect;
 }
 
 // ---------------------------------------------------------------------------
@@ -138,15 +143,38 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   Conversation? _conversation;
   List<ChatItem> _chatItems = [];
   Map<String, int> _activeSubagents = {};
+
+  /// Tracks which subagent is currently emitting events. Updated on
+  /// `subagent_start` and `subagent_progress` so that interleaved events
+  /// from parallel subagents are nested under the correct parent.
+  String? _currentSubagentId;
+
+  /// Maps Agent tool_use_id → agent name (subagent_type or name) for badge
+  /// display. Populated when tool_use events with toolName == 'Agent' arrive.
+  final Map<String, String> _agentToolNames = {};
   List<WebSocketEvent> _rawEvents = [];
   bool _isSending = false;
+  Future<void>? _activeSendFuture;
   bool _awaitingResponse = false;
   bool _isStopping = false;
+  final Set<String> _queuedMessageIds = {};
+
+  /// Stream event IDs already seen (from API pending_events or WS broadcasts).
+  /// Used to deduplicate events on WS reconnect catch-up.
+  final Set<String> _seenEventIds = {};
   String? _error;
   String? _warmUntil;
   String _teamId = '';
   String _projectId = '';
   String? _subscribedChannel;
+
+  // View attachment tracking — used by deferred dispose cleanup.
+  // Counter (not bool) because dispose(old) fires AFTER initState(new)
+  // on route changes — both can be alive simultaneously for one frame.
+  int _activeViewCount = 0;
+
+  /// Subscription to [ConversationChatWebSocket.onReconnect].
+  StreamSubscription<void>? _reconnectSubscription;
 
   // Session state
   String? _sessionId;
@@ -200,8 +228,23 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   /// to keep the typing bubble visible in the gap between POST and WS.
   bool get awaitingResponse => _awaitingResponse;
 
+  /// Whether the agent session is actively executing — drives the stop button.
+  ///
+  /// Distinct from [awaitingResponse] which only tracks the gap between
+  /// HTTP POST and first WS event (typing bubble). This stays true for the
+  /// entire agent turn until a terminal event (`result`/`error`) arrives or
+  /// the session phase leaves `executing`.
+  bool get isAgentRunning =>
+      _conversation?.isExecuting == true || _sessionPhase == 'executing';
+
   /// Whether a stop request is currently in progress.
   bool get isStopping => _isStopping;
+
+  /// The number of messages currently queued for delivery.
+  int get queuedCount => _queuedMessageIds.length;
+
+  /// The set of message IDs currently in the queue.
+  Set<String> get queuedMessageIds => Set.unmodifiable(_queuedMessageIds);
 
   /// The last error message, or `null` if no error.
   String? get error => _error;
@@ -329,10 +372,88 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
     // -- Load existing messages --
     await loadMessages();
 
+    // If the conversation has an actively executing session, show the stop
+    // button immediately — handles page refresh / re-open while agent runs.
+    if (_conversation!.isExecuting) {
+      _awaitingResponse = true;
+    }
+
+    // Restore pending question from API — survives page refresh.
+    final pendingQ = data['pending_question'] as Map<String, dynamic>?;
+    if (pendingQ != null) {
+      _pendingQuestion = {
+        'questionId': pendingQ['questionId'] as String?,
+        'message': pendingQ['message'] as String?,
+        'options': (pendingQ['options'] as List<dynamic>?)
+            ?.cast<Map<String, dynamic>>(),
+      };
+    }
+
+    // -- Recover mid-turn events from pending_events --
+    final pendingEvents = data['pending_events'] as List<dynamic>?;
+    if (pendingEvents != null && pendingEvents.isNotEmpty) {
+      final recovered = _parsePendingEvents(pendingEvents);
+      if (recovered.isNotEmpty) {
+        _chatItems = [..._chatItems, ...recovered];
+      }
+    }
+
     // -- Subscribe to conversation WS channel --
     final channel = 'private-conversation.${_conversation!.id}';
     _subscribedChannel = channel;
     _ws?.subscribe(channel, addEvent);
+
+    // -- Listen for WS reconnects to catch up on missed events --
+    _reconnectSubscription?.cancel();
+    _reconnectSubscription = _ws?.onReconnect.listen((_) {
+      _catchUpAfterReconnect();
+    });
+
+    refreshUI();
+  }
+
+  // ---------------------------------------------------------------------------
+  // WS reconnect catch-up
+  // ---------------------------------------------------------------------------
+
+  /// Re-fetch conversation state after a WS reconnect to recover missed events.
+  ///
+  /// Uses [_seenEventIds] to deduplicate — events already in the timeline
+  /// are silently skipped.
+  Future<void> _catchUpAfterReconnect() async {
+    if (_conversation == null) return;
+
+    final response = await _http.get(
+      '/teams/$_teamId/projects/$_projectId/conversations/${_conversation!.id}',
+    );
+
+    if (!response.successful) return;
+
+    final Map<String, dynamic> data =
+        (response.data as Map<String, dynamic>)['data'] as Map<String, dynamic>;
+
+    // Update conversation state (status, cost, etc.).
+    _conversation = Conversation.fromMap(data);
+
+    // Recover any new pending events — dedup handled by _parsePendingEvents.
+    final pendingEvents = data['pending_events'] as List<dynamic>?;
+    if (pendingEvents != null && pendingEvents.isNotEmpty) {
+      final recovered = _parsePendingEvents(pendingEvents);
+      if (recovered.isNotEmpty) {
+        _chatItems = [..._chatItems, ...recovered];
+      }
+    }
+
+    // Restore pending question if conversation is paused.
+    final pendingQ = data['pending_question'] as Map<String, dynamic>?;
+    if (pendingQ != null && _pendingQuestion == null) {
+      _pendingQuestion = {
+        'questionId': pendingQ['questionId'] as String?,
+        'message': pendingQ['message'] as String?,
+        'options': (pendingQ['options'] as List<dynamic>?)
+            ?.cast<Map<String, dynamic>>(),
+      };
+    }
 
     refreshUI();
   }
@@ -347,7 +468,13 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   /// optimistic user message immediately, then POSTs to the API. The
   /// assistant response arrives asynchronously via WebSocket.
   Future<void> sendMessage(String text) async {
-    if (_conversation == null || _isSending) return;
+    if (_conversation == null) return;
+    if (_pendingQuestion != null || _pendingPermission != null) return;
+
+    // Await any in-flight POST before starting a new one.
+    if (_activeSendFuture != null) {
+      await _activeSendFuture;
+    }
 
     _isSending = true;
     _awaitingResponse = true;
@@ -367,6 +494,19 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
     ];
     refreshUI();
 
+    _activeSendFuture = _postMessage(text, optimisticMessage);
+    await _activeSendFuture;
+    _activeSendFuture = null;
+
+    _isSending = false;
+    refreshUI();
+  }
+
+  /// Sends the POST request for a message and handles the response.
+  Future<void> _postMessage(
+    String text,
+    ConversationMessage optimisticMessage,
+  ) async {
     final response = await _http.post(
       '/teams/$_teamId/projects/$_projectId/conversations/${_conversation!.id}/messages',
       data: {'content': text},
@@ -374,10 +514,30 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
 
     if (!response.successful) {
       _error = response.errorMessage ?? 'Failed to send message';
-    }
+    } else {
+      // Replace optimistic message with real data from response.
+      final responseData =
+          (response.data as Map<String, dynamic>)['data']
+              as Map<String, dynamic>?;
+      if (responseData != null && responseData.containsKey('id')) {
+        final realMessage = ConversationMessage.fromMap(responseData);
+        final optimisticIndex = _chatItems.indexWhere(
+          (item) => item.id == optimisticMessage.id,
+        );
+        if (optimisticIndex >= 0) {
+          _chatItems = List.of(_chatItems)
+            ..[optimisticIndex] = ChatMessageItem.fromConversationMessage(
+              realMessage,
+            );
+        }
 
-    _isSending = false;
-    refreshUI();
+        // Track queued messages.
+        final status = responseData['status'] as String?;
+        if (status == 'queued') {
+          _queuedMessageIds.add(realMessage.id);
+        }
+      }
+    }
   }
 
   /// Stop the currently running message.
@@ -385,7 +545,8 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   /// Sends a POST to the stop endpoint, which aborts the running agent and
   /// creates a system interrupt message. The conversation remains Active.
   Future<void> stopMessage() async {
-    if (_conversation == null || !_awaitingResponse || _isStopping) return;
+    if (_conversation == null || _isStopping) return;
+    if (!isAgentRunning && !_awaitingResponse) return;
 
     _isStopping = true;
     refreshUI();
@@ -399,6 +560,31 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
       _isStopping = false;
       refreshUI();
     }
+  }
+
+  /// Cancel a queued message by ID.
+  ///
+  /// Optimistically removes from [_queuedMessageIds] and updates the
+  /// message status to `'cancelled'` in the timeline, then POSTs to the
+  /// cancel endpoint.
+  Future<void> cancelQueuedMessage(String messageId) async {
+    if (_conversation == null) return;
+
+    // Optimistic update.
+    _queuedMessageIds.remove(messageId);
+    _chatItems = _chatItems.map((item) {
+      if (item is ChatMessageItem && item.message.id == messageId) {
+        return ChatMessageItem.fromConversationMessage(
+          item.message.copyWith(status: 'cancelled'),
+        );
+      }
+      return item;
+    }).toList();
+    refreshUI();
+
+    await _http.post(
+      '/teams/$_teamId/projects/$_projectId/conversations/${_conversation!.id}/messages/$messageId/cancel',
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -502,8 +688,14 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
           item as Map<String, dynamic>,
         );
 
-        // Insert stream events before the assistant message
+        // Insert stream events before the assistant message.
+        // Tracks active subagents to nest child tool_use events.
         if (message.role == 'assistant' && message.streamEvents != null) {
+          // subagentId → index in [loaded]; tracks running subagents.
+          final activeSubagents = <String, int>{};
+          // Last subagent_progress task_id — determines nesting target.
+          String? currentSubagentId;
+
           for (final evt in message.streamEvents!) {
             final e = evt as Map<String, dynamic>;
             final evtType = e['type'] as String?;
@@ -516,32 +708,57 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
 
             switch (evtType) {
               case 'tool_use':
-                loaded.add(
-                  ChatToolUseItem(
-                    id: evtId,
-                    occurredAt: evtOccurred,
-                    toolName: evtMeta?['toolName'] as String? ?? 'Unknown',
-                    input: evtMeta?['input'],
-                    toolUseId: evtMeta?['toolUseId'] as String?,
-                  ),
+                final toolUseIdVal = evtMeta?['toolUseId'] as String?;
+                final toolNameVal =
+                    evtMeta?['toolName'] as String? ?? 'Unknown';
+                // Cache agent name for subagent badge resolution.
+                if (toolNameVal == 'Agent' && toolUseIdVal != null) {
+                  final inp = evtMeta?['input'] as Map<String, dynamic>?;
+                  final aName =
+                      inp?['subagent_type'] as String? ??
+                      inp?['name'] as String?;
+                  if (aName != null) {
+                    _agentToolNames[toolUseIdVal] = aName;
+                  }
+                }
+                final toolItem = ChatToolUseItem(
+                  id: evtId,
+                  occurredAt: evtOccurred,
+                  toolName: toolNameVal,
+                  input: evtMeta?['input'],
+                  toolUseId: toolUseIdVal,
                 );
+                // Nest under active subagent (Agent calls stay top-level).
+                final nestTarget =
+                    (toolNameVal != 'Agent' && currentSubagentId != null)
+                    ? activeSubagents[currentSubagentId]
+                    : null;
+                if (nestTarget != null &&
+                    nestTarget < loaded.length &&
+                    loaded[nestTarget] is ChatSubagentItem) {
+                  final sub = loaded[nestTarget] as ChatSubagentItem;
+                  loaded[nestTarget] = ChatSubagentItem(
+                    id: sub.id,
+                    occurredAt: sub.occurredAt,
+                    subagentId: sub.subagentId,
+                    agentName: sub.agentName,
+                    parentToolUseId: sub.parentToolUseId,
+                    description: sub.description,
+                    isComplete: sub.isComplete,
+                    durationMs: sub.durationMs,
+                    children: [...sub.children, toolItem],
+                  );
+                } else {
+                  loaded.add(toolItem);
+                }
               case 'tool_result':
                 final toolUseId = evtMeta?['toolUseId'] as String?;
                 if (toolUseId != null) {
-                  final idx = loaded.lastIndexWhere(
-                    (i) => i is ChatToolUseItem && i.toolUseId == toolUseId,
+                  _correlatePersistedToolResult(
+                    loaded,
+                    toolUseId,
+                    evtContent ?? evtMeta?['content'] as String?,
                   );
-                  if (idx != -1) {
-                    final existing = loaded[idx] as ChatToolUseItem;
-                    loaded[idx] = ChatToolUseItem(
-                      id: existing.id,
-                      occurredAt: existing.occurredAt,
-                      toolName: existing.toolName,
-                      input: existing.input,
-                      toolUseId: existing.toolUseId,
-                      result: evtContent ?? evtMeta?['content'] as String?,
-                    );
-                  }
                 }
               case 'thinking':
                 loaded.add(
@@ -559,11 +776,79 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
                     errorText: evtContent ?? '',
                   ),
                 );
+              case 'subagent_start':
+                final subagentId =
+                    evtMeta?['agentId'] as String? ??
+                    evtMeta?['task_id'] as String? ??
+                    '';
+                final toolUseId = evtMeta?['tool_use_id'] as String?;
+                final idx = loaded.length;
+                loaded.add(
+                  ChatSubagentItem(
+                    id: evtId,
+                    occurredAt: evtOccurred,
+                    subagentId: subagentId,
+                    agentName: _resolveAgentName(toolUseId),
+                    parentToolUseId: toolUseId,
+                    description:
+                        evtContent ??
+                        evtMeta?['description'] as String? ??
+                        evtMeta?['agentType'] as String?,
+                    isComplete: false,
+                  ),
+                );
+                activeSubagents[subagentId] = idx;
+                currentSubagentId = subagentId;
+              case 'subagent_progress':
+                // Track which subagent is currently active for nesting.
+                currentSubagentId =
+                    evtMeta?['task_id'] as String? ??
+                    evtMeta?['agentId'] as String?;
+              case 'subagent_stop':
+                final subagentId =
+                    evtMeta?['agentId'] as String? ??
+                    evtMeta?['task_id'] as String? ??
+                    evtMeta?['subagent_id'] as String? ??
+                    '';
+                final idx = activeSubagents.remove(subagentId);
+                if (currentSubagentId == subagentId) {
+                  // Switch to another active subagent if any.
+                  currentSubagentId = activeSubagents.isNotEmpty
+                      ? activeSubagents.keys.last
+                      : null;
+                }
+                if (idx != null &&
+                    idx < loaded.length &&
+                    loaded[idx] is ChatSubagentItem) {
+                  final existing = loaded[idx] as ChatSubagentItem;
+                  loaded[idx] = ChatSubagentItem(
+                    id: existing.id,
+                    occurredAt: existing.occurredAt,
+                    subagentId: existing.subagentId,
+                    agentName: existing.agentName,
+                    parentToolUseId: existing.parentToolUseId,
+                    description: existing.description,
+                    isComplete: true,
+                    durationMs: _extractDurationMs(evtMeta),
+                    children: existing.children,
+                  );
+                }
             }
           }
         }
 
-        loaded.add(ChatMessageItem.fromConversationMessage(message));
+        // System messages get their own visual treatment (centered pill).
+        if (message.role == 'system') {
+          loaded.add(
+            ChatSystemItem(
+              id: message.id,
+              occurredAt: message.createdAt,
+              content: _localizeSystemMessage(message.content),
+            ),
+          );
+        } else {
+          loaded.add(ChatMessageItem.fromConversationMessage(message));
+        }
       }
 
       _chatItems = loaded;
@@ -576,16 +861,27 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   // reset
   // ---------------------------------------------------------------------------
 
-  /// Clear all state fields and unsubscribe from the WebSocket channels.
+  /// Mark that a [ConversationChatView] is actively mounted.
   ///
-  /// Unsubscribes from both the conversation channel and the session channel
-  /// (if any). Call this when leaving the conversation chat screen to free
-  /// resources.
+  /// Called in `initState()`. Paired with [detachView] in `dispose()`.
+  void attachView() => _activeViewCount++;
+
+  /// Mark that a [ConversationChatView] was disposed.
+  ///
+  /// Called in `dispose()`. The view schedules a post-frame callback that
+  /// checks [hasActiveView] — if no views remain by the next frame,
+  /// the user navigated away from conversations entirely and stale WS
+  /// subscriptions are cleaned up.
+  void detachView() => _activeViewCount = (_activeViewCount - 1).clamp(0, 99);
+
+  /// Whether at least one [ConversationChatView] is currently mounted.
+  bool get hasActiveView => _activeViewCount > 0;
+
   /// Unsubscribe from all WS channels without clearing conversation data.
   ///
-  /// Used during `dispose()` so the singleton state survives widget rebuilds
-  /// (e.g. browser refresh). A full [reset] is only called when navigating
-  /// to a *different* conversation.
+  /// Used during deferred dispose cleanup so the singleton state survives
+  /// widget rebuilds (e.g. browser refresh). A full [reset] is only called
+  /// when navigating to a *different* conversation.
   void unsubscribeChannels() {
     if (_subscribedChannel != null) {
       _ws?.unsubscribe(_subscribedChannel!);
@@ -618,13 +914,20 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
 
   void reset() {
     unsubscribeChannels();
+    _reconnectSubscription?.cancel();
+    _reconnectSubscription = null;
 
     _conversation = null;
     _chatItems = [];
     _activeSubagents = {};
+    _currentSubagentId = null;
+    _agentToolNames.clear();
     _rawEvents = [];
     _isSending = false;
+    _activeSendFuture = null;
     _awaitingResponse = false;
+    _queuedMessageIds.clear();
+    _seenEventIds.clear();
     _error = null;
     _warmUntil = null;
     _teamId = '';
@@ -678,10 +981,16 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   /// typed [ChatItem] subclasses to [_chatItems].
   void _handleMessageEvent(WebSocketEvent wsEvent) {
     final eventType = wsEvent.data['type'] as String?;
+    final metadata = wsEvent.data['metadata'] as Map<String, dynamic>?;
 
-    // Clear awaitingResponse only on terminal or visible-content events —
-    // keeps the loading indicator visible while the agent is still
-    // processing behind the scenes (system, tool_use, tool_result).
+    // Dedup: skip events already seen (from API pending_events or prior WS).
+    final streamEventId = metadata?['stream_event_id'] as String?;
+    if (streamEventId != null && !_seenEventIds.add(streamEventId)) {
+      return;
+    }
+
+    // Clear awaitingResponse on visible-content or terminal events — hides
+    // the typing bubble once the agent starts producing output.
     const terminalTypes = {
       'result',
       'error',
@@ -695,10 +1004,33 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
       _awaitingResponse = false;
     }
     final content = wsEvent.data['content'] as String?;
-    final metadata = wsEvent.data['metadata'] as Map<String, dynamic>?;
     final occurredAt = wsEvent.data['occurred_at'] != null
         ? DateTime.parse(wsEvent.data['occurred_at'] as String)
         : DateTime.now().toUtc();
+
+    // -- message_status: update queued/delivering status on existing messages --
+    if (eventType == 'message_status') {
+      final messageId = metadata?['message_id'] as String?;
+      final messageStatus = metadata?['message_status'] as String?;
+      if (messageId != null && messageStatus != null) {
+        _chatItems = _chatItems.map((item) {
+          if (item is ChatMessageItem && item.message.id == messageId) {
+            return ChatMessageItem.fromConversationMessage(
+              item.message.copyWith(status: messageStatus),
+            );
+          }
+          return item;
+        }).toList();
+
+        // Remove from queued tracking if no longer queued.
+        if (messageStatus != 'queued') {
+          _queuedMessageIds.remove(messageId);
+        }
+
+        refreshUI();
+      }
+      return;
+    }
 
     switch (eventType) {
       // -- text_delta: accumulate streaming text for real-time typing --
@@ -750,9 +1082,25 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
           return;
         }
         // Non-AskUserQuestion tool_use → append to active subagent or top-level
+        final incomingToolUseId = metadata?['toolUseId'] as String?;
+        // Cache agent name for subagent badge resolution — run BEFORE dedup
+        // because streaming content_block_start has empty input, but the full
+        // assistant event carries the real input with subagent_type.
+        if (toolName == 'Agent' && incomingToolUseId != null) {
+          final input = metadata?['input'] as Map<String, dynamic>?;
+          final agentName =
+              input?['subagent_type'] as String? ?? input?['name'] as String?;
+          if (agentName != null &&
+              !_agentToolNames.containsKey(incomingToolUseId)) {
+            _agentToolNames[incomingToolUseId] = agentName;
+            // Retroactively patch any ChatSubagentItem already created
+            // before this full event arrived (subagent_start fires before
+            // the full assistant event with real input).
+            _patchSubagentName(incomingToolUseId, agentName);
+          }
+        }
         // Deduplicate: streaming content_block_start sends tool_use early,
         // then the full assistant event sends it again. Skip if already seen.
-        final incomingToolUseId = metadata?['toolUseId'] as String?;
         if (incomingToolUseId != null) {
           final alreadyExists = _chatItems.any(
             (item) =>
@@ -767,7 +1115,15 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
           input: metadata?['input'],
           toolUseId: incomingToolUseId,
         );
-        _appendItemOrNest(toolItem);
+        // Agent tool_use is always from the orchestrator, not a subagent
+        // (subagents have Agent in disallowedTools). Force top-level so
+        // parallel spawns don't get incorrectly nested under a running
+        // sibling subagent.
+        if (toolName == 'Agent') {
+          _chatItems = [..._chatItems, toolItem];
+        } else {
+          _appendItemOrNest(toolItem);
+        }
 
       case 'tool_result':
         final toolUseId = metadata?['toolUseId'] as String?;
@@ -829,7 +1185,12 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
         return;
 
       case 'subagent_start':
-        final subagentId = metadata?['agentId'] as String? ?? '';
+        final subagentId =
+            metadata?['agentId'] as String? ??
+            metadata?['task_id'] as String? ??
+            '';
+        final toolUseId = metadata?['tool_use_id'] as String?;
+        final agentName = _resolveAgentName(toolUseId);
         final index = _chatItems.length;
         _chatItems = [
           ..._chatItems,
@@ -837,20 +1198,38 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
             id: 'evt_${DateTime.now().microsecondsSinceEpoch}',
             occurredAt: occurredAt,
             subagentId: subagentId,
-            description: metadata?['agentType'] as String?,
+            agentName: agentName,
+            parentToolUseId: toolUseId,
+            description:
+                metadata?['description'] as String? ??
+                metadata?['agentType'] as String?,
             isComplete: false,
           ),
         ];
         _activeSubagents[subagentId] = index;
+        _currentSubagentId = subagentId;
+
+      case 'subagent_progress':
+        // Track which subagent is currently emitting so interleaved events
+        // from parallel subagents nest under the correct parent.
+        _currentSubagentId =
+            metadata?['task_id'] as String? ?? metadata?['agentId'] as String?;
 
       case 'subagent_stop':
-        // Try inner data.agentId first, fallback to top-level subagent_id
+        // Try inner data.agentId first, fallback to task_id and subagent_id
         // (truncation may strip metadata.data but keeps top-level fields).
         final subagentId =
             metadata?['agentId'] as String? ??
+            metadata?['task_id'] as String? ??
             metadata?['subagent_id'] as String? ??
             '';
         final index = _activeSubagents.remove(subagentId);
+        if (_currentSubagentId == subagentId) {
+          // Switch to another active subagent if any remain.
+          _currentSubagentId = _activeSubagents.isNotEmpty
+              ? _activeSubagents.keys.last
+              : null;
+        }
         if (index != null && index < _chatItems.length) {
           final existing = _chatItems[index];
           if (existing is ChatSubagentItem) {
@@ -858,9 +1237,11 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
               id: existing.id,
               occurredAt: existing.occurredAt,
               subagentId: existing.subagentId,
+              agentName: existing.agentName,
+              parentToolUseId: existing.parentToolUseId,
               description: existing.description,
               isComplete: true,
-              durationMs: metadata?['durationMs'] as int?,
+              durationMs: _extractDurationMs(metadata),
               children: existing.children,
             );
             _chatItems = List.of(_chatItems)..[index] = updated;
@@ -957,6 +1338,17 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
           _chatItems = [..._chatItems, finalMessage];
         }
 
+      case 'system':
+        if (content == null) return;
+        _chatItems = [
+          ..._chatItems,
+          ChatSystemItem(
+            id: 'ws_sys_${DateTime.now().microsecondsSinceEpoch}',
+            occurredAt: occurredAt,
+            content: _localizeSystemMessage(content),
+          ),
+        ];
+
       default:
         // Unknown types silently ignored (already in _rawEvents).
         break;
@@ -971,6 +1363,19 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
 
     if (status != null && _conversation != null) {
       _conversation = _conversation!.copyWith(status: status);
+    }
+
+    // Sync session phase from conversation status events — the API includes
+    // `phase` so we can derive isAgentRunning without the session channel.
+    final phase = wsEvent.data['phase'] as String?;
+    if (phase != null) {
+      _sessionPhase = phase;
+
+      if (_conversation != null) {
+        _conversation = _conversation!.copyWith(
+          isExecuting: phase == 'executing',
+        );
+      }
     }
 
     _warmUntil = wsEvent.data['warm_until'] as String?;
@@ -1026,6 +1431,8 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
             id: existing.id,
             occurredAt: existing.occurredAt,
             subagentId: existing.subagentId,
+            agentName: existing.agentName,
+            parentToolUseId: existing.parentToolUseId,
             description: existing.description,
             isComplete: true,
             children: existing.children,
@@ -1034,28 +1441,83 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
       }
     }
     _activeSubagents.clear();
+    _currentSubagentId = null;
     _chatItems = updated;
   }
 
-  /// Append a [ChatItem] to the most-recently-started active subagent's
-  /// children, or to the top-level [_chatItems] if no subagent is running.
+  /// Extract duration from subagent_stop metadata.
+  ///
+  /// CC CLI sends duration at `usage.duration_ms`, not top-level `durationMs`.
+  static int? _extractDurationMs(Map<String, dynamic>? meta) {
+    if (meta == null) return null;
+    final direct = meta['durationMs'] ?? meta['duration_ms'];
+    if (direct != null) return (direct as num).toInt();
+    final usage = meta['usage'] as Map<String, dynamic>?;
+    if (usage == null) return null;
+    final nested = usage['duration_ms'];
+    return nested != null ? (nested as num).toInt() : null;
+  }
+
+  /// Resolve agent type name (e.g. "Explore", "librarian") from cache.
+  String? _resolveAgentName(String? toolUseId) {
+    if (toolUseId == null) return null;
+    return _agentToolNames[toolUseId];
+  }
+
+  /// Retroactively update any [ChatSubagentItem] whose [parentToolUseId]
+  /// matches [toolUseId] with the resolved [agentName]. Called when the full
+  /// assistant event arrives after subagent_start already created the item.
+  void _patchSubagentName(String toolUseId, String agentName) {
+    final items = _chatItems;
+    for (var i = 0; i < items.length; i++) {
+      final item = items[i];
+      if (item is ChatSubagentItem &&
+          item.parentToolUseId == toolUseId &&
+          item.agentName == null) {
+        _chatItems = List.of(items)
+          ..[i] = ChatSubagentItem(
+            id: item.id,
+            occurredAt: item.occurredAt,
+            subagentId: item.subagentId,
+            agentName: agentName,
+            parentToolUseId: item.parentToolUseId,
+            description: item.description,
+            isComplete: item.isComplete,
+            durationMs: item.durationMs,
+            children: item.children,
+          );
+        return;
+      }
+    }
+  }
+
+  /// Append a [ChatItem] to the currently-emitting subagent's children,
+  /// or to the top-level [_chatItems] if no subagent is running.
+  ///
+  /// Uses [_currentSubagentId] (updated by `subagent_start` and
+  /// `subagent_progress` events) to determine which subagent owns the
+  /// incoming item. This correctly handles parallel subagents whose
+  /// events arrive interleaved.
   void _appendItemOrNest(ChatItem item) {
     if (_activeSubagents.isEmpty) {
       _chatItems = [..._chatItems, item];
       return;
     }
 
-    // Find the most-recently-started subagent (highest index).
-    final subagentIndex = _activeSubagents.values.reduce(
-      (a, b) => a > b ? a : b,
-    );
-    if (subagentIndex < _chatItems.length &&
+    // Use the subagent that most recently emitted a progress event.
+    final subagentIndex = _currentSubagentId != null
+        ? _activeSubagents[_currentSubagentId]
+        : null;
+    if (subagentIndex != null &&
+        subagentIndex < _chatItems.length &&
         _chatItems[subagentIndex] is ChatSubagentItem) {
       final existing = _chatItems[subagentIndex] as ChatSubagentItem;
       final updated = ChatSubagentItem(
         id: existing.id,
         occurredAt: existing.occurredAt,
         subagentId: existing.subagentId,
+        agentName: existing.agentName,
+        parentToolUseId: existing.parentToolUseId,
         description: existing.description,
         isComplete: existing.isComplete,
         durationMs: existing.durationMs,
@@ -1117,12 +1579,195 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
         id: subItem.id,
         occurredAt: subItem.occurredAt,
         subagentId: subItem.subagentId,
+        agentName: subItem.agentName,
+        parentToolUseId: subItem.parentToolUseId,
         description: subItem.description,
         isComplete: subItem.isComplete,
         durationMs: subItem.durationMs,
         children: updatedChildren,
       );
       _chatItems = List.of(_chatItems)..[subIndex] = updatedSub;
+      return;
+    }
+  }
+
+  /// Parse API `pending_events` (StreamEventResource format) into [ChatItem]s.
+  ///
+  /// Also populates [_seenEventIds] so WS events arriving after page load
+  /// are deduplicated automatically.
+  List<ChatItem> _parsePendingEvents(List<dynamic> events) {
+    final items = <ChatItem>[];
+
+    for (final raw in events) {
+      final e = raw as Map<String, dynamic>;
+      final evtId = e['id'] as String?;
+      final evtType = e['type'] as String?;
+      final evtContent = e['content_text'] as String?;
+      final evtMeta = (e['metadata'] as Map?)?.cast<String, dynamic>();
+      final evtData = (e['data'] as Map?)?.cast<String, dynamic>();
+      final evtOccurred = e['occurred_at'] != null
+          ? DateTime.parse(e['occurred_at'] as String)
+          : DateTime.now().toUtc();
+      final id = evtId ?? 'pe_${items.length}';
+
+      // Track seen event IDs for dedup — skip already-seen events.
+      if (evtId != null && !_seenEventIds.add(evtId)) {
+        continue;
+      }
+
+      switch (evtType) {
+        case 'thinking':
+          items.add(
+            ChatThinkingItem(
+              id: id,
+              occurredAt: evtOccurred,
+              content: evtContent,
+            ),
+          );
+        case 'tool_use':
+          final meta = evtMeta ?? evtData?['metadata'] as Map<String, dynamic>?;
+          items.add(
+            ChatToolUseItem(
+              id: id,
+              occurredAt: evtOccurred,
+              toolName: meta?['toolName'] as String? ?? 'Unknown',
+              input: meta?['input'],
+              toolUseId: meta?['toolUseId'] as String?,
+            ),
+          );
+        case 'tool_result':
+          final meta = evtMeta ?? evtData?['metadata'] as Map<String, dynamic>?;
+          final toolUseId = meta?['toolUseId'] as String?;
+          if (toolUseId != null) {
+            _correlatePersistedToolResult(
+              items,
+              toolUseId,
+              evtContent ?? meta?['content'] as String?,
+            );
+          }
+        case 'error':
+          items.add(
+            ChatErrorItem(
+              id: id,
+              occurredAt: evtOccurred,
+              errorText: evtContent ?? '',
+            ),
+          );
+        case 'question':
+          // Question events are handled via pending_question — skip here
+          // to avoid duplicate question cards.
+          break;
+        case 'permission':
+          // Permission events are handled via pending_question — skip here.
+          break;
+        case 'subagent_start':
+          final meta = evtMeta ?? evtData?['metadata'] as Map<String, dynamic>?;
+          final subagentId =
+              meta?['agentId'] as String? ?? meta?['task_id'] as String? ?? '';
+          final toolUseId = meta?['tool_use_id'] as String?;
+          items.add(
+            ChatSubagentItem(
+              id: id,
+              occurredAt: evtOccurred,
+              subagentId: subagentId,
+              agentName: _resolveAgentName(toolUseId),
+              parentToolUseId: toolUseId,
+              description:
+                  evtContent ??
+                  meta?['description'] as String? ??
+                  meta?['agentType'] as String?,
+              isComplete: false,
+            ),
+          );
+        case 'subagent_stop':
+          final meta = evtMeta ?? evtData?['metadata'] as Map<String, dynamic>?;
+          final subagentId =
+              meta?['agentId'] as String? ?? meta?['task_id'] as String? ?? '';
+          // Mark the subagent as complete.
+          final idx = items.lastIndexWhere(
+            (i) => i is ChatSubagentItem && i.subagentId == subagentId,
+          );
+          if (idx != -1) {
+            final existing = items[idx] as ChatSubagentItem;
+            items[idx] = ChatSubagentItem(
+              id: existing.id,
+              occurredAt: existing.occurredAt,
+              subagentId: existing.subagentId,
+              agentName: existing.agentName,
+              parentToolUseId: existing.parentToolUseId,
+              description: existing.description,
+              isComplete: true,
+              durationMs: _extractDurationMs(meta),
+              children: existing.children,
+            );
+          }
+        case 'text':
+          // Text events are accumulated into assistant messages — skip
+          // unless they represent standalone content (rare in mid-turn).
+          break;
+        case 'result':
+          // Result events are terminal — skip in pending recovery.
+          break;
+      }
+    }
+
+    return items;
+  }
+
+  /// Correlate a `tool_result` with its `tool_use` in a persisted [loaded] list.
+  ///
+  /// Searches both top-level items and subagent children for the matching
+  /// [toolUseId], then patches the [ChatToolUseItem] with [resultContent].
+  static void _correlatePersistedToolResult(
+    List<ChatItem> loaded,
+    String toolUseId,
+    String? resultContent,
+  ) {
+    // Top-level search.
+    final topIdx = loaded.lastIndexWhere(
+      (i) => i is ChatToolUseItem && i.toolUseId == toolUseId,
+    );
+    if (topIdx != -1) {
+      final existing = loaded[topIdx] as ChatToolUseItem;
+      loaded[topIdx] = ChatToolUseItem(
+        id: existing.id,
+        occurredAt: existing.occurredAt,
+        toolName: existing.toolName,
+        input: existing.input,
+        toolUseId: existing.toolUseId,
+        result: resultContent,
+      );
+      return;
+    }
+    // Search inside subagent children.
+    for (var i = loaded.length - 1; i >= 0; i--) {
+      final item = loaded[i];
+      if (item is! ChatSubagentItem) continue;
+      final childIdx = item.children.lastIndexWhere(
+        (c) => c is ChatToolUseItem && c.toolUseId == toolUseId,
+      );
+      if (childIdx == -1) continue;
+      final existing = item.children[childIdx] as ChatToolUseItem;
+      final updatedChildren = List<ChatItem>.of(item.children)
+        ..[childIdx] = ChatToolUseItem(
+          id: existing.id,
+          occurredAt: existing.occurredAt,
+          toolName: existing.toolName,
+          input: existing.input,
+          toolUseId: existing.toolUseId,
+          result: resultContent,
+        );
+      loaded[i] = ChatSubagentItem(
+        id: item.id,
+        occurredAt: item.occurredAt,
+        subagentId: item.subagentId,
+        agentName: item.agentName,
+        parentToolUseId: item.parentToolUseId,
+        description: item.description,
+        isComplete: item.isComplete,
+        durationMs: item.durationMs,
+        children: updatedChildren,
+      );
       return;
     }
   }
@@ -1138,5 +1783,18 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
       'MultiEdit' => 'M',
       _ => 'M',
     };
+  }
+
+  /// Map known backend system messages to localized display strings.
+  ///
+  /// The backend stores raw English text (e.g. `[Request interrupted by user]`)
+  /// in the database. This maps recognized patterns to i18n keys so the UI
+  /// shows the user's locale.
+  static String _localizeSystemMessage(String raw) {
+    if (raw.contains('interrupted by user')) {
+      return trans('conversation_chat.event_interrupted');
+    }
+
+    return raw;
   }
 }

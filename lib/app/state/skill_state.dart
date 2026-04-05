@@ -3,70 +3,6 @@ import 'package:magic/magic.dart';
 import '../models/skill.dart';
 
 // ---------------------------------------------------------------------------
-// HTTP abstraction for testability
-// ---------------------------------------------------------------------------
-
-/// Thin interface over the HTTP verbs [SkillState] uses.
-///
-/// In production the default [_MagicHttpClient] delegates to [Http].
-/// Tests inject a fake that records calls and returns canned responses.
-abstract class HttpClient {
-  /// Perform a GET request.
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  });
-
-  /// Perform a POST request.
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  });
-
-  /// Perform a PUT request.
-  Future<MagicResponse> put(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  });
-
-  /// Perform a DELETE request.
-  Future<MagicResponse> delete(String url, {Map<String, String>? headers});
-}
-
-/// Default production [HttpClient] backed by the Magic [Http] facade.
-class _MagicHttpClient implements HttpClient {
-  const _MagicHttpClient();
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) => Http.get(url, query: query, headers: headers);
-
-  @override
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) => Http.post(url, data: data, headers: headers);
-
-  @override
-  Future<MagicResponse> put(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) => Http.put(url, data: data, headers: headers);
-
-  @override
-  Future<MagicResponse> delete(String url, {Map<String, String>? headers}) =>
-      Http.delete(url, headers: headers);
-}
-
-// ---------------------------------------------------------------------------
 // SkillState controller
 // ---------------------------------------------------------------------------
 
@@ -98,20 +34,14 @@ class _MagicHttpClient implements HttpClient {
 /// final imported = await skills.importSkill({'source_id': 'mp-skill-001'});
 /// ```
 class SkillState extends MagicController with MagicStateMixin<List<Skill>> {
-  /// Creates a [SkillState] with an optional [httpClient] for testing.
-  ///
-  /// When [httpClient] is `null` (production), the Magic [Http] facade is
-  /// used via [_MagicHttpClient].
-  SkillState({HttpClient? httpClient})
-    : _http = httpClient ?? const _MagicHttpClient();
+  /// Creates a [SkillState].
+  SkillState();
 
   /// Lazy singleton accessor.
   ///
   /// Uses [Magic.findOrPut] to ensure a single instance is shared across
   /// the application.
   static SkillState get instance => Magic.findOrPut(SkillState.new);
-
-  final HttpClient _http;
 
   // ---------------------------------------------------------------------------
   // Secondary state
@@ -153,7 +83,7 @@ class SkillState extends MagicController with MagicStateMixin<List<Skill>> {
   Future<void> fetchSkills() async {
     setLoading();
 
-    final response = await _http.get('/skills');
+    final response = await Http.get('/skills');
 
     if (response.successful) {
       final List<dynamic> items =
@@ -183,7 +113,7 @@ class SkillState extends MagicController with MagicStateMixin<List<Skill>> {
       return cached;
     }
 
-    final response = await _http.get('/skills/$id');
+    final response = await Http.get('/skills/$id');
 
     if (response.successful) {
       final Map<String, dynamic> data =
@@ -213,7 +143,7 @@ class SkillState extends MagicController with MagicStateMixin<List<Skill>> {
     _marketplaceLoading = true;
     refreshUI();
 
-    final response = await _http.get(
+    final response = await Http.get(
       '/skillsmp/search',
       query: {'q': query, 'page': page},
     );
@@ -243,10 +173,7 @@ class SkillState extends MagicController with MagicStateMixin<List<Skill>> {
     _marketplaceLoading = true;
     refreshUI();
 
-    final response = await _http.get(
-      '/skillsmp/ai-search',
-      query: {'q': query},
-    );
+    final response = await Http.get('/skillsmp/ai-search', query: {'q': query});
 
     _marketplaceLoading = false;
 
@@ -269,7 +196,7 @@ class SkillState extends MagicController with MagicStateMixin<List<Skill>> {
   /// On success, refreshes the skills list via [fetchSkills] and returns the
   /// newly imported [Skill]. Returns `null` on failure.
   Future<Skill?> importSkill(Map<String, dynamic> data) async {
-    final response = await _http.post('/skillsmp/import', data: data);
+    final response = await Http.post('/skillsmp/import', data: data);
 
     if (response.successful) {
       final Map<String, dynamic> skillData =
@@ -288,7 +215,7 @@ class SkillState extends MagicController with MagicStateMixin<List<Skill>> {
   /// Stores the result in [quotaInfo] on success. Returns the quota map, or
   /// `null` on failure.
   Future<Map<String, dynamic>?> fetchQuota() async {
-    final response = await _http.get('/skillsmp/quota');
+    final response = await Http.get('/skillsmp/quota');
 
     if (response.successful) {
       _quotaInfo = response.data as Map<String, dynamic>?;
@@ -307,7 +234,7 @@ class SkillState extends MagicController with MagicStateMixin<List<Skill>> {
   ///
   /// Returns the created [Skill] on success, or `null` on failure.
   Future<Skill?> createSkill(Map<String, dynamic> data) async {
-    final response = await _http.post('/skills', data: data);
+    final response = await Http.post('/skills', data: data);
 
     if (response.successful) {
       final Map<String, dynamic> skillData =

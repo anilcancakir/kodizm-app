@@ -278,7 +278,10 @@ class _ConversationChatViewState extends State<ConversationChatView> {
       builder: (context, _) {
         if (_state.conversation == null) {
           if (_isLoadingExisting) {
-            return const Center(child: CircularProgressIndicator());
+            return WDiv(
+              className: 'flex flex-col items-center justify-center w-full',
+              child: const CircularProgressIndicator(),
+            );
           }
           return _buildWelcome();
         }
@@ -292,7 +295,8 @@ class _ConversationChatViewState extends State<ConversationChatView> {
   // -----------------------------------------------------------------------
 
   Widget _buildWelcome() {
-    return Center(
+    return WDiv(
+      className: 'flex flex-col items-center justify-center w-full',
       child: WDiv(
         className: 'w-full flex flex-col items-center gap-4',
         children: [
@@ -358,7 +362,8 @@ class _ConversationChatViewState extends State<ConversationChatView> {
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
     }
 
-    return Column(
+    return WDiv(
+      className: 'flex flex-col',
       children: [
         // Header — fixed at top
         ChatHeader(
@@ -373,7 +378,7 @@ class _ConversationChatViewState extends State<ConversationChatView> {
         ),
 
         // Message area — expands to fill available space
-        Expanded(child: _buildMessageArea()),
+        WDiv(className: 'flex-1', child: _buildMessageArea()),
 
         // Bottom sticky area — question/permission cards, input
         if (_state.pendingQuestion != null)
@@ -407,7 +412,8 @@ class _ConversationChatViewState extends State<ConversationChatView> {
 
         // Debug panel — scrollable within remaining space
         if (_rawEventsExpanded)
-          Expanded(
+          WDiv(
+            className: 'flex-1',
             child: SingleChildScrollView(child: _buildDebugPanel(conversation)),
           ),
       ],
@@ -425,7 +431,8 @@ class _ConversationChatViewState extends State<ConversationChatView> {
     final totalItems = chatItems.length + (showTyping ? 1 : 0);
 
     if (chatItems.isEmpty && !showTyping) {
-      return Center(
+      return WDiv(
+        className: 'flex flex-col items-center justify-center w-full',
         child: WDiv(
           className: 'flex flex-col items-center gap-3',
           children: [
@@ -446,7 +453,8 @@ class _ConversationChatViewState extends State<ConversationChatView> {
       );
     }
 
-    return Stack(
+    return WDiv(
+      className: 'relative',
       children: [
         ListView.builder(
           controller: _scrollController,
@@ -469,9 +477,8 @@ class _ConversationChatViewState extends State<ConversationChatView> {
 
         // Scroll-to-bottom FAB
         if (!_autoScroll)
-          Positioned(
-            bottom: 16,
-            right: 16,
+          WDiv(
+            className: 'absolute bottom-4 right-4',
             child: WAnchor(
               onTap: () {
                 _scrollToBottom();

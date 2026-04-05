@@ -30,7 +30,7 @@ class SessionListView extends StatefulWidget {
 }
 
 class _SessionListViewState extends State<SessionListView> {
-  SessionState get _state => Magic.findOrPut(SessionState.new);
+  SessionState get _state => SessionState.instance;
 
   /// Currently selected project filter ID, or `null` for all projects.
   String? _selectedProjectId;

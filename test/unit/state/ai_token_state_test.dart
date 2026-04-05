@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
+import 'package:magic/testing.dart';
 
 import 'package:app/app/state/ai_token_state.dart';
 
@@ -29,57 +30,24 @@ const Map<String, dynamic> kApiPayload = {
 };
 
 // ---------------------------------------------------------------------------
-// Fake HTTP client
-// ---------------------------------------------------------------------------
-
-/// Injectable HTTP client for testing [AiTokenState] without hitting the
-/// network. Records calls and returns a pre-configured [MagicResponse].
-class FakeAiTokenHttpClient implements AiTokenHttpClient {
-  final List<HttpCall> calls = [];
-  late MagicResponse Function(String url) _responder;
-
-  /// Always return [response] regardless of the requested URL.
-  void alwaysReturn(MagicResponse response) {
-    _responder = (_) => response;
-  }
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) async {
-    calls.add(HttpCall('GET', url));
-    return _responder(url);
-  }
-}
-
-class HttpCall {
-  HttpCall(this.method, this.url);
-
-  final String method;
-  final String url;
-
-  @override
-  String toString() => '$method $url';
-}
-
-// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
 void main() {
+  MagicTest.init();
+
   group('AiTokenState', () {
-    late FakeAiTokenHttpClient http;
+    late FakeNetworkDriver driver;
     late AiTokenState state;
 
     setUp(() {
-      http = FakeAiTokenHttpClient();
-      state = AiTokenState(httpClient: http);
+      driver = Http.fake();
+      state = AiTokenState();
     });
 
     tearDown(() {
       state.dispose();
+      Http.unfake();
     });
 
     // -----------------------------------------------------------------------
@@ -99,7 +67,10 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('loadTokens sets loading then transitions to success', () async {
-      http.alwaysReturn(MagicResponse(data: kApiPayload, statusCode: 200));
+      driver.stub(
+        '*/ai-tokens',
+        MagicResponse(data: kApiPayload, statusCode: 200),
+      );
 
       expect(state.isEmpty, isTrue);
 
@@ -116,9 +87,12 @@ void main() {
       expect(state.rxState, isNotNull);
 
       // Verify URL.
-      expect(http.calls.length, equals(1));
-      expect(http.calls.first.method, equals('GET'));
-      expect(http.calls.first.url, equals('/teams/team-uuid-001/ai-tokens'));
+      expect(driver.recorded.length, equals(1));
+      expect(driver.recorded.first.$1.method, equals('GET'));
+      expect(
+        driver.recorded.first.$1.url,
+        equals('/teams/team-uuid-001/ai-tokens'),
+      );
     });
 
     // -----------------------------------------------------------------------
@@ -126,7 +100,8 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('loadTokens returns empty list and isEmpty is true', () async {
-      http.alwaysReturn(
+      driver.stub(
+        '*/ai-tokens',
         MagicResponse(data: {'data': <dynamic>[]}, statusCode: 200),
       );
 
@@ -142,7 +117,8 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('loadTokens sets error state on non-2xx response', () async {
-      http.alwaysReturn(
+      driver.stub(
+        '*/ai-tokens',
         MagicResponse(data: {'message': 'Unauthorized'}, statusCode: 401),
       );
 
@@ -162,7 +138,10 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('loadTokens parses AiToken list with all fields', () async {
-      http.alwaysReturn(MagicResponse(data: kApiPayload, statusCode: 200));
+      driver.stub(
+        '*/ai-tokens',
+        MagicResponse(data: kApiPayload, statusCode: 200),
+      );
 
       await state.loadTokens('team-uuid-001');
 

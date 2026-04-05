@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
+import 'package:magic/testing.dart';
 
 import 'package:app/app/models/dashboard_data.dart';
 import 'package:app/app/state/dashboard_state.dart';
@@ -62,36 +63,6 @@ const Map<String, dynamic> kApiPayload = {
 DashboardData _buildDashboardData({Map<String, dynamic>? overrides}) {
   final payload = {...kApiPayload, ...?overrides};
   return DashboardData.fromMap(payload);
-}
-
-// ---------------------------------------------------------------------------
-// Fake HTTP client
-// ---------------------------------------------------------------------------
-
-class FakeDashboardHttpClient implements DashboardHttpClient {
-  final List<HttpCall> calls = [];
-  late MagicResponse Function(String url) _responder;
-
-  void alwaysReturn(MagicResponse response) {
-    _responder = (_) => response;
-  }
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) async {
-    calls.add(HttpCall('GET', url));
-    return _responder(url);
-  }
-}
-
-class HttpCall {
-  HttpCall(this.method, this.url);
-
-  final String method;
-  final String url;
 }
 
 // ---------------------------------------------------------------------------
@@ -162,7 +133,8 @@ class _TestAssetLoader implements TranslationLoader {
 // ---------------------------------------------------------------------------
 
 void main() {
-  late FakeDashboardHttpClient http;
+  MagicTest.init();
+
   late DashboardState state;
 
   setUpAll(() async {
@@ -176,19 +148,13 @@ void main() {
   });
 
   setUp(() {
-    http = FakeDashboardHttpClient();
-    http.alwaysReturn(
-      MagicResponse(data: {'data': kApiPayload}, statusCode: 200),
-    );
-    state = DashboardState(httpClient: http);
+    Auth.fake();
+    Http.fake().stub('*', Http.response({'data': kApiPayload}));
+
+    state = DashboardState();
 
     // Pre-register the fake state so DashboardState.instance returns it.
     Magic.put<DashboardState>(state);
-  });
-
-  tearDown(() {
-    state.dispose();
-    Magic.delete<DashboardState>();
   });
 
   // -------------------------------------------------------------------------

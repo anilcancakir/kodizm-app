@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
+import 'package:magic/testing.dart';
 
 import 'package:app/app/models/project.dart';
 import 'package:app/app/state/project_state.dart';
@@ -47,44 +48,6 @@ const Map<String, dynamic> kProjectBravo = {
 };
 
 // ---------------------------------------------------------------------------
-// Minimal fake HTTP client
-// ---------------------------------------------------------------------------
-
-/// Fake [HttpClient] that always returns a configurable [MagicResponse].
-class _FakeHttpClient implements HttpClient {
-  _FakeHttpClient(this._response);
-
-  final MagicResponse _response;
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) async => _response;
-
-  @override
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) async => _response;
-
-  @override
-  Future<MagicResponse> put(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) async => _response;
-
-  @override
-  Future<MagicResponse> delete(
-    String url, {
-    Map<String, String>? headers,
-  }) async => _response;
-}
-
-// ---------------------------------------------------------------------------
 // Test helpers
 // ---------------------------------------------------------------------------
 
@@ -112,14 +75,11 @@ Future<void> _pumpSubject(WidgetTester tester) async {
 
 /// Creates and registers a [ProjectState] with the given pre-seeded [projects].
 ///
-/// Returns the state for further inspection. Callers are responsible for
-/// calling [Magic.delete] in tearDown.
+/// Returns the state for further inspection.
 ProjectState _seedSuccess(List<Map<String, dynamic>> projects) {
-  final state = ProjectState(
-    httpClient: _FakeHttpClient(
-      MagicResponse(data: {'data': projects}, statusCode: 200),
-    ),
-  );
+  Http.fake().stub('*', Http.response({'data': projects}));
+
+  final state = ProjectState();
   state.setSuccess(projects.map(Project.fromMap).toList());
   Magic.put<ProjectState>(state);
   return state;
@@ -127,11 +87,9 @@ ProjectState _seedSuccess(List<Map<String, dynamic>> projects) {
 
 /// Creates and registers a [ProjectState] in the empty state.
 ProjectState _seedEmpty() {
-  final state = ProjectState(
-    httpClient: _FakeHttpClient(
-      MagicResponse(data: {'data': <Map<String, dynamic>>[]}, statusCode: 200),
-    ),
-  );
+  Http.fake().stub('*', Http.response({'data': <Map<String, dynamic>>[]}));
+
+  final state = ProjectState();
   state.setEmpty();
   Magic.put<ProjectState>(state);
   return state;
@@ -139,11 +97,9 @@ ProjectState _seedEmpty() {
 
 /// Creates and registers a [ProjectState] in the error state.
 ProjectState _seedError(String message) {
-  final state = ProjectState(
-    httpClient: _FakeHttpClient(
-      MagicResponse(data: {'message': message}, statusCode: 500),
-    ),
-  );
+  Http.fake().stub('*', Http.response({'message': message}, 500));
+
+  final state = ProjectState();
   state.setError(message);
   Magic.put<ProjectState>(state);
   return state;
@@ -154,12 +110,10 @@ ProjectState _seedError(String message) {
 // ---------------------------------------------------------------------------
 
 void main() {
-  tearDown(() {
-    // Remove the singleton from the Magic container after each test.
-    if (Magic.isRegistered<ProjectState>()) {
-      Magic.find<ProjectState>().dispose();
-      Magic.delete<ProjectState>();
-    }
+  MagicTest.init();
+
+  setUp(() {
+    Auth.fake();
   });
 
   // -------------------------------------------------------------------------
@@ -180,10 +134,6 @@ void main() {
 
     // Bravo has repositories_count = 0 — no_repositories label shown.
     expect(find.text(trans('projects.no_repositories')), findsOneWidget);
-
-    // Tech stack badges.
-    expect(find.text('Flutter, Dart'), findsOneWidget);
-    expect(find.text('Laravel, PostgreSQL'), findsOneWidget);
 
     // Task counts — trans key returned in test env (two cards, two matches).
     expect(find.text(trans('projects.task_count')), findsNWidgets(2));

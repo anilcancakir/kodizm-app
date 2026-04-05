@@ -282,6 +282,7 @@ void main() {
           ChatFileChangeItem() => 'file_change',
           ChatErrorItem() => 'error',
           ChatResultItem() => 'result',
+          ChatSystemItem() => 'system',
         };
 
         expect(label, 'error');

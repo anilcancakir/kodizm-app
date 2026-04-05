@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
+import 'package:magic/testing.dart';
 
 import 'package:app/app/state/task_state.dart';
 
@@ -94,94 +95,22 @@ const Map<String, dynamic> kAgentRoleA = {
 };
 
 // ---------------------------------------------------------------------------
-// Fake HTTP client
-// ---------------------------------------------------------------------------
-
-/// Injectable HTTP client for testing [TaskState] without hitting the
-/// network. Each method records the call and returns a pre-configured
-/// [MagicResponse].
-class FakeTaskHttpClient implements TaskHttpClient {
-  final List<TaskHttpCall> calls = [];
-  late MagicResponse Function(String url) _responder;
-
-  /// Set a responder that maps URL to [MagicResponse].
-  void whenAny(MagicResponse Function(String url) responder) {
-    _responder = responder;
-  }
-
-  /// Shortcut: always return the same response regardless of URL.
-  void alwaysReturn(MagicResponse response) {
-    _responder = (_) => response;
-  }
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) async {
-    calls.add(TaskHttpCall('GET', url, query: query));
-    return _responder(url);
-  }
-
-  @override
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) async {
-    calls.add(TaskHttpCall('POST', url, data: data));
-    return _responder(url);
-  }
-
-  @override
-  Future<MagicResponse> put(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) async {
-    calls.add(TaskHttpCall('PUT', url, data: data));
-    return _responder(url);
-  }
-
-  @override
-  Future<MagicResponse> delete(
-    String url, {
-    Map<String, String>? headers,
-  }) async {
-    calls.add(TaskHttpCall('DELETE', url));
-    return _responder(url);
-  }
-}
-
-class TaskHttpCall {
-  TaskHttpCall(this.method, this.url, {this.data, this.query});
-
-  final String method;
-  final String url;
-  final dynamic data;
-  final Map<String, dynamic>? query;
-
-  @override
-  String toString() => '$method $url';
-}
-
-// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
 void main() {
+  MagicTest.init();
+
   group('TaskState', () {
-    late FakeTaskHttpClient http;
     late TaskState state;
 
     setUp(() {
-      http = FakeTaskHttpClient();
-      state = TaskState(httpClient: http);
+      state = TaskState();
     });
 
     tearDown(() {
       state.dispose();
+      Http.unfake();
     });
 
     // -----------------------------------------------------------------------
@@ -189,8 +118,8 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('fetchTasks sets loading then success with task list', () async {
-      http.alwaysReturn(
-        MagicResponse(
+      final fake = Http.fake(
+        (MagicRequest req) => MagicResponse(
           data: {
             'data': [kTaskA, kTaskB],
           },
@@ -215,10 +144,10 @@ void main() {
       expect(state.rxState![1].id, equals('task-uuid-002'));
 
       // Verify correct URL was called.
-      expect(http.calls.length, equals(1));
-      expect(http.calls.first.method, equals('GET'));
+      expect(fake.recorded.length, equals(1));
+      expect(fake.recorded.first.$1.method, equals('GET'));
       expect(
-        http.calls.first.url,
+        fake.recorded.first.$1.url,
         equals('/teams/team-uuid-001/projects/proj-uuid-001/tasks'),
       );
     });
@@ -228,8 +157,9 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('fetchTasks sets empty state when list is empty', () async {
-      http.alwaysReturn(
-        MagicResponse(data: {'data': <dynamic>[]}, statusCode: 200),
+      Http.fake(
+        (MagicRequest req) =>
+            MagicResponse(data: {'data': <dynamic>[]}, statusCode: 200),
       );
 
       await state.fetchTasks('team-uuid-001', 'proj-uuid-001');
@@ -243,8 +173,9 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('fetchTasks sets loading then error on failure', () async {
-      http.alwaysReturn(
-        MagicResponse(data: {'message': 'Unauthorized'}, statusCode: 401),
+      Http.fake(
+        (MagicRequest req) =>
+            MagicResponse(data: {'message': 'Unauthorized'}, statusCode: 401),
       );
 
       final future = state.fetchTasks('team-uuid-001', 'proj-uuid-001');
@@ -261,8 +192,8 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('fetchTasks passes filter and sort as query params', () async {
-      http.alwaysReturn(
-        MagicResponse(
+      final fake = Http.fake(
+        (MagicRequest req) => MagicResponse(
           data: {
             'data': [kTaskA],
           },
@@ -279,12 +210,12 @@ void main() {
         sort: '-updated_at',
       );
 
-      final call = http.calls.first;
-      expect(call.query, isNotNull);
-      expect(call.query!['status'], equals('draft,analysis'));
-      expect(call.query!['type'], equals('bug'));
-      expect(call.query!['priority'], equals('high,critical'));
-      expect(call.query!['sort'], equals('-updated_at'));
+      final req = fake.recorded.first.$1;
+      expect(req.queryParameters, isNotNull);
+      expect(req.queryParameters!['status'], equals('draft,analysis'));
+      expect(req.queryParameters!['type'], equals('bug'));
+      expect(req.queryParameters!['priority'], equals('high,critical'));
+      expect(req.queryParameters!['sort'], equals('-updated_at'));
     });
 
     // -----------------------------------------------------------------------
@@ -292,7 +223,10 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('fetchTask stores selectedTask', () async {
-      http.alwaysReturn(MagicResponse(data: {'data': kTaskA}, statusCode: 200));
+      final fake = Http.fake(
+        (MagicRequest req) =>
+            MagicResponse(data: {'data': kTaskA}, statusCode: 200),
+      );
 
       await state.fetchTask('team-uuid-001', 'proj-uuid-001', 'task-uuid-001');
 
@@ -301,7 +235,7 @@ void main() {
       expect(state.selectedTask!.title, equals('Implement login screen'));
 
       expect(
-        http.calls.first.url,
+        fake.recorded.first.$1.url,
         equals(
           '/teams/team-uuid-001/projects/proj-uuid-001/tasks/task-uuid-001',
         ),
@@ -313,7 +247,10 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('createTask posts data and returns created task', () async {
-      http.alwaysReturn(MagicResponse(data: {'data': kTaskA}, statusCode: 201));
+      final fake = Http.fake(
+        (MagicRequest req) =>
+            MagicResponse(data: {'data': kTaskA}, statusCode: 201),
+      );
 
       final task = await state.createTask('team-uuid-001', 'proj-uuid-001', {
         'title': 'Implement login screen',
@@ -324,9 +261,9 @@ void main() {
       expect(task, isNotNull);
       expect(task!.id, equals('task-uuid-001'));
 
-      expect(http.calls.first.method, equals('POST'));
+      expect(fake.recorded.first.$1.method, equals('POST'));
       expect(
-        http.calls.first.url,
+        fake.recorded.first.$1.url,
         equals('/teams/team-uuid-001/projects/proj-uuid-001/tasks'),
       );
     });
@@ -336,7 +273,10 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('updateTask sends PUT and returns updated task', () async {
-      http.alwaysReturn(MagicResponse(data: {'data': kTaskA}, statusCode: 200));
+      final fake = Http.fake(
+        (MagicRequest req) =>
+            MagicResponse(data: {'data': kTaskA}, statusCode: 200),
+      );
 
       final task = await state.updateTask(
         'team-uuid-001',
@@ -350,9 +290,9 @@ void main() {
       expect(state.selectedTask, isNotNull);
       expect(state.selectedTask!.id, equals('task-uuid-001'));
 
-      expect(http.calls.first.method, equals('PUT'));
+      expect(fake.recorded.first.$1.method, equals('PUT'));
       expect(
-        http.calls.first.url,
+        fake.recorded.first.$1.url,
         equals(
           '/teams/team-uuid-001/projects/proj-uuid-001/tasks/task-uuid-001',
         ),
@@ -364,7 +304,9 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('deleteTask sends DELETE and returns true on success', () async {
-      http.alwaysReturn(MagicResponse(data: null, statusCode: 204));
+      final fake = Http.fake(
+        (MagicRequest req) => MagicResponse(data: null, statusCode: 204),
+      );
 
       final result = await state.deleteTask(
         'team-uuid-001',
@@ -374,9 +316,9 @@ void main() {
 
       expect(result, isTrue);
 
-      expect(http.calls.first.method, equals('DELETE'));
+      expect(fake.recorded.first.$1.method, equals('DELETE'));
       expect(
-        http.calls.first.url,
+        fake.recorded.first.$1.url,
         equals(
           '/teams/team-uuid-001/projects/proj-uuid-001/tasks/task-uuid-001',
         ),
@@ -388,8 +330,9 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('deleteTask returns false on failure', () async {
-      http.alwaysReturn(
-        MagicResponse(data: {'message': 'Forbidden'}, statusCode: 403),
+      Http.fake(
+        (MagicRequest req) =>
+            MagicResponse(data: {'message': 'Forbidden'}, statusCode: 403),
       );
 
       final result = await state.deleteTask(
@@ -408,8 +351,9 @@ void main() {
     test('transitionStatus PUTs new status and updates selectedTask', () async {
       final updatedTask = {...kTaskA, 'status': 'in_progress'};
 
-      http.alwaysReturn(
-        MagicResponse(data: {'data': updatedTask}, statusCode: 200),
+      final fake = Http.fake(
+        (MagicRequest req) =>
+            MagicResponse(data: {'data': updatedTask}, statusCode: 200),
       );
 
       final task = await state.transitionStatus(
@@ -424,16 +368,16 @@ void main() {
       expect(state.selectedTask, isNotNull);
       expect(state.selectedTask!.status, equals('in_progress'));
 
-      final call = http.calls.first;
-      expect(call.method, equals('PUT'));
+      final req = fake.recorded.first.$1;
+      expect(req.method, equals('PUT'));
       expect(
-        call.url,
+        req.url,
         equals(
           '/teams/team-uuid-001/projects/proj-uuid-001/tasks/task-uuid-001',
         ),
       );
       expect(
-        (call.data as Map<String, dynamic>)['status'],
+        (req.data as Map<String, dynamic>)['status'],
         equals('in_progress'),
       );
     });
@@ -443,8 +387,8 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('fetchSections populates sections list', () async {
-      http.alwaysReturn(
-        MagicResponse(
+      final fake = Http.fake(
+        (MagicRequest req) => MagicResponse(
           data: {
             'data': [kSectionA],
           },
@@ -467,7 +411,7 @@ void main() {
       );
 
       expect(
-        http.calls.first.url,
+        fake.recorded.first.$1.url,
         equals(
           '/teams/team-uuid-001/projects/proj-uuid-001/tasks/task-uuid-001/sections',
         ),
@@ -479,8 +423,8 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('fetchConversations populates conversations list', () async {
-      http.alwaysReturn(
-        MagicResponse(
+      final fake = Http.fake(
+        (MagicRequest req) => MagicResponse(
           data: {
             'data': [kConversationA],
           },
@@ -504,7 +448,7 @@ void main() {
       expect(state.conversations.first.isAutonomous, isTrue);
 
       expect(
-        http.calls.first.url,
+        fake.recorded.first.$1.url,
         equals('/teams/team-uuid-001/projects/proj-uuid-001/conversations'),
       );
     });
@@ -516,8 +460,9 @@ void main() {
     test(
       'startRun posts agent_role_id and returns created Conversation',
       () async {
-        http.alwaysReturn(
-          MagicResponse(data: {'data': kConversationA}, statusCode: 201),
+        final fake = Http.fake(
+          (MagicRequest req) =>
+              MagicResponse(data: {'data': kConversationA}, statusCode: 201),
         );
 
         final conversation = await state.startRun(
@@ -534,16 +479,16 @@ void main() {
         expect(conversation.taskId, equals('task-uuid-001'));
         expect(state.startingRun, isFalse);
 
-        final call = http.calls.first;
-        expect(call.method, equals('POST'));
+        final req = fake.recorded.first.$1;
+        expect(req.method, equals('POST'));
         expect(
-          call.url,
+          req.url,
           equals(
             '/teams/team-uuid-001/projects/proj-uuid-001/tasks/task-uuid-001/run',
           ),
         );
         expect(
-          (call.data as Map<String, dynamic>)['agent_role_id'],
+          (req.data as Map<String, dynamic>)['agent_role_id'],
           equals('role-uuid-001'),
         );
       },
@@ -554,8 +499,8 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('fetchAgentRoles populates agentRoles list', () async {
-      http.alwaysReturn(
-        MagicResponse(
+      final fake = Http.fake(
+        (MagicRequest req) => MagicResponse(
           data: {
             'data': [kAgentRoleA],
           },
@@ -570,7 +515,10 @@ void main() {
       expect(state.agentRoles.first.name, equals('Business Analyst'));
       expect(state.agentRoles.first.scope, equals('analysis'));
 
-      expect(http.calls.first.url, equals('/teams/team-uuid-001/agent-roles'));
+      expect(
+        fake.recorded.first.$1.url,
+        equals('/teams/team-uuid-001/agent-roles'),
+      );
     });
 
     // -----------------------------------------------------------------------
@@ -579,8 +527,8 @@ void main() {
 
     test('sortTasks by priority sorts critical before high', () async {
       // Load with high-priority task first, critical second.
-      http.alwaysReturn(
-        MagicResponse(
+      Http.fake(
+        (MagicRequest req) => MagicResponse(
           data: {
             'data': [kTaskA, kTaskB], // A=high, B=critical
           },
@@ -602,8 +550,8 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('sortTasks by updatedAt sorts most recent first', () async {
-      http.alwaysReturn(
-        MagicResponse(
+      Http.fake(
+        (MagicRequest req) => MagicResponse(
           data: {
             'data': [
               kTaskA,
@@ -630,15 +578,18 @@ void main() {
 
     test('fetchTask sets selectedTask to null on error', () async {
       // First, set a successful selectedTask.
-      http.whenAny(
-        (_) => MagicResponse(data: {'data': kTaskA}, statusCode: 200),
+      Http.fake(
+        (MagicRequest req) =>
+            MagicResponse(data: {'data': kTaskA}, statusCode: 200),
       );
       await state.fetchTask('team-uuid-001', 'proj-uuid-001', 'task-uuid-001');
       expect(state.selectedTask, isNotNull);
 
       // Now simulate an error.
-      http.whenAny(
-        (_) => MagicResponse(data: {'message': 'Not found'}, statusCode: 404),
+      Http.unfake();
+      Http.fake(
+        (MagicRequest req) =>
+            MagicResponse(data: {'message': 'Not found'}, statusCode: 404),
       );
       await state.fetchTask('team-uuid-001', 'proj-uuid-001', 'task-uuid-999');
 

@@ -2,42 +2,11 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
+import 'package:magic/testing.dart';
 
 import 'package:app/app/events/websocket_event.dart';
 import 'package:app/app/models/chat_item.dart';
 import 'package:app/app/state/conversation_chat_state.dart';
-
-// ---------------------------------------------------------------------------
-// Fake HTTP client
-// ---------------------------------------------------------------------------
-
-class _FakeHttpClient implements ConversationChatHttpClient {
-  final List<String> calls = [];
-
-  MagicResponse Function(String url)? responder;
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) async {
-    calls.add('GET $url');
-    return responder?.call(url) ??
-        MagicResponse(data: <String, dynamic>{}, statusCode: 404);
-  }
-
-  @override
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) async {
-    calls.add('POST $url');
-    return responder?.call(url) ??
-        MagicResponse(data: <String, dynamic>{}, statusCode: 200);
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Fake WebSocket — tracks subscribe/unsubscribe calls
@@ -218,14 +187,16 @@ WebSocketEvent _toolUseEvent({required String toolName, String? toolUseId}) {
 // ---------------------------------------------------------------------------
 
 void main() {
-  late _FakeHttpClient http;
+  MagicTest.init();
+
+  late FakeNetworkDriver driver;
   late _FakeWebSocket ws;
   late ConversationChatState state;
 
   setUp(() {
-    http = _FakeHttpClient();
+    driver = Http.fake();
     ws = _FakeWebSocket();
-    state = ConversationChatState(httpClient: http, webSocket: ws);
+    state = ConversationChatState(webSocket: ws);
   });
 
   tearDown(() {
@@ -234,13 +205,10 @@ void main() {
 
   /// Helper: create a conversation so the state is in "active" mode.
   Future<void> createConversation() async {
-    http.responder = (url) {
-      if (url.contains('/conversations') && !url.contains('/messages')) {
-        return _createConversationResponse();
-      }
-      if (url.contains('/messages')) return _messagesResponse();
-      return MagicResponse(data: <String, dynamic>{}, statusCode: 404);
-    };
+    // Order matters: last registered = highest priority.
+    // Messages stub must come after conversations so it wins on /messages URLs.
+    driver.stub('*/conversations*', _createConversationResponse());
+    driver.stub('*/messages', _messagesResponse());
 
     await state.createConversation(
       kTeamId,
@@ -576,13 +544,8 @@ void main() {
 
   group('loadConversation', () {
     test('loads conversation and subscribes to WS channel', () async {
-      http.responder = (url) {
-        if (url.contains('/conversations') && !url.contains('/messages')) {
-          return _loadConversationResponse();
-        }
-        if (url.contains('/messages')) return _messagesResponse();
-        return MagicResponse(data: <String, dynamic>{}, statusCode: 404);
-      };
+      driver.stub('*/conversations/*', _loadConversationResponse());
+      driver.stub('*/messages*', _messagesResponse());
 
       await state.loadConversation(kTeamId, kProjectId, kConversationId);
 
@@ -604,15 +567,16 @@ void main() {
       await state.sendMessage('Hello');
 
       // No HTTP call made.
-      expect(http.calls, isEmpty);
+      driver.assertNothingSent();
     });
 
     test('serialises concurrent sends via activeSendFuture', () async {
       await createConversation();
 
-      http.responder = (url) {
-        return MagicResponse(data: <String, dynamic>{}, statusCode: 200);
-      };
+      driver.stub(
+        '*/messages*',
+        MagicResponse(data: <String, dynamic>{}, statusCode: 200),
+      );
 
       // Start first send.
       final first = state.sendMessage('Hello');
@@ -621,8 +585,8 @@ void main() {
       await Future.wait([first, second]);
 
       // Both POSTs fire — serialised, not dropped.
-      final messagePosts = http.calls
-          .where((c) => c.contains('/messages'))
+      final messagePosts = driver.recorded
+          .where((r) => r.$1.url.contains('/messages'))
           .toList();
       expect(messagePosts, hasLength(2));
     });
@@ -651,15 +615,16 @@ void main() {
 
       expect(state.pendingQuestion, isNotNull);
 
-      http.responder = (url) {
-        return MagicResponse(data: <String, dynamic>{}, statusCode: 200);
-      };
+      driver.stub(
+        '*/messages*',
+        MagicResponse(data: <String, dynamic>{}, statusCode: 200),
+      );
 
       await state.sendMessage('Another message');
 
       // No HTTP call — send was blocked by pending question guard.
-      final messagePosts = http.calls
-          .where((c) => c.contains('/messages'))
+      final messagePosts = driver.recorded
+          .where((r) => r.$1.url.contains('/messages'))
           .toList();
       expect(messagePosts, isEmpty);
     });
@@ -667,9 +632,10 @@ void main() {
     test('optimistic message appended immediately', () async {
       await createConversation();
 
-      http.responder = (url) {
-        return MagicResponse(data: <String, dynamic>{}, statusCode: 200);
-      };
+      driver.stub(
+        '*/messages*',
+        MagicResponse(data: <String, dynamic>{}, statusCode: 200),
+      );
 
       await state.sendMessage('Quick question');
 
@@ -843,46 +809,45 @@ void main() {
     Future<void> loadConversationWithPendingEvents(
       List<Map<String, dynamic>> pendingEvents,
     ) async {
-      http.responder = (url) {
-        if (url.contains('/messages')) return _messagesResponse();
-        if (url.contains('/conversations/')) {
-          return MagicResponse(
-            data: {
-              'data': {
-                'id': kConversationId,
-                'project_id': kProjectId,
-                'user': {'id': 'user-uuid-001', 'name': 'Test User'},
-                'agent_role': {
-                  'id': 'role-uuid-001',
-                  'name': 'Lead Developer',
-                  'slug': 'lead',
-                },
-                'title': 'Test',
-                'status': 'paused',
-                'model': 'claude-sonnet-4-6',
-                'total_cost_usd': '0.10',
-                'total_input_tokens': 1000,
-                'total_output_tokens': 500,
-                'messages_count': 2,
-                'last_activity_at': '2026-03-27T10:00:00.000Z',
-                'started_at': '2026-03-27T09:55:00.000Z',
-                'completed_at': null,
-                'created_at': '2026-03-27T09:55:00.000Z',
-                'updated_at': '2026-03-27T10:00:00.000Z',
-                'active_session': {
-                  'id': 'session-uuid-001',
-                  'phase': 'warm',
-                  'warm_until': '2026-03-27T10:30:00.000Z',
-                },
-                'pending_events': pendingEvents,
-                'pending_question': null,
+      driver.stub(
+        '*/conversations/*',
+        MagicResponse(
+          data: {
+            'data': {
+              'id': kConversationId,
+              'project_id': kProjectId,
+              'user': {'id': 'user-uuid-001', 'name': 'Test User'},
+              'agent_role': {
+                'id': 'role-uuid-001',
+                'name': 'Lead Developer',
+                'slug': 'lead',
               },
+              'title': 'Test',
+              'status': 'paused',
+              'model': 'claude-sonnet-4-6',
+              'total_cost_usd': '0.10',
+              'total_input_tokens': 1000,
+              'total_output_tokens': 500,
+              'messages_count': 2,
+              'last_activity_at': '2026-03-27T10:00:00.000Z',
+              'started_at': '2026-03-27T09:55:00.000Z',
+              'completed_at': null,
+              'created_at': '2026-03-27T09:55:00.000Z',
+              'updated_at': '2026-03-27T10:00:00.000Z',
+              'active_session': {
+                'id': 'session-uuid-001',
+                'phase': 'warm',
+                'warm_until': '2026-03-27T10:30:00.000Z',
+              },
+              'pending_events': pendingEvents,
+              'pending_question': null,
             },
-            statusCode: 200,
-          );
-        }
-        return MagicResponse(data: <String, dynamic>{}, statusCode: 404);
-      };
+          },
+          statusCode: 200,
+        ),
+      );
+      // Messages stub AFTER conversations — last registered = highest priority.
+      driver.stub('*/messages', _messagesResponse());
 
       await state.loadConversation(kTeamId, kProjectId, kConversationId);
     }
@@ -1101,124 +1066,118 @@ void main() {
   group('WS reconnect catch-up', () {
     test('reconnect fetches pending_events and merges with dedup', () async {
       // Load conversation with one pending event.
-      http.responder = (url) {
-        if (url.contains('/messages')) return _messagesResponse();
-        if (url.contains('/conversations/')) {
-          return MagicResponse(
-            data: {
-              'data': {
-                'id': kConversationId,
-                'project_id': kProjectId,
-                'user': {'id': 'user-uuid-001', 'name': 'Test User'},
-                'agent_role': {
-                  'id': 'role-uuid-001',
-                  'name': 'Lead Developer',
-                  'slug': 'lead',
-                },
-                'title': 'Test',
-                'status': 'paused',
-                'model': 'claude-sonnet-4-6',
-                'total_cost_usd': '0.10',
-                'total_input_tokens': 1000,
-                'total_output_tokens': 500,
-                'messages_count': 2,
-                'last_activity_at': '2026-03-27T10:00:00.000Z',
-                'started_at': '2026-03-27T09:55:00.000Z',
-                'completed_at': null,
-                'created_at': '2026-03-27T09:55:00.000Z',
-                'updated_at': '2026-03-27T10:00:00.000Z',
-                'active_session': {
-                  'id': 'session-uuid-001',
-                  'phase': 'warm',
-                  'warm_until': '2026-03-27T10:30:00.000Z',
-                },
-                'pending_events': [
-                  {
-                    'id': 'se-reconnect-001',
-                    'type': 'thinking',
-                    'content_text': 'Thinking after reconnect...',
-                    'data': {},
-                    'metadata': null,
-                    'occurred_at': '2026-03-27T10:01:00.000Z',
-                  },
-                ],
-                'pending_question': null,
+      // Conversations stub first, then messages (last = highest priority).
+      driver.stub(
+        '*/conversations/*',
+        MagicResponse(
+          data: {
+            'data': {
+              'id': kConversationId,
+              'project_id': kProjectId,
+              'user': {'id': 'user-uuid-001', 'name': 'Test User'},
+              'agent_role': {
+                'id': 'role-uuid-001',
+                'name': 'Lead Developer',
+                'slug': 'lead',
               },
+              'title': 'Test',
+              'status': 'paused',
+              'model': 'claude-sonnet-4-6',
+              'total_cost_usd': '0.10',
+              'total_input_tokens': 1000,
+              'total_output_tokens': 500,
+              'messages_count': 2,
+              'last_activity_at': '2026-03-27T10:00:00.000Z',
+              'started_at': '2026-03-27T09:55:00.000Z',
+              'completed_at': null,
+              'created_at': '2026-03-27T09:55:00.000Z',
+              'updated_at': '2026-03-27T10:00:00.000Z',
+              'active_session': {
+                'id': 'session-uuid-001',
+                'phase': 'warm',
+                'warm_until': '2026-03-27T10:30:00.000Z',
+              },
+              'pending_events': [
+                {
+                  'id': 'se-reconnect-001',
+                  'type': 'thinking',
+                  'content_text': 'Thinking after reconnect...',
+                  'data': {},
+                  'metadata': null,
+                  'occurred_at': '2026-03-27T10:01:00.000Z',
+                },
+              ],
+              'pending_question': null,
             },
-            statusCode: 200,
-          );
-        }
-        return MagicResponse(data: <String, dynamic>{}, statusCode: 404);
-      };
+          },
+          statusCode: 200,
+        ),
+      );
+      driver.stub('*/messages', _messagesResponse());
 
       await state.loadConversation(kTeamId, kProjectId, kConversationId);
       expect(state.chatItems, hasLength(1));
 
       // Now change the API response to include a NEW event on reconnect.
-      http.responder = (url) {
-        if (url.contains('/messages')) return _messagesResponse();
-        if (url.contains('/conversations/')) {
-          return MagicResponse(
-            data: {
-              'data': {
-                'id': kConversationId,
-                'project_id': kProjectId,
-                'user': {'id': 'user-uuid-001', 'name': 'Test User'},
-                'agent_role': {
-                  'id': 'role-uuid-001',
-                  'name': 'Lead Developer',
-                  'slug': 'lead',
-                },
-                'title': 'Test',
-                'status': 'paused',
-                'model': 'claude-sonnet-4-6',
-                'total_cost_usd': '0.10',
-                'total_input_tokens': 1000,
-                'total_output_tokens': 500,
-                'messages_count': 2,
-                'last_activity_at': '2026-03-27T10:00:00.000Z',
-                'started_at': '2026-03-27T09:55:00.000Z',
-                'completed_at': null,
-                'created_at': '2026-03-27T09:55:00.000Z',
-                'updated_at': '2026-03-27T10:00:00.000Z',
-                'active_session': {
-                  'id': 'session-uuid-001',
-                  'phase': 'warm',
-                  'warm_until': '2026-03-27T10:30:00.000Z',
-                },
-                'pending_events': [
-                  // Same event (already seen — should be deduped).
-                  {
-                    'id': 'se-reconnect-001',
-                    'type': 'thinking',
-                    'content_text': 'Thinking after reconnect...',
-                    'data': {},
-                    'metadata': null,
-                    'occurred_at': '2026-03-27T10:01:00.000Z',
-                  },
-                  // New event missed during disconnect.
-                  {
-                    'id': 'se-reconnect-002',
-                    'type': 'tool_use',
-                    'content_text': null,
-                    'data': {
-                      'metadata': {
-                        'toolName': 'Grep',
-                        'toolUseId': 'toolu_grep',
-                      },
-                    },
-                    'metadata': {'toolName': 'Grep', 'toolUseId': 'toolu_grep'},
-                    'occurred_at': '2026-03-27T10:01:30.000Z',
-                  },
-                ],
-                'pending_question': null,
+      driver.stub(
+        '*/conversations/*',
+        MagicResponse(
+          data: {
+            'data': {
+              'id': kConversationId,
+              'project_id': kProjectId,
+              'user': {'id': 'user-uuid-001', 'name': 'Test User'},
+              'agent_role': {
+                'id': 'role-uuid-001',
+                'name': 'Lead Developer',
+                'slug': 'lead',
               },
+              'title': 'Test',
+              'status': 'paused',
+              'model': 'claude-sonnet-4-6',
+              'total_cost_usd': '0.10',
+              'total_input_tokens': 1000,
+              'total_output_tokens': 500,
+              'messages_count': 2,
+              'last_activity_at': '2026-03-27T10:00:00.000Z',
+              'started_at': '2026-03-27T09:55:00.000Z',
+              'completed_at': null,
+              'created_at': '2026-03-27T09:55:00.000Z',
+              'updated_at': '2026-03-27T10:00:00.000Z',
+              'active_session': {
+                'id': 'session-uuid-001',
+                'phase': 'warm',
+                'warm_until': '2026-03-27T10:30:00.000Z',
+              },
+              'pending_events': [
+                // Same event (already seen — should be deduped).
+                {
+                  'id': 'se-reconnect-001',
+                  'type': 'thinking',
+                  'content_text': 'Thinking after reconnect...',
+                  'data': {},
+                  'metadata': null,
+                  'occurred_at': '2026-03-27T10:01:00.000Z',
+                },
+                // New event missed during disconnect.
+                {
+                  'id': 'se-reconnect-002',
+                  'type': 'tool_use',
+                  'content_text': null,
+                  'data': {
+                    'metadata': {'toolName': 'Grep', 'toolUseId': 'toolu_grep'},
+                  },
+                  'metadata': {'toolName': 'Grep', 'toolUseId': 'toolu_grep'},
+                  'occurred_at': '2026-03-27T10:01:30.000Z',
+                },
+              ],
+              'pending_question': null,
             },
-            statusCode: 200,
-          );
-        }
-        return MagicResponse(data: <String, dynamic>{}, statusCode: 404);
-      };
+          },
+          statusCode: 200,
+        ),
+      );
+      driver.stub('*/messages', _messagesResponse());
 
       // Simulate WS reconnect.
       ws.simulateReconnect();

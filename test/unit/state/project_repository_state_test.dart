@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
+import 'package:magic/testing.dart';
 
 import 'package:app/app/events/websocket_event.dart';
 import 'package:app/app/state/project_repository_state.dart';
@@ -62,88 +63,19 @@ class _FakeWebSocket implements RepoWebSocket {
 }
 
 // ---------------------------------------------------------------------------
-// Fake HTTP client
-// ---------------------------------------------------------------------------
-
-/// Injectable HTTP client for testing [ProjectRepositoryState] without hitting
-/// the network. Records calls and returns pre-configured [MagicResponse]s.
-class _FakeHttpClient implements ProjectRepositoryHttpClient {
-  final List<_HttpCall> calls = [];
-  late MagicResponse Function(String url) _responder;
-
-  /// Set a responder that maps URL to [MagicResponse].
-  void whenAny(MagicResponse Function(String url) responder) {
-    _responder = responder;
-  }
-
-  /// Shortcut: always return the same response regardless of URL.
-  void alwaysReturn(MagicResponse response) {
-    _responder = (_) => response;
-  }
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) async {
-    calls.add(_HttpCall('GET', url));
-    return _responder(url);
-  }
-
-  @override
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) async {
-    calls.add(_HttpCall('POST', url, data: data));
-    return _responder(url);
-  }
-
-  @override
-  Future<MagicResponse> put(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) async {
-    calls.add(_HttpCall('PUT', url, data: data));
-    return _responder(url);
-  }
-
-  @override
-  Future<MagicResponse> delete(
-    String url, {
-    Map<String, String>? headers,
-  }) async {
-    calls.add(_HttpCall('DELETE', url));
-    return _responder(url);
-  }
-}
-
-class _HttpCall {
-  _HttpCall(this.method, this.url, {this.data});
-
-  final String method;
-  final String url;
-  final dynamic data;
-
-  @override
-  String toString() => '$method $url';
-}
-
-// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
 void main() {
+  MagicTest.init();
+
   group('ProjectRepositoryState', () {
-    late _FakeHttpClient http;
+    late FakeNetworkDriver driver;
     late ProjectRepositoryState state;
 
     setUp(() {
-      http = _FakeHttpClient();
-      state = ProjectRepositoryState(httpClient: http);
+      driver = Http.fake();
+      state = ProjectRepositoryState();
     });
 
     tearDown(() {
@@ -157,13 +89,11 @@ void main() {
     test(
       'fetchRepositories sets loading then success with repo list',
       () async {
-        http.alwaysReturn(
-          MagicResponse(
-            data: {
-              'data': [kRepoA, kRepoB],
-            },
-            statusCode: 200,
-          ),
+        driver.stub(
+          '*/repositories*',
+          Http.response({
+            'data': [kRepoA, kRepoB],
+          }),
         );
 
         // Initial state: empty list, not loading.
@@ -187,11 +117,12 @@ void main() {
         expect(state.repositories[1].id, equals('repo-uuid-002'));
 
         // Verify correct URL.
-        expect(http.calls.length, equals(1));
-        expect(http.calls.first.method, equals('GET'));
-        expect(
-          http.calls.first.url,
-          equals('/teams/team-uuid-001/projects/proj-uuid-001/repositories'),
+        driver.assertSentCount(1);
+        driver.assertSent(
+          (r) =>
+              r.method == 'GET' &&
+              r.url ==
+                  '/teams/team-uuid-001/projects/proj-uuid-001/repositories',
         );
       },
     );
@@ -201,9 +132,7 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('fetchRepositories transitions to empty when list is empty', () async {
-      http.alwaysReturn(
-        MagicResponse(data: {'data': <dynamic>[]}, statusCode: 200),
-      );
+      driver.stub('*/repositories*', Http.response({'data': <dynamic>[]}));
 
       await state.fetchRepositories('team-uuid-001', 'proj-uuid-001');
 
@@ -216,8 +145,9 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('fetchRepositories sets error state on failure', () async {
-      http.alwaysReturn(
-        MagicResponse(data: {'message': 'Unauthorized'}, statusCode: 401),
+      driver.stub(
+        '*/repositories*',
+        Http.response({'message': 'Unauthorized'}, 401),
       );
 
       final future = state.fetchRepositories('team-uuid-001', 'proj-uuid-001');
@@ -234,7 +164,7 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('createRepository posts data and returns created repo', () async {
-      http.alwaysReturn(MagicResponse(data: {'data': kRepoA}, statusCode: 201));
+      driver.stub('*/repositories', Http.response({'data': kRepoA}, 201));
 
       final repo = await state.createRepository(
         'team-uuid-001',
@@ -246,9 +176,10 @@ void main() {
       expect(repo!.id, equals('repo-uuid-001'));
       expect(repo.name, equals('API Repo'));
 
-      expect(http.calls.first.method, equals('POST'));
+      final request = driver.recorded.first.$1;
+      expect(request.method, equals('POST'));
       expect(
-        http.calls.first.url,
+        request.url,
         equals('/teams/team-uuid-001/projects/proj-uuid-001/repositories'),
       );
     });
@@ -258,8 +189,9 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('createRepository returns null on failure', () async {
-      http.alwaysReturn(
-        MagicResponse(data: {'message': 'Validation error'}, statusCode: 422),
+      driver.stub(
+        '*/repositories',
+        Http.response({'message': 'Validation error'}, 422),
       );
 
       final repo = await state.createRepository(
@@ -276,7 +208,7 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('deleteRepository sends DELETE and returns true on success', () async {
-      http.alwaysReturn(MagicResponse(data: null, statusCode: 204));
+      driver.stub('*/repositories/repo-uuid-001', Http.response(null, 204));
 
       final result = await state.deleteRepository(
         'team-uuid-001',
@@ -286,9 +218,10 @@ void main() {
 
       expect(result, isTrue);
 
-      expect(http.calls.first.method, equals('DELETE'));
+      final request = driver.recorded.first.$1;
+      expect(request.method, equals('DELETE'));
       expect(
-        http.calls.first.url,
+        request.url,
         equals(
           '/teams/team-uuid-001/projects/proj-uuid-001/repositories/repo-uuid-001',
         ),
@@ -300,8 +233,9 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('deleteRepository returns false on failure', () async {
-      http.alwaysReturn(
-        MagicResponse(data: {'message': 'Forbidden'}, statusCode: 403),
+      driver.stub(
+        '*/repositories/repo-uuid-001',
+        Http.response({'message': 'Forbidden'}, 403),
       );
 
       final result = await state.deleteRepository(
@@ -318,7 +252,7 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('cloneRepository posts to clone endpoint and returns true', () async {
-      http.alwaysReturn(MagicResponse(data: {'data': {}}, statusCode: 200));
+      driver.stub('*/repo/clone', Http.response({'data': {}}));
 
       final result = await state.cloneRepository(
         'team-uuid-001',
@@ -328,9 +262,10 @@ void main() {
 
       expect(result, isTrue);
 
-      expect(http.calls.first.method, equals('POST'));
+      final request = driver.recorded.first.$1;
+      expect(request.method, equals('POST'));
       expect(
-        http.calls.first.url,
+        request.url,
         equals(
           '/teams/team-uuid-001/projects/proj-uuid-001/repositories/repo-uuid-001/repo/clone',
         ),
@@ -342,8 +277,9 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('cloneRepository returns false on failure', () async {
-      http.alwaysReturn(
-        MagicResponse(data: {'message': 'Server Error'}, statusCode: 500),
+      driver.stub(
+        '*/repo/clone',
+        Http.response({'message': 'Server Error'}, 500),
       );
 
       final result = await state.cloneRepository(
@@ -360,13 +296,11 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('fetchRepoStatus stores repo status on success', () async {
-      http.alwaysReturn(
-        MagicResponse(
-          data: {
-            'data': {'status': 'cloned'},
-          },
-          statusCode: 200,
-        ),
+      driver.stub(
+        '*/repo/status',
+        Http.response({
+          'data': {'status': 'cloned'},
+        }),
       );
 
       expect(state.repoStatuses['repo-uuid-001'], isNull);
@@ -378,11 +312,10 @@ void main() {
       );
 
       expect(state.repoStatuses['repo-uuid-001'], equals('cloned'));
-      expect(
-        http.calls.first.url,
-        equals(
-          '/teams/team-uuid-001/projects/proj-uuid-001/repositories/repo-uuid-001/repo/status',
-        ),
+      driver.assertSent(
+        (r) =>
+            r.url ==
+            '/teams/team-uuid-001/projects/proj-uuid-001/repositories/repo-uuid-001/repo/status',
       );
     });
 
@@ -392,13 +325,11 @@ void main() {
 
     test('fetchRepoStatus clears repoStatus on failure', () async {
       // Prime repoStatuses with a value via a successful call first.
-      http.alwaysReturn(
-        MagicResponse(
-          data: {
-            'data': {'status': 'cloned'},
-          },
-          statusCode: 200,
-        ),
+      driver.stub(
+        '*/repo/status',
+        Http.response({
+          'data': {'status': 'cloned'},
+        }),
       );
       await state.fetchRepoStatus(
         'team-uuid-001',
@@ -408,8 +339,9 @@ void main() {
       expect(state.repoStatuses['repo-uuid-001'], equals('cloned'));
 
       // Now simulate an error.
-      http.alwaysReturn(
-        MagicResponse(data: {'message': 'Not Found'}, statusCode: 404),
+      driver.stub(
+        '*/repo/status',
+        Http.response({'message': 'Not Found'}, 404),
       );
       await state.fetchRepoStatus(
         'team-uuid-001',
@@ -439,21 +371,16 @@ void main() {
       () async {
         const Map<String, dynamic> kRepoAMain = {...kRepoA, 'is_main': true};
 
-        http.whenAny((url) {
-          if (url.contains('/repo/clone') || url.contains('/repo/status')) {
-            return MagicResponse(data: {'data': {}}, statusCode: 200);
-          }
-          if (url.endsWith('/repositories/repo-uuid-001')) {
-            return MagicResponse(data: {'data': kRepoAMain}, statusCode: 200);
-          }
-          // fetchRepositories after refresh
-          return MagicResponse(
-            data: {
-              'data': [kRepoAMain, kRepoB],
-            },
-            statusCode: 200,
-          );
-        });
+        driver.stub(
+          '*/repositories/repo-uuid-001',
+          Http.response({'data': kRepoAMain}),
+        );
+        driver.stub(
+          '*/repositories',
+          Http.response({
+            'data': [kRepoAMain, kRepoB],
+          }),
+        );
 
         await state.setMainRepository(
           'team-uuid-001',
@@ -462,20 +389,20 @@ void main() {
         );
 
         // PUT call was made with is_main: true.
-        final putCall = http.calls.firstWhere((c) => c.method == 'PUT');
-        expect(
-          putCall.url,
-          equals(
-            '/teams/team-uuid-001/projects/proj-uuid-001/repositories/repo-uuid-001',
-          ),
+        driver.assertSent(
+          (r) =>
+              r.method == 'PUT' &&
+              r.url ==
+                  '/teams/team-uuid-001/projects/proj-uuid-001/repositories/repo-uuid-001' &&
+              (r.data as Map<String, dynamic>)['is_main'] == true,
         );
-        expect((putCall.data as Map<String, dynamic>)['is_main'], isTrue);
 
         // GET call for fetchRepositories was made after PUT.
-        final getCall = http.calls.firstWhere((c) => c.method == 'GET');
-        expect(
-          getCall.url,
-          equals('/teams/team-uuid-001/projects/proj-uuid-001/repositories'),
+        driver.assertSent(
+          (r) =>
+              r.method == 'GET' &&
+              r.url ==
+                  '/teams/team-uuid-001/projects/proj-uuid-001/repositories',
         );
 
         // Repositories list was refreshed.
@@ -489,8 +416,9 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('setMainRepository does not refresh when PUT fails', () async {
-      http.alwaysReturn(
-        MagicResponse(data: {'message': 'Forbidden'}, statusCode: 403),
+      driver.stub(
+        '*/repositories/repo-uuid-001',
+        Http.response({'message': 'Forbidden'}, 403),
       );
 
       await state.setMainRepository(
@@ -500,8 +428,8 @@ void main() {
       );
 
       // Only one call was made (PUT) — no GET for refresh.
-      expect(http.calls.length, equals(1));
-      expect(http.calls.first.method, equals('PUT'));
+      driver.assertSentCount(1);
+      driver.assertSent((r) => r.method == 'PUT');
     });
 
     // -----------------------------------------------------------------------
@@ -514,7 +442,7 @@ void main() {
 
       setUp(() {
         ws = _FakeWebSocket();
-        wsState = ProjectRepositoryState(httpClient: http, ws: ws);
+        wsState = ProjectRepositoryState(ws: ws);
       });
 
       tearDown(() {
@@ -545,13 +473,11 @@ void main() {
       test(
         'WebSocket onboarding status updates _repoStatuses without refetch',
         () async {
-          http.alwaysReturn(
-            MagicResponse(
-              data: {
-                'data': [kRepoA],
-              },
-              statusCode: 200,
-            ),
+          driver.stub(
+            '*/repositories*',
+            Http.response({
+              'data': [kRepoA],
+            }),
           );
 
           wsState.subscribeToTeam('team-uuid-001', 'proj-uuid-001');
@@ -563,7 +489,7 @@ void main() {
 
           expect(wsState.repoStatuses['repo-uuid-001'], equals('onboarding'));
           // No HTTP calls — onboarding is intermediate, no refetch.
-          expect(http.calls, isEmpty);
+          driver.assertNothingSent();
         },
       );
 
@@ -571,13 +497,11 @@ void main() {
       test(
         'WebSocket ready status updates _repoStatuses and triggers fetchRepositories',
         () async {
-          http.alwaysReturn(
-            MagicResponse(
-              data: {
-                'data': [kRepoA],
-              },
-              statusCode: 200,
-            ),
+          driver.stub(
+            '*/repositories*',
+            Http.response({
+              'data': [kRepoA],
+            }),
           );
 
           wsState.subscribeToTeam('team-uuid-001', 'proj-uuid-001');
@@ -592,11 +516,12 @@ void main() {
           // Allow async fetchRepositories to complete.
           await Future<void>.delayed(Duration.zero);
 
-          expect(http.calls.length, equals(1));
-          expect(http.calls.first.method, equals('GET'));
-          expect(
-            http.calls.first.url,
-            equals('/teams/team-uuid-001/projects/proj-uuid-001/repositories'),
+          driver.assertSentCount(1);
+          driver.assertSent(
+            (r) =>
+                r.method == 'GET' &&
+                r.url ==
+                    '/teams/team-uuid-001/projects/proj-uuid-001/repositories',
           );
         },
       );
@@ -605,13 +530,11 @@ void main() {
       test(
         'WebSocket cloned status still triggers fetchRepositories',
         () async {
-          http.alwaysReturn(
-            MagicResponse(
-              data: {
-                'data': [kRepoA],
-              },
-              statusCode: 200,
-            ),
+          driver.stub(
+            '*/repositories*',
+            Http.response({
+              'data': [kRepoA],
+            }),
           );
 
           wsState.subscribeToTeam('team-uuid-001', 'proj-uuid-001');
@@ -624,8 +547,8 @@ void main() {
 
           await Future<void>.delayed(Duration.zero);
 
-          expect(http.calls.length, equals(1));
-          expect(http.calls.first.method, equals('GET'));
+          driver.assertSentCount(1);
+          driver.assertSent((r) => r.method == 'GET');
         },
       );
 
@@ -633,9 +556,7 @@ void main() {
       test(
         'WebSocket error status triggers fetchRepositories and stores error',
         () async {
-          http.alwaysReturn(
-            MagicResponse(data: {'data': <dynamic>[]}, statusCode: 200),
-          );
+          driver.stub('*/repositories*', Http.response({'data': <dynamic>[]}));
 
           wsState.subscribeToTeam('team-uuid-001', 'proj-uuid-001');
 
@@ -655,8 +576,8 @@ void main() {
 
           await Future<void>.delayed(Duration.zero);
 
-          expect(http.calls.length, equals(1));
-          expect(http.calls.first.method, equals('GET'));
+          driver.assertSentCount(1);
+          driver.assertSent((r) => r.method == 'GET');
         },
       );
 
@@ -673,7 +594,7 @@ void main() {
         );
 
         expect(wsState.repoStatuses['repo-uuid-999'], isNull);
-        expect(http.calls, isEmpty);
+        driver.assertNothingSent();
       });
     });
 
@@ -686,7 +607,7 @@ void main() {
       test(
         'reanalyzeRepository sets onboarding status optimistically and posts to reanalyze endpoint',
         () async {
-          http.alwaysReturn(MagicResponse(data: {'data': {}}, statusCode: 200));
+          driver.stub('*/repo/reanalyze', Http.response({'data': {}}));
 
           // Status starts as null.
           expect(state.repoStatuses['repo-uuid-001'], isNull);
@@ -703,10 +624,11 @@ void main() {
           await future;
 
           // POST was made to the correct URL.
-          expect(http.calls.length, equals(1));
-          expect(http.calls.first.method, equals('POST'));
+          driver.assertSentCount(1);
+          final request = driver.recorded.first.$1;
+          expect(request.method, equals('POST'));
           expect(
-            http.calls.first.url,
+            request.url,
             equals(
               '/teams/team-uuid-001/projects/proj-uuid-001/repositories/repo-uuid-001/repo/reanalyze',
             ),
@@ -718,8 +640,9 @@ void main() {
       test(
         'reanalyzeRepository keeps onboarding status after server failure',
         () async {
-          http.alwaysReturn(
-            MagicResponse(data: {'message': 'Server Error'}, statusCode: 500),
+          driver.stub(
+            '*/repo/reanalyze',
+            Http.response({'message': 'Server Error'}, 500),
           );
 
           await state.reanalyzeRepository(

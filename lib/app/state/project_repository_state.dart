@@ -4,70 +4,6 @@ import '../events/websocket_event.dart';
 import '../models/project_repository.dart';
 
 // ---------------------------------------------------------------------------
-// HTTP abstraction for testability
-// ---------------------------------------------------------------------------
-
-/// Thin interface over the HTTP verbs [ProjectRepositoryState] uses.
-///
-/// In production the default [_MagicHttpClient] delegates to [Http].
-/// Tests inject a fake that records calls and returns canned responses.
-abstract class ProjectRepositoryHttpClient {
-  /// Perform a GET request.
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  });
-
-  /// Perform a POST request.
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  });
-
-  /// Perform a PUT request.
-  Future<MagicResponse> put(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  });
-
-  /// Perform a DELETE request.
-  Future<MagicResponse> delete(String url, {Map<String, String>? headers});
-}
-
-/// Default production [ProjectRepositoryHttpClient] backed by the Magic [Http] facade.
-class _MagicHttpClient implements ProjectRepositoryHttpClient {
-  const _MagicHttpClient();
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) => Http.get(url, query: query, headers: headers);
-
-  @override
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) => Http.post(url, data: data, headers: headers);
-
-  @override
-  Future<MagicResponse> put(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) => Http.put(url, data: data, headers: headers);
-
-  @override
-  Future<MagicResponse> delete(String url, {Map<String, String>? headers}) =>
-      Http.delete(url, headers: headers);
-}
-
-// ---------------------------------------------------------------------------
 // WebSocket abstraction for testability
 // ---------------------------------------------------------------------------
 
@@ -128,15 +64,12 @@ class _MagicRepoWebSocket implements RepoWebSocket {
 /// ```
 class ProjectRepositoryState extends MagicController
     with MagicStateMixin<List<ProjectRepository>> {
-  /// Creates a [ProjectRepositoryState] with optional [httpClient] and [ws] for testing.
+  /// Creates a [ProjectRepositoryState] with optional [ws] for testing.
   ///
-  /// When [httpClient] is `null` (production), the Magic [Http] facade is
-  /// used via [_MagicHttpClient]. Same for [ws] → [_MagicRepoWebSocket].
-  ProjectRepositoryState({
-    ProjectRepositoryHttpClient? httpClient,
-    RepoWebSocket? ws,
-  }) : _http = httpClient ?? const _MagicHttpClient(),
-       _ws = ws ?? const _MagicRepoWebSocket();
+  /// When [ws] is `null` (production), [_MagicRepoWebSocket] resolves the
+  /// registered WebSocketService.
+  ProjectRepositoryState({RepoWebSocket? ws})
+    : _ws = ws ?? const _MagicRepoWebSocket();
 
   /// Lazy singleton accessor.
   ///
@@ -145,7 +78,6 @@ class ProjectRepositoryState extends MagicController
   static ProjectRepositoryState get instance =>
       Magic.findOrPut(ProjectRepositoryState.new);
 
-  final ProjectRepositoryHttpClient _http;
   final RepoWebSocket _ws;
 
   /// The currently subscribed team channel, or `null` if not listening.
@@ -183,7 +115,7 @@ class ProjectRepositoryState extends MagicController
   Future<void> fetchRepositories(String teamId, String projectId) async {
     setLoading();
 
-    final response = await _http.get(
+    final response = await Http.get(
       '/teams/$teamId/projects/$projectId/repositories',
     );
 
@@ -213,7 +145,7 @@ class ProjectRepositoryState extends MagicController
     String projectId,
     Map<String, dynamic> data,
   ) async {
-    final response = await _http.post(
+    final response = await Http.post(
       '/teams/$teamId/projects/$projectId/repositories',
       data: data,
     );
@@ -237,7 +169,7 @@ class ProjectRepositoryState extends MagicController
     String repoId,
     Map<String, dynamic> data,
   ) async {
-    final response = await _http.put(
+    final response = await Http.put(
       '/teams/$teamId/projects/$projectId/repositories/$repoId',
       data: data,
     );
@@ -278,7 +210,7 @@ class ProjectRepositoryState extends MagicController
     String projectId,
     String repoId,
   ) async {
-    final response = await _http.delete(
+    final response = await Http.delete(
       '/teams/$teamId/projects/$projectId/repositories/$repoId',
     );
 
@@ -298,7 +230,7 @@ class ProjectRepositoryState extends MagicController
     String projectId,
     String repoId,
   ) async {
-    final response = await _http.post(
+    final response = await Http.post(
       '/teams/$teamId/projects/$projectId/repositories/$repoId/repo/clone',
     );
 
@@ -313,7 +245,7 @@ class ProjectRepositoryState extends MagicController
     String projectId,
     String repoId,
   ) async {
-    final response = await _http.get(
+    final response = await Http.get(
       '/teams/$teamId/projects/$projectId/repositories/$repoId/repo/status',
     );
 
@@ -420,7 +352,7 @@ class ProjectRepositoryState extends MagicController
     _repoStatuses[repoId] = 'onboarding';
     refreshUI();
 
-    await _http.post(
+    await Http.post(
       '/teams/$teamId/projects/$projectId/repositories/$repoId/repo/reanalyze',
     );
   }

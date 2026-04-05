@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
+import 'package:magic/testing.dart';
 
 import 'package:app/app/state/billing_state.dart';
 
@@ -74,68 +75,24 @@ const Map<String, dynamic> kUsagePayload = {
 };
 
 // ---------------------------------------------------------------------------
-// Fake HTTP client
-// ---------------------------------------------------------------------------
-
-/// Injectable HTTP client for testing [BillingState] without hitting the
-/// network. Records calls and returns pre-configured [MagicResponse] values.
-///
-/// Supports both a simple [alwaysReturn] shortcut and a URL-conditional
-/// [respondWith] callback for tests that call multiple endpoints.
-class FakeBillingHttpClient implements BillingHttpClient {
-  final List<HttpCall> calls = [];
-  late MagicResponse Function(String url) _responder;
-
-  /// Always return [response] regardless of the requested URL.
-  void alwaysReturn(MagicResponse response) {
-    _responder = (_) => response;
-  }
-
-  /// Return a response determined by the given [responder] function.
-  ///
-  /// Useful when a test exercises methods that call different endpoints.
-  void respondWith(MagicResponse Function(String url) responder) {
-    _responder = responder;
-  }
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) async {
-    calls.add(HttpCall('GET', url));
-    return _responder(url);
-  }
-}
-
-/// Records a single HTTP method + URL call for assertion in tests.
-class HttpCall {
-  HttpCall(this.method, this.url);
-
-  final String method;
-  final String url;
-
-  @override
-  String toString() => '$method $url';
-}
-
-// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
 void main() {
+  MagicTest.init();
+
   group('BillingState', () {
-    late FakeBillingHttpClient http;
+    late FakeNetworkDriver driver;
     late BillingState state;
 
     setUp(() {
-      http = FakeBillingHttpClient();
-      state = BillingState(httpClient: http);
+      driver = Http.fake();
+      state = BillingState();
     });
 
     tearDown(() {
       state.dispose();
+      Http.unfake();
     });
 
     // -----------------------------------------------------------------------
@@ -161,7 +118,8 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('loadBalance sets loading then transitions to success', () async {
-      http.alwaysReturn(
+      driver.stub(
+        '*/balance',
         MagicResponse(data: {'data': kBalancePayload}, statusCode: 200),
       );
 
@@ -180,9 +138,12 @@ void main() {
       expect(state.rxState, isNotNull);
 
       // Verify URL.
-      expect(http.calls.length, equals(1));
-      expect(http.calls.first.method, equals('GET'));
-      expect(http.calls.first.url, equals('/teams/team-uuid-001/balance'));
+      expect(driver.recorded.length, equals(1));
+      expect(driver.recorded.first.$1.method, equals('GET'));
+      expect(
+        driver.recorded.first.$1.url,
+        equals('/teams/team-uuid-001/balance'),
+      );
     });
 
     // -----------------------------------------------------------------------
@@ -190,7 +151,8 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('loadBalance parses balance correctly from decimal string', () async {
-      http.alwaysReturn(
+      driver.stub(
+        '*/balance',
         MagicResponse(data: {'data': kBalancePayload}, statusCode: 200),
       );
 
@@ -207,7 +169,8 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('loadBalance sets error state on non-2xx response', () async {
-      http.alwaysReturn(
+      driver.stub(
+        '*/balance',
         MagicResponse(data: {'message': 'Unauthorized'}, statusCode: 401),
       );
 
@@ -229,7 +192,10 @@ void main() {
     test(
       'loadMonthlySummary populates totalCostUsd and runCount from meta',
       () async {
-        http.alwaysReturn(MagicResponse(data: kUsagePayload, statusCode: 200));
+        driver.stub(
+          '*/usage',
+          MagicResponse(data: kUsagePayload, statusCode: 200),
+        );
 
         await state.loadMonthlySummary('team-uuid-001');
 
@@ -239,8 +205,11 @@ void main() {
         expect(state.isSummaryLoading, isFalse);
 
         // Verify URL.
-        expect(http.calls.length, equals(1));
-        expect(http.calls.first.url, equals('/teams/team-uuid-001/usage'));
+        expect(driver.recorded.length, equals(1));
+        expect(
+          driver.recorded.first.$1.url,
+          equals('/teams/team-uuid-001/usage'),
+        );
       },
     );
 
@@ -251,7 +220,8 @@ void main() {
     test(
       'loadMonthlySummary sets avgCostPerRun to 0 when runCount is 0',
       () async {
-        http.alwaysReturn(
+        driver.stub(
+          '*/usage',
           MagicResponse(
             data: {
               'data': [],
@@ -278,7 +248,10 @@ void main() {
     test(
       'loadUsageByRole groups usage records by agentRoleName and sums costUsd',
       () async {
-        http.alwaysReturn(MagicResponse(data: kUsagePayload, statusCode: 200));
+        driver.stub(
+          '*/usage',
+          MagicResponse(data: kUsagePayload, statusCode: 200),
+        );
 
         await state.loadUsageByRole('team-uuid-001');
 
@@ -300,7 +273,7 @@ void main() {
     test(
       'loadBalance uses fallback message when response has no message',
       () async {
-        http.alwaysReturn(MagicResponse(data: null, statusCode: 500));
+        driver.stub('*/balance', MagicResponse(data: null, statusCode: 500));
 
         await state.loadBalance('team-uuid-001');
 

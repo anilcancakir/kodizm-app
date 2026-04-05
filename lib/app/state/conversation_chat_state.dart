@@ -10,50 +10,6 @@ import '../models/conversation.dart';
 import '../models/conversation_message.dart';
 
 // ---------------------------------------------------------------------------
-// HTTP abstraction for testability
-// ---------------------------------------------------------------------------
-
-/// Thin interface over the HTTP verbs [ConversationChatState] uses.
-///
-/// In production the default [_MagicHttpClient] delegates to [Http].
-/// Tests inject a fake that records calls and returns canned responses.
-abstract class ConversationChatHttpClient {
-  /// Perform a GET request.
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  });
-
-  /// Perform a POST request.
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  });
-}
-
-/// Default production [ConversationChatHttpClient] backed by the Magic
-/// [Http] facade.
-class _MagicHttpClient implements ConversationChatHttpClient {
-  const _MagicHttpClient();
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) => Http.get(url, query: query, headers: headers);
-
-  @override
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) => Http.post(url, data: data, headers: headers);
-}
-
-// ---------------------------------------------------------------------------
 // WebSocket abstraction for testability
 // ---------------------------------------------------------------------------
 
@@ -117,14 +73,10 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   /// Creates a [ConversationChatState] with optional injectable
   /// dependencies for testing.
   ///
-  /// When [httpClient] is `null` (production), the Magic [Http] facade is
-  /// used. When [webSocket] is `null`, no WS operations are performed
+  /// When [webSocket] is `null`, no WS operations are performed
   /// (the view layer must wire the real [WebSocketService]).
-  ConversationChatState({
-    ConversationChatHttpClient? httpClient,
-    ConversationChatWebSocket? webSocket,
-  }) : _http = httpClient ?? const _MagicHttpClient(),
-       _ws = webSocket;
+  ConversationChatState({ConversationChatWebSocket? webSocket})
+    : _ws = webSocket;
 
   /// Lazy singleton accessor.
   ///
@@ -133,7 +85,6 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   static ConversationChatState get instance =>
       Magic.findOrPut(ConversationChatState.new);
 
-  final ConversationChatHttpClient _http;
   final ConversationChatWebSocket? _ws;
 
   // ---------------------------------------------------------------------------
@@ -314,7 +265,7 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
     _projectId = projectId;
 
     // -- Create conversation --
-    final response = await _http.post(
+    final response = await Http.post(
       '/teams/$teamId/projects/$projectId/conversations',
       data: {'agent_role_id': agentRoleId, 'title': ?title},
     );
@@ -355,7 +306,7 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
     _teamId = teamId;
     _projectId = projectId;
 
-    final response = await _http.get(
+    final response = await Http.get(
       '/teams/$teamId/projects/$projectId/conversations/$conversationId',
     );
 
@@ -423,7 +374,7 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   Future<void> _catchUpAfterReconnect() async {
     if (_conversation == null) return;
 
-    final response = await _http.get(
+    final response = await Http.get(
       '/teams/$_teamId/projects/$_projectId/conversations/${_conversation!.id}',
     );
 
@@ -507,7 +458,7 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
     String text,
     ConversationMessage optimisticMessage,
   ) async {
-    final response = await _http.post(
+    final response = await Http.post(
       '/teams/$_teamId/projects/$_projectId/conversations/${_conversation!.id}/messages',
       data: {'content': text},
     );
@@ -552,7 +503,7 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
     refreshUI();
 
     try {
-      await _http.post(
+      await Http.post(
         '/teams/$_teamId/projects/$_projectId/conversations/${_conversation!.id}/stop',
       );
     } finally {
@@ -582,7 +533,7 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
     }).toList();
     refreshUI();
 
-    await _http.post(
+    await Http.post(
       '/teams/$_teamId/projects/$_projectId/conversations/${_conversation!.id}/messages/$messageId/cancel',
     );
   }
@@ -622,7 +573,7 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   Future<void> completeConversation() async {
     if (_conversation == null) return;
 
-    final response = await _http.post(
+    final response = await Http.post(
       '/teams/$_teamId/projects/$_projectId/conversations/${_conversation!.id}/complete',
     );
 
@@ -647,7 +598,7 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
     _isAnswering = true;
     refreshUI();
 
-    final response = await _http.post(
+    final response = await Http.post(
       '/teams/$_teamId/projects/$_projectId/conversations/${_conversation!.id}/answer',
       data: {'question_id': questionId, 'answer_text': answerText},
     );
@@ -674,7 +625,7 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   Future<void> loadMessages() async {
     if (_conversation == null) return;
 
-    final response = await _http.get(
+    final response = await Http.get(
       '/teams/$_teamId/projects/$_projectId/conversations/${_conversation!.id}/messages',
     );
 
@@ -956,7 +907,7 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   /// Returns the parsed list directly — the caller owns the list (e.g. for
   /// modal display). No internal state is stored.
   Future<List<AgentRole>> fetchAgentRoles(String teamId) async {
-    final response = await _http.get('/teams/$teamId/agent-roles');
+    final response = await Http.get('/teams/$teamId/agent-roles');
 
     if (!response.successful) {
       return [];

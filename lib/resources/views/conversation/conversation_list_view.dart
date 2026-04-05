@@ -31,8 +31,7 @@ class ConversationListView extends StatefulWidget {
 }
 
 class _ConversationListViewState extends State<ConversationListView> {
-  ConversationListState get _state =>
-      Magic.findOrPut(ConversationListState.new);
+  ConversationListState get _state => ConversationListState.instance;
 
   @override
   void initState() {

@@ -3,35 +3,6 @@ import 'package:magic/magic.dart';
 import '../models/ai_token.dart';
 
 // ---------------------------------------------------------------------------
-// HTTP abstraction for testability
-// ---------------------------------------------------------------------------
-
-/// Thin read-only interface over the HTTP GET verb [AiTokenState] uses.
-///
-/// In production the default [_MagicHttpClient] delegates to [Http].
-/// Tests inject a fake that records calls and returns canned responses.
-abstract class AiTokenHttpClient {
-  /// Perform a GET request.
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  });
-}
-
-/// Default production [AiTokenHttpClient] backed by the Magic [Http] facade.
-class _MagicHttpClient implements AiTokenHttpClient {
-  const _MagicHttpClient();
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) => Http.get(url, query: query, headers: headers);
-}
-
-// ---------------------------------------------------------------------------
 // AiTokenState controller
 // ---------------------------------------------------------------------------
 
@@ -60,20 +31,14 @@ class _MagicHttpClient implements AiTokenHttpClient {
 /// );
 /// ```
 class AiTokenState extends MagicController with MagicStateMixin<List<AiToken>> {
-  /// Creates an [AiTokenState] with an optional [httpClient] for testing.
-  ///
-  /// When [httpClient] is `null` (production), the Magic [Http] facade is
-  /// used via [_MagicHttpClient].
-  AiTokenState({AiTokenHttpClient? httpClient})
-    : _http = httpClient ?? const _MagicHttpClient();
+  /// Creates an [AiTokenState].
+  AiTokenState();
 
   /// Lazy singleton accessor.
   ///
   /// Uses [Magic.findOrPut] to ensure a single instance is shared across
   /// the application.
   static AiTokenState get instance => Magic.findOrPut(AiTokenState.new);
-
-  final AiTokenHttpClient _http;
 
   // ---------------------------------------------------------------------------
   // Token fetch
@@ -87,7 +52,7 @@ class AiTokenState extends MagicController with MagicStateMixin<List<AiToken>> {
   Future<void> loadTokens(String teamId) async {
     setLoading();
 
-    final response = await _http.get('/teams/$teamId/ai-tokens');
+    final response = await Http.get('/teams/$teamId/ai-tokens');
 
     if (response.successful) {
       final raw = response.data as Map<String, dynamic>;

@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
+import 'package:magic/testing.dart';
 
 import 'package:app/app/state/dashboard_state.dart';
 
@@ -44,57 +45,24 @@ const Map<String, dynamic> kApiPayload = {
 };
 
 // ---------------------------------------------------------------------------
-// Fake HTTP client
-// ---------------------------------------------------------------------------
-
-/// Injectable HTTP client for testing [DashboardState] without hitting the
-/// network. Records calls and returns a pre-configured [MagicResponse].
-class FakeDashboardHttpClient implements DashboardHttpClient {
-  final List<HttpCall> calls = [];
-  late MagicResponse Function(String url) _responder;
-
-  /// Always return [response] regardless of the requested URL.
-  void alwaysReturn(MagicResponse response) {
-    _responder = (_) => response;
-  }
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) async {
-    calls.add(HttpCall('GET', url));
-    return _responder(url);
-  }
-}
-
-class HttpCall {
-  HttpCall(this.method, this.url);
-
-  final String method;
-  final String url;
-
-  @override
-  String toString() => '$method $url';
-}
-
-// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
 void main() {
+  MagicTest.init();
+
   group('DashboardState', () {
-    late FakeDashboardHttpClient http;
+    late FakeNetworkDriver driver;
     late DashboardState state;
 
     setUp(() {
-      http = FakeDashboardHttpClient();
-      state = DashboardState(httpClient: http);
+      driver = Http.fake();
+      state = DashboardState();
     });
 
     tearDown(() {
       state.dispose();
+      Http.unfake();
     });
 
     // -----------------------------------------------------------------------
@@ -114,7 +82,8 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('fetchDashboard sets loading then transitions to success', () async {
-      http.alwaysReturn(
+      driver.stub(
+        '*/dashboard',
         MagicResponse(data: {'data': kApiPayload}, statusCode: 200),
       );
 
@@ -133,9 +102,12 @@ void main() {
       expect(state.rxState, isNotNull);
 
       // Verify URL.
-      expect(http.calls.length, equals(1));
-      expect(http.calls.first.method, equals('GET'));
-      expect(http.calls.first.url, equals('/teams/team-uuid-001/dashboard'));
+      expect(driver.recorded.length, equals(1));
+      expect(driver.recorded.first.$1.method, equals('GET'));
+      expect(
+        driver.recorded.first.$1.url,
+        equals('/teams/team-uuid-001/dashboard'),
+      );
     });
 
     // -----------------------------------------------------------------------
@@ -143,7 +115,8 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('fetchDashboard sets error state on non-2xx response', () async {
-      http.alwaysReturn(
+      driver.stub(
+        '*/dashboard',
         MagicResponse(data: {'message': 'Unauthorized'}, statusCode: 401),
       );
 
@@ -165,7 +138,8 @@ void main() {
     test(
       'fetchDashboard parses DashboardData with all nested fields',
       () async {
-        http.alwaysReturn(
+        driver.stub(
+          '*/dashboard',
           MagicResponse(data: {'data': kApiPayload}, statusCode: 200),
         );
 
@@ -208,7 +182,7 @@ void main() {
     test(
       'fetchDashboard uses fallback message when response has no message',
       () async {
-        http.alwaysReturn(MagicResponse(data: null, statusCode: 500));
+        driver.stub('*/dashboard', MagicResponse(data: null, statusCode: 500));
 
         await state.fetchDashboard('team-uuid-001');
 

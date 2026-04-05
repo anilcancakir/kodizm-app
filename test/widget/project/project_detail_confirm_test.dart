@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
+import 'package:magic/testing.dart';
 import 'package:magic_starter/magic_starter.dart';
 
 import 'package:app/app/events/websocket_event.dart';
@@ -51,126 +52,8 @@ const Map<String, dynamic> kRepo = {
 };
 
 // ---------------------------------------------------------------------------
-// Fake HTTP clients
+// Fake WebSocket
 // ---------------------------------------------------------------------------
-
-class _FakeHttpClient implements HttpClient {
-  late MagicResponse Function(String url) _responder;
-
-  void alwaysReturn(MagicResponse response) {
-    _responder = (_) => response;
-  }
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) async => _responder(url);
-
-  @override
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) async => _responder(url);
-
-  @override
-  Future<MagicResponse> put(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) async => _responder(url);
-
-  @override
-  Future<MagicResponse> delete(
-    String url, {
-    Map<String, String>? headers,
-  }) async => _responder(url);
-}
-
-class _FakeTaskHttpClient implements TaskHttpClient {
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) async => MagicResponse(data: {'data': <dynamic>[]}, statusCode: 200);
-
-  @override
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) async => MagicResponse(data: {'data': {}}, statusCode: 200);
-
-  @override
-  Future<MagicResponse> put(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) async => MagicResponse(data: {'data': {}}, statusCode: 200);
-
-  @override
-  Future<MagicResponse> delete(
-    String url, {
-    Map<String, String>? headers,
-  }) async => MagicResponse(data: {'data': {}}, statusCode: 200);
-}
-
-class _FakeRepoHttpClient implements ProjectRepositoryHttpClient {
-  late MagicResponse _getResponse;
-  late MagicResponse _mutationResponse;
-
-  _FakeRepoHttpClient() {
-    _getResponse = MagicResponse(data: {'data': <dynamic>[]}, statusCode: 200);
-    _mutationResponse = MagicResponse(
-      data: {'data': <String, dynamic>{}},
-      statusCode: 200,
-    );
-  }
-
-  void alwaysReturn(MagicResponse response) => _getResponse = response;
-  void alwaysReturnOnMutation(MagicResponse response) =>
-      _mutationResponse = response;
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) async {
-    if (url.endsWith('/repo/status')) {
-      return MagicResponse(
-        data: {
-          'data': <String, dynamic>{'status': 'cloned'},
-        },
-        statusCode: 200,
-      );
-    }
-    return _getResponse;
-  }
-
-  @override
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) async => _mutationResponse;
-
-  @override
-  Future<MagicResponse> put(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) async => _mutationResponse;
-
-  @override
-  Future<MagicResponse> delete(
-    String url, {
-    Map<String, String>? headers,
-  }) async => _mutationResponse;
-}
 
 class _FakeRepoWebSocket implements RepoWebSocket {
   @override
@@ -249,10 +132,11 @@ Future<void> _pumpTestWidget(
 // ---------------------------------------------------------------------------
 
 void main() {
-  late _FakeHttpClient http;
+  MagicTest.init();
+
+  late FakeNetworkDriver driver;
   late ProjectState state;
   late TaskState taskState;
-  late _FakeRepoHttpClient repoHttp;
   late ProjectRepositoryState repoState;
 
   setUpAll(() async {
@@ -261,26 +145,31 @@ void main() {
     await Translator.instance.setLocale(const Locale('en'));
   });
 
-  setUpAll(() {
-    Magic.singleton('magic_starter', () => MagicStarterManager());
-  });
-
   setUp(() {
-    http = _FakeHttpClient();
-    http.alwaysReturn(MagicResponse(data: {'data': kProject}, statusCode: 200));
-
-    state = ProjectState(httpClient: http);
-    taskState = TaskState(httpClient: _FakeTaskHttpClient());
-    repoHttp = _FakeRepoHttpClient();
-    repoState = ProjectRepositoryState(
-      httpClient: repoHttp,
-      ws: _FakeRepoWebSocket(),
+    Magic.singleton('magic_starter', () => MagicStarterManager());
+    driver = Http.fake();
+    // Catch-all first.
+    driver.stub('*', Http.response({'data': kProject}));
+    // Specific patterns after (higher priority).
+    driver.stub('*/tasks*', Http.response({'data': <dynamic>[]}));
+    driver.stub('*/repositories*', Http.response({'data': <dynamic>[]}));
+    driver.stub(
+      '*/repo/status*',
+      Http.response({
+        'data': <String, dynamic>{'status': 'cloned'},
+      }),
     );
+    driver.stub('*/mcp-servers*', Http.response({'data': <dynamic>[]}));
+
+    state = ProjectState();
+    taskState = TaskState();
+    repoState = ProjectRepositoryState(ws: _FakeRepoWebSocket());
 
     Magic.put<ProjectState>(state);
     Magic.put<TaskState>(taskState);
     Magic.put<ProjectRepositoryState>(repoState);
 
+    Auth.fake();
     Auth.manager.setUserFactory((data) => User.fromMap(data));
     Auth.guard().setUser(
       User.fromMap({
@@ -294,15 +183,6 @@ void main() {
         },
       }),
     );
-  });
-
-  tearDown(() {
-    state.dispose();
-    taskState.dispose();
-    repoState.dispose();
-    Magic.delete<ProjectState>();
-    Magic.delete<TaskState>();
-    Magic.delete<ProjectRepositoryState>();
   });
 
   // -------------------------------------------------------------------------
@@ -322,13 +202,11 @@ void main() {
       await state.fetchProject('team-uuid-001', 'proj-uuid-001');
 
       // Pre-load one repository so the delete button appears.
-      repoHttp.alwaysReturn(
-        MagicResponse(
-          data: {
-            'data': [kRepo],
-          },
-          statusCode: 200,
-        ),
+      driver.stub(
+        '*/repositories*',
+        Http.response({
+          'data': [kRepo],
+        }),
       );
       await repoState.fetchRepositories('team-uuid-001', 'proj-uuid-001');
 

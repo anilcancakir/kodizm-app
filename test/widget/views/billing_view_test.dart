@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
+import 'package:magic/testing.dart';
 
 import 'package:app/app/state/billing_state.dart';
 import 'package:app/resources/views/billing/billing_view.dart';
@@ -65,32 +66,6 @@ const Map<String, dynamic> kUsageByRoleResponse = {
 };
 
 const Map<String, dynamic> kEmptyBalanceResponse = {'data': <dynamic>[]};
-
-// ---------------------------------------------------------------------------
-// Fake HTTP client
-// ---------------------------------------------------------------------------
-
-class _FakeBillingHttpClient implements BillingHttpClient {
-  final List<String> calls = [];
-  late MagicResponse Function(String url, Map<String, dynamic>? query)
-  _responder;
-
-  void whenAny(
-    MagicResponse Function(String url, Map<String, dynamic>? query) responder,
-  ) {
-    _responder = responder;
-  }
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) async {
-    calls.add('GET $url');
-    return _responder(url, query);
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Test-safe translation loader
@@ -155,7 +130,9 @@ Future<void> _pumpView(WidgetTester tester) async {
 // ---------------------------------------------------------------------------
 
 void main() {
-  late _FakeBillingHttpClient http;
+  MagicTest.init();
+
+  late FakeNetworkDriver driver;
   late BillingState state;
 
   setUpAll(() async {
@@ -165,38 +142,39 @@ void main() {
   });
 
   setUp(() {
-    http = _FakeBillingHttpClient();
-    state = BillingState(httpClient: http);
+    Auth.fake();
+    driver = Http.fake();
+    driver.stub('*', Http.response({}, 404));
+
+    state = BillingState();
     Magic.put<BillingState>(state);
   });
 
-  tearDown(() {
-    state.dispose();
-    Magic.delete<BillingState>();
-  });
+  /// Configures standard billing stubs.
+  void stubBillingResponses() {
+    driver.stub('*/balance*', Http.response(kBalanceResponse));
+    driver.stub('*/usage*', Http.response(kUsageByRoleResponse));
+  }
+
+  /// Loads all billing data into state.
+  Future<void> loadBillingData() async {
+    await state.loadBalance('team-uuid-001');
+    await state.loadMonthlySummary('team-uuid-001');
+    await state.loadUsageByRole('team-uuid-001');
+  }
 
   // -------------------------------------------------------------------------
   // 1. Renders MagicStarterPageHeader with billing.title text
   // -------------------------------------------------------------------------
 
   testWidgets('renders MagicStarterPageHeader with title', (tester) async {
-    http.whenAny((url, query) {
-      if (url.contains('/balance')) {
-        return MagicResponse(data: kBalanceResponse, statusCode: 200);
-      }
-      if (url.contains('/usage')) {
-        if (query?['per_page'] == '1') {
-          return MagicResponse(data: kMonthlySummaryResponse, statusCode: 200);
-        }
-        return MagicResponse(data: kUsageByRoleResponse, statusCode: 200);
-      }
-      return MagicResponse(data: {}, statusCode: 404);
-    });
+    stubBillingResponses();
+    // Monthly summary needs its own stub with per_page=1 query.
+    // Since stub matches on URL pattern only, we re-stub usage for summary.
+    driver.stub('*/usage*', Http.response(kMonthlySummaryResponse));
+    driver.stub('*/usage*', Http.response(kUsageByRoleResponse));
 
-    // Pre-load balance so content renders.
-    await state.loadBalance('team-uuid-001');
-    await state.loadMonthlySummary('team-uuid-001');
-    await state.loadUsageByRole('team-uuid-001');
+    await loadBillingData();
 
     await _pumpView(tester);
 
@@ -209,22 +187,11 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('displays balance with correct color class', (tester) async {
-    http.whenAny((url, query) {
-      if (url.contains('/balance')) {
-        return MagicResponse(data: kBalanceResponse, statusCode: 200);
-      }
-      if (url.contains('/usage')) {
-        if (query?['per_page'] == '1') {
-          return MagicResponse(data: kMonthlySummaryResponse, statusCode: 200);
-        }
-        return MagicResponse(data: kUsageByRoleResponse, statusCode: 200);
-      }
-      return MagicResponse(data: {}, statusCode: 404);
-    });
+    stubBillingResponses();
+    driver.stub('*/usage*', Http.response(kMonthlySummaryResponse));
+    driver.stub('*/usage*', Http.response(kUsageByRoleResponse));
 
-    await state.loadBalance('team-uuid-001');
-    await state.loadMonthlySummary('team-uuid-001');
-    await state.loadUsageByRole('team-uuid-001');
+    await loadBillingData();
 
     await _pumpView(tester);
 
@@ -246,22 +213,13 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('displays monthly summary stats', (tester) async {
-    http.whenAny((url, query) {
-      if (url.contains('/balance')) {
-        return MagicResponse(data: kBalanceResponse, statusCode: 200);
-      }
-      if (url.contains('/usage')) {
-        if (query?['per_page'] == '1') {
-          return MagicResponse(data: kMonthlySummaryResponse, statusCode: 200);
-        }
-        return MagicResponse(data: kUsageByRoleResponse, statusCode: 200);
-      }
-      return MagicResponse(data: {}, statusCode: 404);
-    });
+    stubBillingResponses();
+    // Monthly summary and usage-by-role share /usage — stub once with
+    // the monthly-summary shape so loadMonthlySummary parses meta.totals.
+    driver.stub('*/usage*', Http.response(kMonthlySummaryResponse));
 
     await state.loadBalance('team-uuid-001');
     await state.loadMonthlySummary('team-uuid-001');
-    await state.loadUsageByRole('team-uuid-001');
 
     await _pumpView(tester);
 
@@ -278,22 +236,11 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('displays usage by role section', (tester) async {
-    http.whenAny((url, query) {
-      if (url.contains('/balance')) {
-        return MagicResponse(data: kBalanceResponse, statusCode: 200);
-      }
-      if (url.contains('/usage')) {
-        if (query?['per_page'] == '1') {
-          return MagicResponse(data: kMonthlySummaryResponse, statusCode: 200);
-        }
-        return MagicResponse(data: kUsageByRoleResponse, statusCode: 200);
-      }
-      return MagicResponse(data: {}, statusCode: 404);
-    });
+    stubBillingResponses();
+    driver.stub('*/usage*', Http.response(kMonthlySummaryResponse));
+    driver.stub('*/usage*', Http.response(kUsageByRoleResponse));
 
-    await state.loadBalance('team-uuid-001');
-    await state.loadMonthlySummary('team-uuid-001');
-    await state.loadUsageByRole('team-uuid-001');
+    await loadBillingData();
 
     await _pumpView(tester);
 
@@ -310,10 +257,6 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('shows loading state', (tester) async {
-    http.whenAny((url, query) {
-      return MagicResponse(data: kBalanceResponse, statusCode: 200);
-    });
-
     // Manually set loading state before pumping.
     state.setLoading();
 
@@ -339,10 +282,6 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('shows empty state when no balance data', (tester) async {
-    http.whenAny((url, query) {
-      return MagicResponse(data: kEmptyBalanceResponse, statusCode: 200);
-    });
-
     // Set empty state manually.
     state.setEmpty();
 

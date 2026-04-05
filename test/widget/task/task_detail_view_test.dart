@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
+import 'package:magic/testing.dart';
 
 import 'package:app/app/state/task_state.dart';
 import 'package:app/resources/views/task/task_detail_view.dart';
@@ -69,77 +70,6 @@ const Map<String, dynamic> kConversation = {
   'type': 'autonomous',
   'task_id': 'task-uuid-001',
 };
-
-// ---------------------------------------------------------------------------
-// Fake HTTP client
-// ---------------------------------------------------------------------------
-
-/// A test double for [TaskHttpClient] that records calls and returns canned
-/// responses based on a URL matcher.
-class FakeTaskHttpClient implements TaskHttpClient {
-  /// Recorded HTTP calls in order.
-  final List<TaskHttpCall> calls = [];
-
-  late MagicResponse Function(String url) _responder;
-
-  /// Sets a URL-based responder.
-  void whenAny(MagicResponse Function(String url) responder) {
-    _responder = responder;
-  }
-
-  /// Sets a fixed response for all calls.
-  void alwaysReturn(MagicResponse response) {
-    _responder = (_) => response;
-  }
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) async {
-    calls.add(TaskHttpCall('GET', url));
-    return _responder(url);
-  }
-
-  @override
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) async {
-    calls.add(TaskHttpCall('POST', url, data: data));
-    return _responder(url);
-  }
-
-  @override
-  Future<MagicResponse> put(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) async {
-    calls.add(TaskHttpCall('PUT', url, data: data));
-    return _responder(url);
-  }
-
-  @override
-  Future<MagicResponse> delete(
-    String url, {
-    Map<String, String>? headers,
-  }) async {
-    calls.add(TaskHttpCall('DELETE', url));
-    return _responder(url);
-  }
-}
-
-/// Records a single HTTP call.
-class TaskHttpCall {
-  TaskHttpCall(this.method, this.url, {this.data});
-
-  final String method;
-  final String url;
-  final dynamic data;
-}
 
 // ---------------------------------------------------------------------------
 // Test-safe translation loader
@@ -210,7 +140,9 @@ Widget _buildTestWidget({
 // ---------------------------------------------------------------------------
 
 void main() {
-  late FakeTaskHttpClient http;
+  MagicTest.init();
+
+  late FakeNetworkDriver driver;
   late TaskState state;
 
   setUpAll(() async {
@@ -222,36 +154,26 @@ void main() {
   });
 
   setUp(() {
-    http = FakeTaskHttpClient();
-    http.whenAny((url) {
-      if (url.contains('/sections')) {
-        return MagicResponse(
-          data: {
-            'data': [kSection],
-          },
-          statusCode: 200,
-        );
-      }
-      if (url.contains('/conversations')) {
-        return MagicResponse(
-          data: {
-            'data': [kConversation],
-          },
-          statusCode: 200,
-        );
-      }
-      return MagicResponse(data: {'data': kTaskDetail}, statusCode: 200);
-    });
+    Auth.fake();
+    driver = Http.fake();
+    driver.stub('*', Http.response({'data': kTaskDetail}));
+    driver.stub(
+      '*/sections*',
+      Http.response({
+        'data': [kSection],
+      }),
+    );
+    driver.stub(
+      '*/conversations*',
+      Http.response({
+        'data': [kConversation],
+      }),
+    );
 
-    state = TaskState(httpClient: http);
+    state = TaskState();
 
     // Pre-register the fake state so TaskState.instance returns it.
     Magic.put<TaskState>(state);
-  });
-
-  tearDown(() {
-    state.dispose();
-    Magic.delete<TaskState>();
   });
 
   // -------------------------------------------------------------------------

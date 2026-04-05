@@ -4,35 +4,6 @@ import '../models/team_balance.dart';
 import '../models/usage_record.dart';
 
 // ---------------------------------------------------------------------------
-// HTTP abstraction for testability
-// ---------------------------------------------------------------------------
-
-/// Thin read-only interface over the HTTP GET verb [BillingState] uses.
-///
-/// In production the default [_MagicHttpClient] delegates to [Http].
-/// Tests inject a fake that records calls and returns canned responses.
-abstract class BillingHttpClient {
-  /// Perform a GET request.
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  });
-}
-
-/// Default production [BillingHttpClient] backed by the Magic [Http] facade.
-class _MagicHttpClient implements BillingHttpClient {
-  const _MagicHttpClient();
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) => Http.get(url, query: query, headers: headers);
-}
-
-// ---------------------------------------------------------------------------
 // BillingState controller
 // ---------------------------------------------------------------------------
 
@@ -67,20 +38,14 @@ class _MagicHttpClient implements BillingHttpClient {
 /// print(billing.usageByRole); // Map<String, double>
 /// ```
 class BillingState extends MagicController with MagicStateMixin<TeamBalance> {
-  /// Creates a [BillingState] with an optional [httpClient] for testing.
-  ///
-  /// When [httpClient] is `null` (production), the Magic [Http] facade is
-  /// used via [_MagicHttpClient].
-  BillingState({BillingHttpClient? httpClient})
-    : _http = httpClient ?? const _MagicHttpClient();
+  /// Creates a [BillingState].
+  BillingState();
 
   /// Lazy singleton accessor.
   ///
   /// Uses [Magic.findOrPut] to ensure a single instance is shared across
   /// the application.
   static BillingState get instance => Magic.findOrPut(BillingState.new);
-
-  final BillingHttpClient _http;
 
   // ---------------------------------------------------------------------------
   // Secondary state
@@ -123,7 +88,7 @@ class BillingState extends MagicController with MagicStateMixin<TeamBalance> {
   Future<void> loadBalance(String teamId) async {
     setLoading();
 
-    final response = await _http.get('/teams/$teamId/balance');
+    final response = await Http.get('/teams/$teamId/balance');
 
     if (response.successful) {
       final raw = response.data as Map<String, dynamic>;
@@ -155,7 +120,7 @@ class BillingState extends MagicController with MagicStateMixin<TeamBalance> {
       query['period'] = period;
     }
 
-    final response = await _http.get('/teams/$teamId/usage', query: query);
+    final response = await Http.get('/teams/$teamId/usage', query: query);
 
     if (response.successful) {
       final raw = response.data as Map<String, dynamic>;
@@ -192,7 +157,7 @@ class BillingState extends MagicController with MagicStateMixin<TeamBalance> {
       query['period'] = period;
     }
 
-    final response = await _http.get('/teams/$teamId/usage', query: query);
+    final response = await Http.get('/teams/$teamId/usage', query: query);
 
     if (response.successful) {
       final raw = response.data as Map<String, dynamic>;

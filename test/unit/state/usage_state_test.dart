@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
+import 'package:magic/testing.dart';
 
 import 'package:app/app/state/usage_state.dart';
 
@@ -47,63 +48,24 @@ Map<String, dynamic> _makeResponse({
 };
 
 // ---------------------------------------------------------------------------
-// Fake HTTP client
-// ---------------------------------------------------------------------------
-
-/// Injectable HTTP client for testing [UsageState] without hitting the
-/// network. Records calls and returns a pre-configured [MagicResponse].
-class _FakeUsageHttpClient implements UsageHttpClient {
-  final List<_UsageHttpCall> calls = [];
-  late MagicResponse Function(String url) _responder;
-
-  /// Always return [response] regardless of the requested URL.
-  void alwaysReturn(MagicResponse response) {
-    _responder = (_) => response;
-  }
-
-  /// Return a different [MagicResponse] per call index.
-  void respondWith(MagicResponse Function(String url) responder) {
-    _responder = responder;
-  }
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) async {
-    calls.add(_UsageHttpCall('GET', url, query));
-    return _responder(url);
-  }
-}
-
-class _UsageHttpCall {
-  _UsageHttpCall(this.method, this.url, this.query);
-
-  final String method;
-  final String url;
-  final Map<String, dynamic>? query;
-
-  @override
-  String toString() => '$method $url';
-}
-
-// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
 void main() {
+  MagicTest.init();
+
   group('UsageState', () {
-    late _FakeUsageHttpClient http;
+    late FakeNetworkDriver driver;
     late UsageState state;
 
     setUp(() {
-      http = _FakeUsageHttpClient();
-      state = UsageState(httpClient: http);
+      driver = Http.fake();
+      state = UsageState();
     });
 
     tearDown(() {
       state.dispose();
+      Http.unfake();
     });
 
     // -----------------------------------------------------------------------
@@ -113,7 +75,8 @@ void main() {
     test(
       'loadUsage success — returns records and transitions to success state',
       () async {
-        http.alwaysReturn(
+        driver.stub(
+          '*/usage',
           MagicResponse(data: _makeResponse(), statusCode: 200),
         );
 
@@ -135,7 +98,8 @@ void main() {
     test(
       'loadUsage with filters — query params include period, projectId, agentRole',
       () async {
-        http.alwaysReturn(
+        driver.stub(
+          '*/usage',
           MagicResponse(data: _makeResponse(), statusCode: 200),
         );
 
@@ -146,8 +110,8 @@ void main() {
           agentRole: 'Dev',
         );
 
-        expect(http.calls, hasLength(1));
-        final query = http.calls.first.query;
+        expect(driver.recorded, hasLength(1));
+        final query = driver.recorded.first.$1.queryParameters;
         expect(query, isNotNull);
         expect(query!['period'], equals('2025-03'));
         expect(query['project_id'], equals('proj-uuid-001'));
@@ -163,7 +127,7 @@ void main() {
       'loadMore appends records from second page to existing list',
       () async {
         var callCount = 0;
-        http.respondWith((_) {
+        driver = Http.fake((MagicRequest request) {
           callCount += 1;
           if (callCount == 1) {
             return MagicResponse(
@@ -203,7 +167,8 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('pagination fields update correctly from meta', () async {
-      http.alwaysReturn(
+      driver.stub(
+        '*/usage',
         MagicResponse(
           data: _makeResponse(currentPage: 2, lastPage: 5, total: 45),
           statusCode: 200,
@@ -247,7 +212,8 @@ void main() {
     test(
       'totalCostUsd is parsed from meta.totals.total_cost_usd as double',
       () async {
-        http.alwaysReturn(
+        driver.stub(
+          '*/usage',
           MagicResponse(
             data: _makeResponse(totalCostUsd: '99.75'),
             statusCode: 200,
@@ -265,7 +231,8 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('loadUsage sets error state on non-2xx response', () async {
-      http.alwaysReturn(
+      driver.stub(
+        '*/usage',
         MagicResponse(data: {'message': 'Forbidden'}, statusCode: 403),
       );
 
@@ -281,7 +248,8 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('loadMore does nothing when hasMore is false', () async {
-      http.alwaysReturn(
+      driver.stub(
+        '*/usage',
         MagicResponse(
           data: _makeResponse(currentPage: 1, lastPage: 1),
           statusCode: 200,
@@ -291,9 +259,9 @@ void main() {
       await state.loadUsage('team-uuid-001');
       expect(state.hasMore, isFalse);
 
-      final callsBefore = http.calls.length;
+      final callsBefore = driver.recorded.length;
       await state.loadMore();
-      expect(http.calls.length, equals(callsBefore));
+      expect(driver.recorded.length, equals(callsBefore));
     });
   });
 }

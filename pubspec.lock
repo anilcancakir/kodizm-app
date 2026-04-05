@@ -326,13 +326,12 @@ packages:
     source: sdk
     version: "0.0.0"
   fluttersdk_wind:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
-      name: fluttersdk_wind
-      sha256: fa8862de3f23d83ae789a2ad89881f320ecb3c0991a0f1ca7fca7ed8bfc5abc6
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.0.0-alpha.4"
+      path: "/Users/anilcan/Code/fluttersdk/wind/fluttersdk_wind"
+      relative: false
+    source: path
+    version: "1.0.0-alpha.6"
   glob:
     dependency: transitive
     description:
@@ -528,11 +527,10 @@ packages:
   magic:
     dependency: "direct main"
     description:
-      name: magic
-      sha256: a8e8cd364308e74acbefd27eb671fdcf379a2195ea94f5e961bff8a749930603
-      url: "https://pub.dev"
-    source: hosted
-    version: "1.0.0-alpha.5"
+      path: "/Users/anilcan/Code/fluttersdk/magic"
+      relative: false
+    source: path
+    version: "1.0.0-alpha.6"
   magic_cli:
     dependency: transitive
     description:
@@ -555,7 +553,7 @@ packages:
       path: "/Users/anilcan/Code/fluttersdk/magic_starter"
       relative: false
     source: path
-    version: "0.0.1-alpha.8"
+    version: "0.0.1-alpha.9"
   markdown:
     dependency: "direct main"
     description:
@@ -1083,4 +1081,4 @@ packages:
     version: "2.2.4"
 sdks:
   dart: ">=3.11.3 <4.0.0"
-  flutter: ">=3.41.0"
+  flutter: ">=3.38.4"

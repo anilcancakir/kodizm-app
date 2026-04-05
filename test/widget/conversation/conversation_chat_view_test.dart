@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
+import 'package:magic/testing.dart';
 
 import 'package:app/app/events/websocket_event.dart';
 import 'package:app/app/state/conversation_chat_state.dart';
@@ -12,38 +13,6 @@ import 'package:app/resources/widgets/atoms/streaming_indicator.dart';
 import 'package:app/resources/widgets/organisms/chat_message_bubble.dart';
 import 'package:app/resources/widgets/organisms/chat_stream_event_renderer.dart';
 import 'package:app/resources/widgets/organisms/chat_tool_use_card.dart';
-
-// ---------------------------------------------------------------------------
-// Fake HTTP client
-// ---------------------------------------------------------------------------
-
-class _FakeHttpClient implements ConversationChatHttpClient {
-  final List<String> calls = [];
-
-  MagicResponse Function(String url)? responder;
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) async {
-    calls.add('GET $url');
-    return responder?.call(url) ??
-        MagicResponse(data: <String, dynamic>{}, statusCode: 404);
-  }
-
-  @override
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) async {
-    calls.add('POST $url');
-    return responder?.call(url) ??
-        MagicResponse(data: <String, dynamic>{}, statusCode: 200);
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Fake WebSocket
@@ -65,6 +34,9 @@ class _FakeWebSocket implements ConversationChatWebSocket {
   void unsubscribe(String channel) {
     unsubscribedChannels.add(channel);
   }
+
+  @override
+  Stream<void> get onReconnect => const Stream.empty();
 }
 
 // ---------------------------------------------------------------------------
@@ -135,25 +107,6 @@ Map<String, dynamic> _conversationPayload({String status = 'active'}) {
   };
 }
 
-MagicResponse _agentRolesResponse() {
-  return MagicResponse(
-    data: {
-      'data': [
-        {'id': 'role-uuid-001', 'name': 'Business Analyst', 'slug': 'ba'},
-      ],
-    },
-    statusCode: 200,
-  );
-}
-
-MagicResponse _createConversationResponse() {
-  return MagicResponse(data: {'data': _conversationPayload()}, statusCode: 201);
-}
-
-MagicResponse _messagesResponse() {
-  return MagicResponse(data: {'data': <dynamic>[]}, statusCode: 200);
-}
-
 // ---------------------------------------------------------------------------
 // Test helpers
 // ---------------------------------------------------------------------------
@@ -172,7 +125,9 @@ Widget _buildTestWidget({String projectId = kProjectId}) {
 // ---------------------------------------------------------------------------
 
 void main() {
-  late _FakeHttpClient http;
+  MagicTest.init();
+
+  late FakeNetworkDriver driver;
   late _FakeWebSocket ws;
   late ConversationChatState state;
 
@@ -183,15 +138,17 @@ void main() {
   });
 
   setUp(() {
-    http = _FakeHttpClient();
+    Auth.fake();
+    driver = Http.fake();
+    driver.stub('*', Http.response(<String, dynamic>{}, 404));
+
     ws = _FakeWebSocket();
-    state = ConversationChatState(httpClient: http, webSocket: ws);
+    state = ConversationChatState(webSocket: ws);
     Magic.put<ConversationChatState>(state);
   });
 
   tearDown(() {
     state.reset();
-    Magic.delete<ConversationChatState>();
   });
 
   // -----------------------------------------------------------------------
@@ -218,14 +175,41 @@ void main() {
   Future<void> pumpWithConversation(WidgetTester tester) async {
     setViewport(tester);
 
-    http.responder = (url) {
-      if (url.contains('/agent-roles')) return _agentRolesResponse();
-      if (url.contains('/conversations') && !url.contains('/messages')) {
-        return _createConversationResponse();
-      }
-      if (url.contains('/messages')) return _messagesResponse();
-      return MagicResponse(data: <String, dynamic>{}, statusCode: 404);
-    };
+    // Stub specific patterns after catch-all (higher priority).
+    driver.stub(
+      '*/agent-roles*',
+      Http.response({
+        'data': [
+          {'id': 'role-uuid-001', 'name': 'Business Analyst', 'slug': 'ba'},
+        ],
+      }),
+    );
+    driver.stub(
+      '*/conversations*',
+      Http.response({'data': _conversationPayload()}, 201),
+    );
+    // Registered AFTER */conversations* so it takes priority for message URLs.
+    driver.stub(
+      '*/messages*',
+      Http.response({
+        'data': <String, dynamic>{
+          'id': 'msg-uuid-stub',
+          'conversation_id': 'conv-uuid-001',
+          'role': 'user',
+          'content': 'Hello agent!',
+          'cost_usd': null,
+          'metadata': null,
+          'stream_events': null,
+          'usage': null,
+          'duration_ms': null,
+          'num_turns': null,
+          'error': null,
+          'status': null,
+          'created_at': '2026-01-01T00:00:00.000Z',
+          'updated_at': '2026-01-01T00:00:00.000Z',
+        },
+      }),
+    );
 
     await state.createConversation(
       kTeamId,
@@ -471,9 +455,10 @@ void main() {
   ) async {
     await pumpWithConversation(tester);
 
-    // Send a message first.
+    // Send a message matching the */messages* stub content so the
+    // optimistic message survives the API response replacement.
     final inputFinder = find.byType(TextField);
-    await tester.enterText(inputFinder, 'Test message');
+    await tester.enterText(inputFinder, 'Hello agent!');
     await tester.pump();
 
     final sendFinder = find.byIcon(Icons.send);
@@ -483,7 +468,7 @@ void main() {
 
     // ChatMessageBubble renders user content.
     expect(find.byType(ChatMessageBubble), findsOneWidget);
-    expect(find.text('Test message'), findsOneWidget);
+    expect(find.text('Hello agent!'), findsOneWidget);
   });
 
   // -----------------------------------------------------------------------
@@ -646,15 +631,11 @@ void main() {
   test(
     'awaitingResponse is true after sendMessage and false after addEvent',
     () async {
-      http.responder = (url) {
-        if (url.contains('/conversations') && !url.contains('/messages')) {
-          return _createConversationResponse();
-        }
-        if (url.contains('/messages')) {
-          return MagicResponse(data: <String, dynamic>{}, statusCode: 200);
-        }
-        return MagicResponse(data: <String, dynamic>{}, statusCode: 404);
-      };
+      driver.stub(
+        '*/conversations*',
+        Http.response({'data': _conversationPayload()}, 201),
+      );
+      driver.stub('*/messages*', Http.response(<String, dynamic>{}));
 
       await state.createConversation(
         kTeamId,
@@ -746,9 +727,11 @@ void main() {
     state.setAwaitingResponseForTest(value: true);
     await tester.pump();
 
-    // Stop button should now be visible, send button hidden.
+    // Stop button should now be visible alongside the send button.
+    // Both are shown simultaneously so messages can be queued while
+    // the agent is executing.
     expect(find.byIcon(Icons.stop_rounded), findsOneWidget);
-    expect(find.byIcon(Icons.send), findsNothing);
+    expect(find.byIcon(Icons.send), findsOneWidget);
   });
 
   // -----------------------------------------------------------------------

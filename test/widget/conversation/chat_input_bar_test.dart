@@ -280,7 +280,8 @@ void main() {
     await tester.pump();
 
     expect(find.byIcon(Icons.stop_rounded), findsOneWidget);
-    expect(find.byIcon(Icons.send), findsNothing);
+    // Send button remains visible alongside stop — messages can be queued.
+    expect(find.byIcon(Icons.send), findsOneWidget);
   });
 
   // -----------------------------------------------------------------------

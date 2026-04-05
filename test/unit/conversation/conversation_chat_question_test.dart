@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
+import 'package:magic/testing.dart';
 
 import 'package:app/app/events/websocket_event.dart';
 import 'package:app/app/state/conversation_chat_state.dart';
@@ -40,54 +41,6 @@ const Map<String, dynamic> kConversationResponse = {
 };
 
 // ---------------------------------------------------------------------------
-// Fake HTTP client
-// ---------------------------------------------------------------------------
-
-class _FakeHttpClient implements ConversationChatHttpClient {
-  final List<_HttpCall> calls = [];
-  late MagicResponse Function(String url) _responder;
-
-  void whenAny(MagicResponse Function(String url) responder) {
-    _responder = responder;
-  }
-
-  void alwaysReturn(MagicResponse response) {
-    _responder = (_) => response;
-  }
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) async {
-    calls.add(_HttpCall('GET', url));
-    return _responder(url);
-  }
-
-  @override
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) async {
-    calls.add(_HttpCall('POST', url, data: data));
-    return _responder(url);
-  }
-}
-
-class _HttpCall {
-  _HttpCall(this.method, this.url, {this.data});
-
-  final String method;
-  final String url;
-  final dynamic data;
-
-  @override
-  String toString() => '$method $url';
-}
-
-// ---------------------------------------------------------------------------
 // Fake WebSocket service
 // ---------------------------------------------------------------------------
 
@@ -95,6 +48,9 @@ class _FakeWebSocketService implements ConversationChatWebSocket {
   final List<String> subscribedChannels = [];
   final List<String> unsubscribedChannels = [];
   final Map<String, void Function(WebSocketEvent)> callbacks = {};
+
+  @override
+  Stream<void> get onReconnect => const Stream.empty();
 
   @override
   void subscribe(String channel, void Function(WebSocketEvent) onEvent) {
@@ -126,24 +82,20 @@ WebSocketEvent _toolUseEvent() => WebSocketEvent(
     'type': 'tool_use',
     'content': null,
     'metadata': {
-      'type': 'tool_use',
-      'session_id': 'sess-001',
-      'data': {
-        'toolUseId': 'toolu_xxx',
-        'toolName': 'AskUserQuestion',
-        'input': {
-          'questions': [
-            {
-              'question': 'Which framework?',
-              'header': 'Framework Selection',
-              'multiSelect': false,
-              'options': [
-                {'label': 'Flutter', 'description': 'Cross-platform'},
-                {'label': 'React Native', 'description': 'JS-based'},
-              ],
-            },
-          ],
-        },
+      'toolUseId': 'toolu_xxx',
+      'toolName': 'AskUserQuestion',
+      'input': {
+        'questions': [
+          {
+            'question': 'Which framework?',
+            'header': 'Framework Selection',
+            'multiSelect': false,
+            'options': [
+              {'label': 'Flutter', 'description': 'Cross-platform'},
+              {'label': 'React Native', 'description': 'JS-based'},
+            ],
+          },
+        ],
       },
     },
     'occurred_at': '2026-03-27T10:03:00.000Z',
@@ -160,13 +112,9 @@ WebSocketEvent _questionEvent() => WebSocketEvent(
     'type': 'question',
     'content': null,
     'metadata': {
-      'type': 'question',
-      'session_id': 'sess-001',
-      'data': {
-        'questionId': 'q-uuid-001',
-        'message': 'Which framework do you prefer?',
-        'requestedSchema': null,
-      },
+      'questionId': 'q-uuid-001',
+      'message': 'Which framework do you prefer?',
+      'requestedSchema': null,
     },
     'occurred_at': '2026-03-27T10:03:01.000Z',
   },
@@ -182,13 +130,9 @@ WebSocketEvent _permissionEvent() => WebSocketEvent(
     'type': 'permission',
     'content': null,
     'metadata': {
-      'type': 'permission',
-      'session_id': 'sess-001',
-      'data': {
-        'questionId': 'p-uuid-001',
-        'toolName': 'Bash',
-        'input': {'command': 'rm -rf /tmp/build'},
-      },
+      'questionId': 'p-uuid-001',
+      'toolName': 'Bash',
+      'input': {'command': 'rm -rf /tmp/build'},
     },
     'occurred_at': '2026-03-27T10:04:00.000Z',
   },
@@ -204,13 +148,9 @@ WebSocketEvent _nonAskToolUseEvent() => WebSocketEvent(
     'type': 'tool_use',
     'content': null,
     'metadata': {
-      'type': 'tool_use',
-      'session_id': 'sess-001',
-      'data': {
-        'toolUseId': 'toolu_yyy',
-        'toolName': 'Bash',
-        'input': {'command': 'ls -la'},
-      },
+      'toolUseId': 'toolu_yyy',
+      'toolName': 'Bash',
+      'input': {'command': 'ls -la'},
     },
     'occurred_at': '2026-03-27T10:05:00.000Z',
   },
@@ -222,29 +162,21 @@ WebSocketEvent _nonAskToolUseEvent() => WebSocketEvent(
 // ---------------------------------------------------------------------------
 
 Future<ConversationChatState> _setupWithConversation(
-  _FakeHttpClient http,
+  FakeNetworkDriver driver,
   _FakeWebSocketService ws,
 ) async {
-  http.whenAny((url) {
-    if (url.contains('/agent-roles')) {
-      return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
-    }
-    if (url.contains('/answer')) {
-      return MagicResponse(data: {}, statusCode: 200);
-    }
-    if (url.contains('/messages')) {
-      return MagicResponse(data: {}, statusCode: 202);
-    }
-    return MagicResponse(data: kConversationResponse, statusCode: 201);
-  });
+  driver.stub('*/agent-roles*', Http.response(kAgentRolesResponse));
+  driver.stub('*/answer', Http.response({}));
+  driver.stub('*/messages', Http.response({}, 202));
+  driver.stub('*/conversations*', Http.response(kConversationResponse, 201));
 
-  final state = ConversationChatState(httpClient: http, webSocket: ws);
+  final state = ConversationChatState(webSocket: ws);
   await state.createConversation(
     'team-uuid-001',
     'proj-uuid-001',
     agentRoleId: 'role-uuid-001',
   );
-  http.calls.clear();
+  driver.recorded.clear();
 
   return state;
 }
@@ -254,15 +186,17 @@ Future<ConversationChatState> _setupWithConversation(
 // ---------------------------------------------------------------------------
 
 void main() {
+  MagicTest.init();
+
   group('ConversationChatState – question/permission detection', () {
-    late _FakeHttpClient http;
+    late FakeNetworkDriver driver;
     late _FakeWebSocketService ws;
     late ConversationChatState state;
 
     setUp(() async {
-      http = _FakeHttpClient();
+      driver = Http.fake();
       ws = _FakeWebSocketService();
-      state = await _setupWithConversation(http, ws);
+      state = await _setupWithConversation(driver, ws);
     });
 
     tearDown(() {
@@ -383,17 +317,19 @@ void main() {
       expect(state.isAnswering, isFalse);
 
       // Verify POST call.
-      final answerCalls = http.calls
-          .where((c) => c.method == 'POST' && c.url.contains('/answer'))
-          .toList();
-      expect(answerCalls.length, equals(1));
+      driver.assertSent((r) => r.method == 'POST' && r.url.contains('/answer'));
+
+      final answerRequest = driver.recorded
+          .where((r) => r.$1.method == 'POST' && r.$1.url.contains('/answer'))
+          .first
+          .$1;
       expect(
-        answerCalls.first.url,
+        answerRequest.url,
         equals(
           '/teams/team-uuid-001/projects/proj-uuid-001/conversations/conv-uuid-001/answer',
         ),
       );
-      final body = answerCalls.first.data as Map<String, dynamic>;
+      final body = answerRequest.data as Map<String, dynamic>;
       expect(body['question_id'], equals('q-uuid-001'));
       expect(body['answer_text'], equals('Flutter'));
     });
@@ -404,15 +340,7 @@ void main() {
 
     test('answerQuestion failure sets error', () async {
       // Override responder to fail on answer.
-      http.whenAny((url) {
-        if (url.contains('/answer')) {
-          return MagicResponse(
-            data: {'message': 'Server Error'},
-            statusCode: 500,
-          );
-        }
-        return MagicResponse(data: {}, statusCode: 200);
-      });
+      driver.stub('*/answer', Http.response({'message': 'Server Error'}, 500));
 
       state.addEvent(_questionEvent());
       await state.answerQuestion('q-uuid-001', 'Flutter');
@@ -426,15 +354,14 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('answerQuestion does nothing without a conversation', () async {
-      final noConvState = ConversationChatState(
-        httpClient: http,
-        webSocket: ws,
-      );
+      final noConvState = ConversationChatState(webSocket: ws);
 
       await noConvState.answerQuestion('q-uuid-001', 'Flutter');
 
       // No POST calls should have been made.
-      expect(http.calls, isEmpty);
+      driver.assertNotSent(
+        (r) => r.method == 'POST' && r.url.contains('/answer'),
+      );
       noConvState.dispose();
     });
 
@@ -449,8 +376,8 @@ void main() {
       final second = state.answerQuestion('q-uuid-001', 'React');
       await Future.wait([first, second]);
 
-      final answerCalls = http.calls
-          .where((c) => c.method == 'POST' && c.url.contains('/answer'))
+      final answerCalls = driver.recorded
+          .where((r) => r.$1.method == 'POST' && r.$1.url.contains('/answer'))
           .toList();
       expect(answerCalls.length, equals(1));
     });

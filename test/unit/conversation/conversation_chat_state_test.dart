@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
+import 'package:magic/testing.dart';
 
 import 'package:app/app/events/websocket_event.dart';
 import 'package:app/app/models/agent_role.dart';
@@ -79,59 +80,6 @@ const Map<String, dynamic> kMessagesResponse = {
 };
 
 // ---------------------------------------------------------------------------
-// Fake HTTP client
-// ---------------------------------------------------------------------------
-
-/// Injectable HTTP client for testing [ConversationChatState] without
-/// hitting the network.
-class _FakeHttpClient implements ConversationChatHttpClient {
-  final List<_HttpCall> calls = [];
-  late MagicResponse Function(String url) _responder;
-
-  /// Set a responder that maps URL to [MagicResponse].
-  void whenAny(MagicResponse Function(String url) responder) {
-    _responder = responder;
-  }
-
-  /// Shortcut: always return the same response regardless of URL.
-  void alwaysReturn(MagicResponse response) {
-    _responder = (_) => response;
-  }
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) async {
-    calls.add(_HttpCall('GET', url, query: query));
-    return _responder(url);
-  }
-
-  @override
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) async {
-    calls.add(_HttpCall('POST', url, data: data));
-    return _responder(url);
-  }
-}
-
-class _HttpCall {
-  _HttpCall(this.method, this.url, {this.data, this.query});
-
-  final String method;
-  final String url;
-  final dynamic data;
-  final Map<String, dynamic>? query;
-
-  @override
-  String toString() => '$method $url';
-}
-
-// ---------------------------------------------------------------------------
 // Fake WebSocket service
 // ---------------------------------------------------------------------------
 
@@ -140,6 +88,9 @@ class _FakeWebSocketService implements ConversationChatWebSocket {
   final List<String> subscribedChannels = [];
   final List<String> unsubscribedChannels = [];
   final Map<String, void Function(WebSocketEvent)> callbacks = {};
+
+  @override
+  Stream<void> get onReconnect => const Stream.empty();
 
   @override
   void subscribe(String channel, void Function(WebSocketEvent) onEvent) {
@@ -164,15 +115,17 @@ class _FakeWebSocketService implements ConversationChatWebSocket {
 // ---------------------------------------------------------------------------
 
 void main() {
+  MagicTest.init();
+
   group('ConversationChatState', () {
-    late _FakeHttpClient http;
+    late FakeNetworkDriver driver;
     late _FakeWebSocketService ws;
     late ConversationChatState state;
 
     setUp(() {
-      http = _FakeHttpClient();
+      driver = Http.fake();
       ws = _FakeWebSocketService();
-      state = ConversationChatState(httpClient: http, webSocket: ws);
+      state = ConversationChatState(webSocket: ws);
     });
 
     tearDown(() {
@@ -199,8 +152,9 @@ void main() {
     test(
       'createConversation posts with agentRoleId and creates conversation',
       () async {
-        http.alwaysReturn(
-          MagicResponse(data: kConversationResponse, statusCode: 201),
+        driver.stub(
+          '*/conversations*',
+          Http.response(kConversationResponse, 201),
         );
 
         await state.createConversation(
@@ -215,14 +169,15 @@ void main() {
         expect(state.error, isNull);
 
         // Verify HTTP call: single POST to conversations endpoint.
-        expect(http.calls.length, equals(1));
-        expect(http.calls[0].method, equals('POST'));
+        driver.assertSentCount(1);
+        final request = driver.recorded.first.$1;
+        expect(request.method, equals('POST'));
         expect(
-          http.calls[0].url,
+          request.url,
           equals('/teams/team-uuid-001/projects/proj-uuid-001/conversations'),
         );
         expect(
-          (http.calls[0].data as Map<String, dynamic>)['agent_role_id'],
+          (request.data as Map<String, dynamic>)['agent_role_id'],
           equals('role-uuid-001'),
         );
 
@@ -239,8 +194,9 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('createConversation sets error on POST failure', () async {
-      http.alwaysReturn(
-        MagicResponse(data: {'message': 'Forbidden'}, statusCode: 403),
+      driver.stub(
+        '*/conversations*',
+        Http.response({'message': 'Forbidden'}, 403),
       );
 
       await state.createConversation(
@@ -251,7 +207,7 @@ void main() {
 
       expect(state.conversation, isNull);
       expect(state.error, isNotNull);
-      expect(http.calls.length, equals(1));
+      driver.assertSentCount(1);
     });
 
     // -----------------------------------------------------------------------
@@ -260,22 +216,23 @@ void main() {
 
     test('sendMessage appends optimistic user message and posts', () async {
       // Set up conversation first.
-      http.whenAny((url) {
-        if (url.contains('/agent-roles')) {
-          return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
-        }
-        if (url.contains('/messages')) {
-          return MagicResponse(data: {}, statusCode: 202);
-        }
-        return MagicResponse(data: kConversationResponse, statusCode: 201);
-      });
+      // Conversations first, then messages (last = highest priority).
+      driver.stub('*/agent-roles*', Http.response(kAgentRolesResponse));
+      driver.stub(
+        '*/conversations*',
+        Http.response(kConversationResponse, 201),
+      );
+      driver.stub(
+        '*/messages',
+        Http.response(<String, dynamic>{'data': null}, 202),
+      );
 
       await state.createConversation(
         'team-uuid-001',
         'proj-uuid-001',
         agentRoleId: 'role-uuid-001',
       );
-      http.calls.clear();
+      driver.recorded.clear();
 
       await state.sendMessage('Hello agent');
 
@@ -286,14 +243,12 @@ void main() {
       expect(state.isSending, isFalse);
 
       // Verify POST call.
-      expect(http.calls.length, equals(1));
-      expect(http.calls.first.method, equals('POST'));
+      driver.assertSentCount(1);
+      final request = driver.recorded.first.$1;
+      expect(request.method, equals('POST'));
+      expect(request.url, contains('/conversations/conv-uuid-001/messages'));
       expect(
-        http.calls.first.url,
-        contains('/conversations/conv-uuid-001/messages'),
-      );
-      expect(
-        (http.calls.first.data as Map<String, dynamic>)['content'],
+        (request.data as Map<String, dynamic>)['content'],
         equals('Hello agent'),
       );
     });
@@ -306,7 +261,7 @@ void main() {
       await state.sendMessage('Hello');
 
       expect(state.messages, isEmpty);
-      expect(http.calls, isEmpty);
+      driver.assertNothingSent();
     });
 
     // -----------------------------------------------------------------------
@@ -315,31 +270,33 @@ void main() {
 
     test('sendMessage ignores concurrent sends', () async {
       // Set up conversation.
-      http.whenAny((url) {
-        if (url.contains('/agent-roles')) {
-          return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
-        }
-        if (url.contains('/messages')) {
-          return MagicResponse(data: {}, statusCode: 202);
-        }
-        return MagicResponse(data: kConversationResponse, statusCode: 201);
-      });
+      driver.stub('*/agent-roles*', Http.response(kAgentRolesResponse));
+      driver.stub(
+        '*/conversations*',
+        Http.response(kConversationResponse, 201),
+      );
+      driver.stub(
+        '*/messages',
+        Http.response(<String, dynamic>{'data': null}, 202),
+      );
 
       await state.createConversation(
         'team-uuid-001',
         'proj-uuid-001',
         agentRoleId: 'role-uuid-001',
       );
-      http.calls.clear();
+      driver.recorded.clear();
 
-      // Send two messages concurrently — second should be ignored.
+      // Send two messages concurrently — second awaits the first then proceeds.
       final first = state.sendMessage('First');
       final second = state.sendMessage('Second');
       await Future.wait([first, second]);
 
-      // Only one POST should have been made.
-      final postCalls = http.calls.where((c) => c.method == 'POST').toList();
-      expect(postCalls.length, equals(1));
+      // Both POSTs are serialized (second awaits first, then executes).
+      final postCalls = driver.recorded
+          .where((r) => r.$1.method == 'POST')
+          .toList();
+      expect(postCalls.length, equals(2));
     });
 
     // -----------------------------------------------------------------------
@@ -348,12 +305,11 @@ void main() {
 
     test('addEvent with .conversation.message appends message', () async {
       // Set up conversation.
-      http.whenAny((url) {
-        if (url.contains('/agent-roles')) {
-          return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
-        }
-        return MagicResponse(data: kConversationResponse, statusCode: 201);
-      });
+      driver.stub('*/agent-roles*', Http.response(kAgentRolesResponse));
+      driver.stub(
+        '*/conversations*',
+        Http.response(kConversationResponse, 201),
+      );
       await state.createConversation(
         'team-uuid-001',
         'proj-uuid-001',
@@ -415,12 +371,11 @@ void main() {
       'addEvent with .conversation.status updates status and warmUntil',
       () async {
         // Set up conversation.
-        http.whenAny((url) {
-          if (url.contains('/agent-roles')) {
-            return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
-          }
-          return MagicResponse(data: kConversationResponse, statusCode: 201);
-        });
+        driver.stub('*/agent-roles*', Http.response(kAgentRolesResponse));
+        driver.stub(
+          '*/conversations*',
+          Http.response(kConversationResponse, 201),
+        );
         await state.createConversation(
           'team-uuid-001',
           'proj-uuid-001',
@@ -477,31 +432,29 @@ void main() {
 
     test('completeConversation posts and updates status', () async {
       // Set up conversation.
-      http.whenAny((url) {
-        if (url.contains('/agent-roles')) {
-          return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
-        }
-        if (url.contains('/complete')) {
-          return MagicResponse(data: {}, statusCode: 200);
-        }
-        return MagicResponse(data: kConversationResponse, statusCode: 201);
-      });
+      driver.stub('*/agent-roles*', Http.response(kAgentRolesResponse));
+      driver.stub('*/complete', Http.response({}));
+      driver.stub(
+        '*/conversations*',
+        Http.response(kConversationResponse, 201),
+      );
 
       await state.createConversation(
         'team-uuid-001',
         'proj-uuid-001',
         agentRoleId: 'role-uuid-001',
       );
-      http.calls.clear();
+      driver.recorded.clear();
 
       await state.completeConversation();
 
       expect(state.conversation!.status, equals('completed'));
 
-      expect(http.calls.length, equals(1));
-      expect(http.calls.first.method, equals('POST'));
+      driver.assertSentCount(1);
+      final request = driver.recorded.first.$1;
+      expect(request.method, equals('POST'));
       expect(
-        http.calls.first.url,
+        request.url,
         equals(
           '/teams/team-uuid-001/projects/proj-uuid-001/conversations/conv-uuid-001/complete',
         ),
@@ -514,22 +467,19 @@ void main() {
 
     test('loadMessages fetches and replaces messages list', () async {
       // Set up conversation.
-      http.whenAny((url) {
-        if (url.contains('/agent-roles')) {
-          return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
-        }
-        if (url.contains('/messages')) {
-          return MagicResponse(data: kMessagesResponse, statusCode: 200);
-        }
-        return MagicResponse(data: kConversationResponse, statusCode: 201);
-      });
+      driver.stub('*/agent-roles*', Http.response(kAgentRolesResponse));
+      driver.stub(
+        '*/conversations*',
+        Http.response(kConversationResponse, 201),
+      );
+      driver.stub('*/messages*', Http.response(kMessagesResponse));
 
       await state.createConversation(
         'team-uuid-001',
         'proj-uuid-001',
         agentRoleId: 'role-uuid-001',
       );
-      http.calls.clear();
+      driver.recorded.clear();
 
       await state.loadMessages();
 
@@ -539,9 +489,10 @@ void main() {
       expect(state.messages[1].id, equals('msg-uuid-002'));
       expect(state.messages[1].role, equals('assistant'));
 
-      expect(http.calls.first.method, equals('GET'));
+      final request = driver.recorded.first.$1;
+      expect(request.method, equals('GET'));
       expect(
-        http.calls.first.url,
+        request.url,
         equals(
           '/teams/team-uuid-001/projects/proj-uuid-001/conversations/conv-uuid-001/messages',
         ),
@@ -554,12 +505,11 @@ void main() {
 
     test('reset clears all state and unsubscribes from WS', () async {
       // Set up conversation.
-      http.whenAny((url) {
-        if (url.contains('/agent-roles')) {
-          return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
-        }
-        return MagicResponse(data: kConversationResponse, statusCode: 201);
-      });
+      driver.stub('*/agent-roles*', Http.response(kAgentRolesResponse));
+      driver.stub(
+        '*/conversations*',
+        Http.response(kConversationResponse, 201),
+      );
 
       await state.createConversation(
         'team-uuid-001',
@@ -587,12 +537,11 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('WS subscribe callback routes events through addEvent', () async {
-      http.whenAny((url) {
-        if (url.contains('/agent-roles')) {
-          return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
-        }
-        return MagicResponse(data: kConversationResponse, statusCode: 201);
-      });
+      driver.stub('*/agent-roles*', Http.response(kAgentRolesResponse));
+      driver.stub(
+        '*/conversations*',
+        Http.response(kConversationResponse, 201),
+      );
 
       await state.createConversation(
         'team-uuid-001',
@@ -628,12 +577,11 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('state changes trigger notifyListeners', () async {
-      http.whenAny((url) {
-        if (url.contains('/agent-roles')) {
-          return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
-        }
-        return MagicResponse(data: kConversationResponse, statusCode: 201);
-      });
+      driver.stub('*/agent-roles*', Http.response(kAgentRolesResponse));
+      driver.stub(
+        '*/conversations*',
+        Http.response(kConversationResponse, 201),
+      );
 
       int notifyCount = 0;
       state.addListener(() => notifyCount++);
@@ -678,13 +626,9 @@ void main() {
     test(
       'loadConversation fetches conversation, loads messages, and subscribes to WS',
       () async {
-        http.whenAny((url) {
-          if (url.contains('/messages')) {
-            return MagicResponse(data: kMessagesResponse, statusCode: 200);
-          }
-          // GET single conversation.
-          return MagicResponse(data: kConversationResponse, statusCode: 200);
-        });
+        // GET single conversation first, then messages (last = highest priority).
+        driver.stub('*/conversations/*', Http.response(kConversationResponse));
+        driver.stub('*/messages*', Http.response(kMessagesResponse));
 
         await state.loadConversation(
           'team-uuid-001',
@@ -701,16 +645,18 @@ void main() {
         expect(state.messages.length, equals(2));
 
         // HTTP calls: GET conversation, GET messages.
-        final getCalls = http.calls.where((c) => c.method == 'GET').toList();
+        final getCalls = driver.recorded
+            .where((r) => r.$1.method == 'GET')
+            .toList();
         expect(getCalls.length, equals(2));
         expect(
-          getCalls[0].url,
+          getCalls[0].$1.url,
           equals(
             '/teams/team-uuid-001/projects/proj-uuid-001/conversations/conv-uuid-001',
           ),
         );
         expect(
-          getCalls[1].url,
+          getCalls[1].$1.url,
           equals(
             '/teams/team-uuid-001/projects/proj-uuid-001/conversations/conv-uuid-001/messages',
           ),
@@ -729,8 +675,9 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('loadConversation sets error on API failure', () async {
-      http.alwaysReturn(
-        MagicResponse(data: {'message': 'Not found'}, statusCode: 404),
+      driver.stub(
+        '*/conversations/*',
+        Http.response({'message': 'Not found'}, 404),
       );
 
       await state.loadConversation(
@@ -750,12 +697,11 @@ void main() {
     test(
       'sessionId is populated from .conversation.status event and session WS channel is subscribed',
       () async {
-        http.whenAny((url) {
-          if (url.contains('/agent-roles')) {
-            return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
-          }
-          return MagicResponse(data: kConversationResponse, statusCode: 201);
-        });
+        driver.stub('*/agent-roles*', Http.response(kAgentRolesResponse));
+        driver.stub(
+          '*/conversations*',
+          Http.response(kConversationResponse, 201),
+        );
 
         await state.createConversation(
           'team-uuid-001',
@@ -795,12 +741,11 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('session WS events update running cost and session phase', () async {
-      http.whenAny((url) {
-        if (url.contains('/agent-roles')) {
-          return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
-        }
-        return MagicResponse(data: kConversationResponse, statusCode: 201);
-      });
+      driver.stub('*/agent-roles*', Http.response(kAgentRolesResponse));
+      driver.stub(
+        '*/conversations*',
+        Http.response(kConversationResponse, 201),
+      );
 
       await state.createConversation(
         'team-uuid-001',
@@ -862,12 +807,11 @@ void main() {
     test(
       'reset clears session fields and unsubscribes from session WS channel',
       () async {
-        http.whenAny((url) {
-          if (url.contains('/agent-roles')) {
-            return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
-          }
-          return MagicResponse(data: kConversationResponse, statusCode: 201);
-        });
+        driver.stub('*/agent-roles*', Http.response(kAgentRolesResponse));
+        driver.stub(
+          '*/conversations*',
+          Http.response(kConversationResponse, 201),
+        );
 
         await state.createConversation(
           'team-uuid-001',
@@ -909,12 +853,11 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('tool_use event appends ChatToolUseItem to chatItems', () async {
-      http.whenAny((url) {
-        if (url.contains('/agent-roles')) {
-          return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
-        }
-        return MagicResponse(data: kConversationResponse, statusCode: 201);
-      });
+      driver.stub('*/agent-roles*', Http.response(kAgentRolesResponse));
+      driver.stub(
+        '*/conversations*',
+        Http.response(kConversationResponse, 201),
+      );
       await state.createConversation(
         'team-uuid-001',
         'proj-uuid-001',
@@ -931,10 +874,8 @@ void main() {
             'type': 'tool_use',
             'content': null,
             'metadata': {
-              'data': {
-                'toolName': 'Read',
-                'input': {'file_path': '/tmp/test.dart'},
-              },
+              'toolName': 'Read',
+              'input': {'file_path': '/tmp/test.dart'},
             },
             'occurred_at': '2026-03-27T10:03:00.000Z',
           },
@@ -954,12 +895,11 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('thinking event appends ChatThinkingItem to chatItems', () async {
-      http.whenAny((url) {
-        if (url.contains('/agent-roles')) {
-          return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
-        }
-        return MagicResponse(data: kConversationResponse, statusCode: 201);
-      });
+      driver.stub('*/agent-roles*', Http.response(kAgentRolesResponse));
+      driver.stub(
+        '*/conversations*',
+        Http.response(kConversationResponse, 201),
+      );
       await state.createConversation(
         'team-uuid-001',
         'proj-uuid-001',
@@ -996,12 +936,11 @@ void main() {
     test(
       'subagent_start then subagent_stop updates ChatSubagentItem',
       () async {
-        http.whenAny((url) {
-          if (url.contains('/agent-roles')) {
-            return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
-          }
-          return MagicResponse(data: kConversationResponse, statusCode: 201);
-        });
+        driver.stub('*/agent-roles*', Http.response(kAgentRolesResponse));
+        driver.stub(
+          '*/conversations*',
+          Http.response(kConversationResponse, 201),
+        );
         await state.createConversation(
           'team-uuid-001',
           'proj-uuid-001',
@@ -1018,9 +957,7 @@ void main() {
             data: {
               'type': 'subagent_start',
               'content': null,
-              'metadata': {
-                'data': {'agentId': 'sub-001', 'agentType': 'Researching'},
-              },
+              'metadata': {'agentId': 'sub-001', 'agentType': 'Researching'},
               'occurred_at': '2026-03-27T10:03:00.000Z',
             },
             receivedAt: DateTime.now(),
@@ -1043,11 +980,9 @@ void main() {
               'type': 'subagent_stop',
               'content': null,
               'metadata': {
-                'data': {
-                  'agentId': 'sub-001',
-                  'agentType': 'Researching',
-                  'durationMs': 3200,
-                },
+                'agentId': 'sub-001',
+                'agentType': 'Researching',
+                'durationMs': 3200,
               },
               'occurred_at': '2026-03-27T10:03:05.000Z',
             },
@@ -1067,12 +1002,11 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('file_change event appends ChatFileChangeItem', () async {
-      http.whenAny((url) {
-        if (url.contains('/agent-roles')) {
-          return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
-        }
-        return MagicResponse(data: kConversationResponse, statusCode: 201);
-      });
+      driver.stub('*/agent-roles*', Http.response(kAgentRolesResponse));
+      driver.stub(
+        '*/conversations*',
+        Http.response(kConversationResponse, 201),
+      );
       await state.createConversation(
         'team-uuid-001',
         'proj-uuid-001',
@@ -1089,10 +1023,8 @@ void main() {
             'type': 'file_change',
             'content': null,
             'metadata': {
-              'data': {
-                'toolName': 'Edit',
-                'filePath': 'lib/app/models/task.dart',
-              },
+              'toolName': 'Edit',
+              'filePath': 'lib/app/models/task.dart',
             },
             'occurred_at': '2026-03-27T10:03:00.000Z',
           },
@@ -1116,12 +1048,11 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('error event appends ChatErrorItem', () async {
-      http.whenAny((url) {
-        if (url.contains('/agent-roles')) {
-          return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
-        }
-        return MagicResponse(data: kConversationResponse, statusCode: 201);
-      });
+      driver.stub('*/agent-roles*', Http.response(kAgentRolesResponse));
+      driver.stub(
+        '*/conversations*',
+        Http.response(kConversationResponse, 201),
+      );
       await state.createConversation(
         'team-uuid-001',
         'proj-uuid-001',
@@ -1156,12 +1087,11 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('result event appends ChatResultItem', () async {
-      http.whenAny((url) {
-        if (url.contains('/agent-roles')) {
-          return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
-        }
-        return MagicResponse(data: kConversationResponse, statusCode: 201);
-      });
+      driver.stub('*/agent-roles*', Http.response(kAgentRolesResponse));
+      driver.stub(
+        '*/conversations*',
+        Http.response(kConversationResponse, 201),
+      );
       await state.createConversation(
         'team-uuid-001',
         'proj-uuid-001',
@@ -1177,9 +1107,7 @@ void main() {
           data: {
             'type': 'result',
             'content': 'Task completed',
-            'metadata': {
-              'data': {'isError': false},
-            },
+            'metadata': {'isError': false},
             'occurred_at': '2026-03-27T10:03:00.000Z',
           },
           receivedAt: DateTime.now(),
@@ -1199,12 +1127,11 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('chatItems getter returns unmodifiable list', () async {
-      http.whenAny((url) {
-        if (url.contains('/agent-roles')) {
-          return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
-        }
-        return MagicResponse(data: kConversationResponse, statusCode: 201);
-      });
+      driver.stub('*/agent-roles*', Http.response(kAgentRolesResponse));
+      driver.stub(
+        '*/conversations*',
+        Http.response(kConversationResponse, 201),
+      );
       await state.createConversation(
         'team-uuid-001',
         'proj-uuid-001',
@@ -1226,15 +1153,12 @@ void main() {
     test(
       'messages getter returns only ConversationMessages from chatItems',
       () async {
-        http.whenAny((url) {
-          if (url.contains('/agent-roles')) {
-            return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
-          }
-          if (url.contains('/messages')) {
-            return MagicResponse(data: kMessagesResponse, statusCode: 200);
-          }
-          return MagicResponse(data: kConversationResponse, statusCode: 201);
-        });
+        driver.stub('*/agent-roles*', Http.response(kAgentRolesResponse));
+        driver.stub(
+          '*/conversations*',
+          Http.response(kConversationResponse, 201),
+        );
+        driver.stub('*/messages*', Http.response(kMessagesResponse));
         await state.createConversation(
           'team-uuid-001',
           'proj-uuid-001',
@@ -1257,15 +1181,15 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('sendMessage optimistic append creates ChatMessageItem', () async {
-      http.whenAny((url) {
-        if (url.contains('/agent-roles')) {
-          return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
-        }
-        if (url.contains('/messages')) {
-          return MagicResponse(data: {}, statusCode: 202);
-        }
-        return MagicResponse(data: kConversationResponse, statusCode: 201);
-      });
+      driver.stub('*/agent-roles*', Http.response(kAgentRolesResponse));
+      driver.stub(
+        '*/conversations*',
+        Http.response(kConversationResponse, 201),
+      );
+      driver.stub(
+        '*/messages',
+        Http.response(<String, dynamic>{'data': null}, 202),
+      );
       await state.createConversation(
         'team-uuid-001',
         'proj-uuid-001',
@@ -1286,12 +1210,11 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('reset clears chatItems', () async {
-      http.whenAny((url) {
-        if (url.contains('/agent-roles')) {
-          return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
-        }
-        return MagicResponse(data: kConversationResponse, statusCode: 201);
-      });
+      driver.stub('*/agent-roles*', Http.response(kAgentRolesResponse));
+      driver.stub(
+        '*/conversations*',
+        Http.response(kConversationResponse, 201),
+      );
       await state.createConversation(
         'team-uuid-001',
         'proj-uuid-001',
@@ -1328,8 +1251,9 @@ void main() {
     test(
       'createConversation sends provided agentRoleId in POST body',
       () async {
-        http.alwaysReturn(
-          MagicResponse(data: kConversationResponse, statusCode: 201),
+        driver.stub(
+          '*/conversations*',
+          Http.response(kConversationResponse, 201),
         );
 
         await state.createConversation(
@@ -1338,10 +1262,11 @@ void main() {
           agentRoleId: 'role-uuid-001',
         );
 
-        expect(http.calls.length, equals(1));
-        expect(http.calls[0].method, equals('POST'));
+        driver.assertSentCount(1);
+        final request = driver.recorded.first.$1;
+        expect(request.method, equals('POST'));
         expect(
-          (http.calls[0].data as Map<String, dynamic>)['agent_role_id'],
+          (request.data as Map<String, dynamic>)['agent_role_id'],
           equals('role-uuid-001'),
         );
       },
@@ -1352,8 +1277,9 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('createConversation sends title in POST body when provided', () async {
-      http.alwaysReturn(
-        MagicResponse(data: kConversationResponse, statusCode: 201),
+      driver.stub(
+        '*/conversations*',
+        Http.response(kConversationResponse, 201),
       );
 
       await state.createConversation(
@@ -1363,9 +1289,9 @@ void main() {
         title: 'My Chat',
       );
 
-      expect(http.calls.length, equals(1));
+      driver.assertSentCount(1);
       expect(
-        (http.calls[0].data as Map<String, dynamic>)['title'],
+        (driver.recorded.first.$1.data as Map<String, dynamic>)['title'],
         equals('My Chat'),
       );
     });
@@ -1377,8 +1303,9 @@ void main() {
     test(
       'createConversation omits title key from POST body when not provided',
       () async {
-        http.alwaysReturn(
-          MagicResponse(data: kConversationResponse, statusCode: 201),
+        driver.stub(
+          '*/conversations*',
+          Http.response(kConversationResponse, 201),
         );
 
         await state.createConversation(
@@ -1387,9 +1314,11 @@ void main() {
           agentRoleId: 'role-uuid-001',
         );
 
-        expect(http.calls.length, equals(1));
+        driver.assertSentCount(1);
         expect(
-          (http.calls[0].data as Map<String, dynamic>).containsKey('title'),
+          (driver.recorded.first.$1.data as Map<String, dynamic>).containsKey(
+            'title',
+          ),
           isFalse,
         );
       },
@@ -1400,28 +1329,26 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('fetchAgentRoles returns parsed List<AgentRole> on success', () async {
-      http.alwaysReturn(
-        MagicResponse(
-          data: {
-            'data': [
-              {
-                'id': 'role-uuid-001',
-                'name': 'Business Analyst',
-                'scope': 'analysis',
-                'slug': 'ba',
-                'team_id': 'team-uuid-001',
-              },
-              {
-                'id': 'role-uuid-002',
-                'name': 'Lead Developer',
-                'scope': 'implementation',
-                'slug': 'lead',
-                'team_id': 'team-uuid-001',
-              },
-            ],
-          },
-          statusCode: 200,
-        ),
+      driver.stub(
+        '*/agent-roles*',
+        Http.response({
+          'data': [
+            {
+              'id': 'role-uuid-001',
+              'name': 'Business Analyst',
+              'scope': 'analysis',
+              'slug': 'ba',
+              'team_id': 'team-uuid-001',
+            },
+            {
+              'id': 'role-uuid-002',
+              'name': 'Lead Developer',
+              'scope': 'implementation',
+              'slug': 'lead',
+              'team_id': 'team-uuid-001',
+            },
+          ],
+        }),
       );
 
       final roles = await state.fetchAgentRoles('team-uuid-001');
@@ -1434,9 +1361,10 @@ void main() {
       expect(roles[1].id, equals('role-uuid-002'));
       expect(roles[1].name, equals('Lead Developer'));
 
-      expect(http.calls.length, equals(1));
-      expect(http.calls[0].method, equals('GET'));
-      expect(http.calls[0].url, equals('/teams/team-uuid-001/agent-roles'));
+      driver.assertSentCount(1);
+      final request = driver.recorded.first.$1;
+      expect(request.method, equals('GET'));
+      expect(request.url, equals('/teams/team-uuid-001/agent-roles'));
     });
 
     // -----------------------------------------------------------------------
@@ -1444,8 +1372,9 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('fetchAgentRoles returns empty list on API failure', () async {
-      http.alwaysReturn(
-        MagicResponse(data: {'message': 'Forbidden'}, statusCode: 403),
+      driver.stub(
+        '*/agent-roles*',
+        Http.response({'message': 'Forbidden'}, 403),
       );
 
       final roles = await state.fetchAgentRoles('team-uuid-001');
@@ -1459,12 +1388,11 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('tool_use event forwards toolUseId to ChatToolUseItem', () async {
-      http.whenAny((url) {
-        if (url.contains('/agent-roles')) {
-          return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
-        }
-        return MagicResponse(data: kConversationResponse, statusCode: 201);
-      });
+      driver.stub('*/agent-roles*', Http.response(kAgentRolesResponse));
+      driver.stub(
+        '*/conversations*',
+        Http.response(kConversationResponse, 201),
+      );
       await state.createConversation(
         'team-uuid-001',
         'proj-uuid-001',
@@ -1481,11 +1409,9 @@ void main() {
             'type': 'tool_use',
             'content': null,
             'metadata': {
-              'data': {
-                'toolName': 'Bash',
-                'input': {'command': 'ls -la'},
-                'toolUseId': 'toolu_abc123',
-              },
+              'toolName': 'Bash',
+              'input': {'command': 'ls -la'},
+              'toolUseId': 'toolu_abc123',
             },
             'occurred_at': '2026-03-27T10:05:00.000Z',
           },
@@ -1506,12 +1432,11 @@ void main() {
     test(
       'tool_result event finds parent ChatToolUseItem and populates result',
       () async {
-        http.whenAny((url) {
-          if (url.contains('/agent-roles')) {
-            return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
-          }
-          return MagicResponse(data: kConversationResponse, statusCode: 201);
-        });
+        driver.stub('*/agent-roles*', Http.response(kAgentRolesResponse));
+        driver.stub(
+          '*/conversations*',
+          Http.response(kConversationResponse, 201),
+        );
         await state.createConversation(
           'team-uuid-001',
           'proj-uuid-001',
@@ -1529,11 +1454,9 @@ void main() {
               'type': 'tool_use',
               'content': null,
               'metadata': {
-                'data': {
-                  'toolName': 'Read',
-                  'input': {'file_path': '/tmp/out.txt'},
-                  'toolUseId': 'toolu_xyz789',
-                },
+                'toolName': 'Read',
+                'input': {'file_path': '/tmp/out.txt'},
+                'toolUseId': 'toolu_xyz789',
               },
               'occurred_at': '2026-03-27T10:06:00.000Z',
             },
@@ -1556,9 +1479,7 @@ void main() {
             data: {
               'type': 'tool_result',
               'content': 'file contents here',
-              'metadata': {
-                'data': {'toolUseId': 'toolu_xyz789'},
-              },
+              'metadata': {'toolUseId': 'toolu_xyz789'},
               'occurred_at': '2026-03-27T10:06:01.000Z',
             },
             receivedAt: DateTime.now(),
@@ -1579,12 +1500,11 @@ void main() {
     test(
       'tool_result with unknown toolUseId does not mutate chatItems',
       () async {
-        http.whenAny((url) {
-          if (url.contains('/agent-roles')) {
-            return MagicResponse(data: kAgentRolesResponse, statusCode: 200);
-          }
-          return MagicResponse(data: kConversationResponse, statusCode: 201);
-        });
+        driver.stub('*/agent-roles*', Http.response(kAgentRolesResponse));
+        driver.stub(
+          '*/conversations*',
+          Http.response(kConversationResponse, 201),
+        );
         await state.createConversation(
           'team-uuid-001',
           'proj-uuid-001',
@@ -1602,9 +1522,7 @@ void main() {
             data: {
               'type': 'tool_result',
               'content': 'orphan result',
-              'metadata': {
-                'data': {'toolUseId': 'toolu_nonexistent'},
-              },
+              'metadata': {'toolUseId': 'toolu_nonexistent'},
               'occurred_at': '2026-03-27T10:07:00.000Z',
             },
             receivedAt: DateTime.now(),

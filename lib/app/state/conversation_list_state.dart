@@ -4,56 +4,6 @@ import '../models/agent_role.dart';
 import '../models/conversation.dart';
 
 // ---------------------------------------------------------------------------
-// HTTP abstraction for testability
-// ---------------------------------------------------------------------------
-
-/// Thin interface over the HTTP verbs [ConversationListState] uses.
-///
-/// In production the default [_MagicConversationHttpClient] delegates to [Http].
-/// Tests inject a fake that records calls and returns canned responses.
-abstract class ConversationListHttpClient {
-  /// Perform a GET request.
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  });
-
-  /// Perform a POST request.
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  });
-
-  /// Perform a DELETE request.
-  Future<MagicResponse> delete(String url, {Map<String, String>? headers});
-}
-
-/// Default production [ConversationListHttpClient] backed by the Magic [Http] facade.
-class _MagicConversationHttpClient implements ConversationListHttpClient {
-  const _MagicConversationHttpClient();
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) => Http.get(url, query: query, headers: headers);
-
-  @override
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) => Http.post(url, data: data, headers: headers);
-
-  @override
-  Future<MagicResponse> delete(String url, {Map<String, String>? headers}) =>
-      Http.delete(url, headers: headers);
-}
-
-// ---------------------------------------------------------------------------
 // ConversationListState controller
 // ---------------------------------------------------------------------------
 
@@ -65,8 +15,8 @@ class _MagicConversationHttpClient implements ConversationListHttpClient {
 /// ## Usage
 ///
 /// ```dart
-/// // Access via Magic IoC container.
-/// final state = Magic.findOrPut(ConversationListState.new);
+/// // Access via singleton accessor.
+/// final state = ConversationListState.instance;
 ///
 /// // Fetch all conversations for a project.
 /// await state.loadConversations('team-uuid', 'proj-uuid');
@@ -77,14 +27,15 @@ class _MagicConversationHttpClient implements ConversationListHttpClient {
 /// ```
 class ConversationListState extends MagicController
     with MagicStateMixin<List<Conversation>> {
-  /// Creates a [ConversationListState] with an optional [httpClient] for testing.
-  ///
-  /// When [httpClient] is `null` (production), the Magic [Http] facade is
-  /// used via [_MagicConversationHttpClient].
-  ConversationListState({ConversationListHttpClient? httpClient})
-    : _http = httpClient ?? const _MagicConversationHttpClient();
+  /// Creates a [ConversationListState].
+  ConversationListState();
 
-  final ConversationListHttpClient _http;
+  /// Lazy singleton accessor.
+  ///
+  /// Uses [Magic.findOrPut] to ensure a single instance is shared across
+  /// the application.
+  static ConversationListState get instance =>
+      Magic.findOrPut(ConversationListState.new);
 
   // ---------------------------------------------------------------------------
   // Load
@@ -97,7 +48,7 @@ class ConversationListState extends MagicController
   Future<void> loadConversations(String teamId, String projectId) async {
     setLoading();
 
-    final response = await _http.get(
+    final response = await Http.get(
       '/teams/$teamId/projects/$projectId/conversations',
     );
 
@@ -126,7 +77,7 @@ class ConversationListState extends MagicController
     String projectId,
     String conversationId,
   ) async {
-    final response = await _http.delete(
+    final response = await Http.delete(
       '/teams/$teamId/projects/$projectId/conversations/$conversationId',
     );
 
@@ -145,7 +96,7 @@ class ConversationListState extends MagicController
   ///
   /// Returns the list of [AgentRole] or an empty list on failure.
   Future<List<AgentRole>> fetchAgentRoles(String teamId) async {
-    final response = await _http.get('/teams/$teamId/agent-roles');
+    final response = await Http.get('/teams/$teamId/agent-roles');
     if (!response.successful) return [];
 
     final List<dynamic> items =
@@ -167,7 +118,7 @@ class ConversationListState extends MagicController
     String projectId,
     String agentRoleId,
   ) async {
-    final response = await _http.post(
+    final response = await Http.post(
       '/teams/$teamId/projects/$projectId/conversations',
       data: {'agent_role_id': agentRoleId},
     );

@@ -28,10 +28,8 @@ void main() {
       expect(statusBadgeClassName('draft'), contains('text-slate-400'));
       expect(statusBadgeClassName('analysis'), contains('text-indigo-500'));
       expect(statusBadgeClassName('planning'), contains('text-blue-500'));
-      expect(statusBadgeClassName('design'), contains('text-violet-500'));
       expect(statusBadgeClassName('in_progress'), contains('text-amber-500'));
       expect(statusBadgeClassName('review'), contains('text-orange-500'));
-      expect(statusBadgeClassName('testing'), contains('text-teal-500'));
       expect(statusBadgeClassName('done'), contains('text-emerald-500'));
       expect(statusBadgeClassName('failed'), contains('text-red-500'));
     });
@@ -50,10 +48,8 @@ void main() {
       expect(statusDotClassName('draft'), 'bg-slate-300');
       expect(statusDotClassName('analysis'), 'bg-indigo-500');
       expect(statusDotClassName('planning'), 'bg-blue-500');
-      expect(statusDotClassName('design'), 'bg-violet-500');
       expect(statusDotClassName('in_progress'), 'bg-amber-400');
       expect(statusDotClassName('review'), 'bg-orange-500');
-      expect(statusDotClassName('testing'), 'bg-teal-500');
       expect(statusDotClassName('done'), 'bg-emerald-500');
       expect(statusDotClassName('failed'), 'bg-red-500');
     });

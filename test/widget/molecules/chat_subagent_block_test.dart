@@ -69,8 +69,8 @@ void main() {
         final runningText = trans('conversation_chat.event_subagent_working');
         expect(find.text(runningText), findsOneWidget);
 
-        // Should show description.
-        expect(find.text('Analyzing codebase'), findsOneWidget);
+        // Description appears in both the badge and the description text.
+        expect(find.text('Analyzing codebase'), findsNWidgets(2));
       },
     );
 
@@ -118,11 +118,8 @@ void main() {
         ),
       );
 
-      // Should show the sub-agent name badge via trans().
-      final badgeText = trans('conversation_chat.event_subagent_start', {
-        'name': 'sub-003',
-      });
-      expect(find.text(badgeText), findsOneWidget);
+      // Badge renders subagentId directly (no description or agentName).
+      expect(find.text('sub-003'), findsOneWidget);
     });
 
     // ---------------------------------------------------------------------

@@ -16,70 +16,6 @@ enum SortField {
 }
 
 // ---------------------------------------------------------------------------
-// HTTP abstraction for testability
-// ---------------------------------------------------------------------------
-
-/// Thin interface over the HTTP verbs [ProjectState] uses.
-///
-/// In production the default [_MagicHttpClient] delegates to [Http].
-/// Tests inject a fake that records calls and returns canned responses.
-abstract class HttpClient {
-  /// Perform a GET request.
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  });
-
-  /// Perform a POST request.
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  });
-
-  /// Perform a PUT request.
-  Future<MagicResponse> put(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  });
-
-  /// Perform a DELETE request.
-  Future<MagicResponse> delete(String url, {Map<String, String>? headers});
-}
-
-/// Default production [HttpClient] backed by the Magic [Http] facade.
-class _MagicHttpClient implements HttpClient {
-  const _MagicHttpClient();
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) => Http.get(url, query: query, headers: headers);
-
-  @override
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) => Http.post(url, data: data, headers: headers);
-
-  @override
-  Future<MagicResponse> put(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) => Http.put(url, data: data, headers: headers);
-
-  @override
-  Future<MagicResponse> delete(String url, {Map<String, String>? headers}) =>
-      Http.delete(url, headers: headers);
-}
-
-// ---------------------------------------------------------------------------
 // ProjectState controller
 // ---------------------------------------------------------------------------
 
@@ -110,20 +46,14 @@ class _MagicHttpClient implements HttpClient {
 /// projects.sortProjects(SortField.name);
 /// ```
 class ProjectState extends MagicController with MagicStateMixin<List<Project>> {
-  /// Creates a [ProjectState] with an optional [httpClient] for testing.
-  ///
-  /// When [httpClient] is `null` (production), the Magic [Http] facade is
-  /// used via [_MagicHttpClient].
-  ProjectState({HttpClient? httpClient})
-    : _http = httpClient ?? const _MagicHttpClient();
+  /// Creates a [ProjectState].
+  ProjectState();
 
   /// Lazy singleton accessor.
   ///
   /// Uses [Magic.findOrPut] to ensure a single instance is shared across
   /// the application.
   static ProjectState get instance => Magic.findOrPut(ProjectState.new);
-
-  final HttpClient _http;
 
   // ---------------------------------------------------------------------------
   // Secondary state
@@ -152,7 +82,7 @@ class ProjectState extends MagicController with MagicStateMixin<List<Project>> {
   Future<void> fetchProjects(String teamId) async {
     setLoading();
 
-    final response = await _http.get('/teams/$teamId/projects');
+    final response = await Http.get('/teams/$teamId/projects');
 
     if (response.successful) {
       final List<dynamic> items =
@@ -171,7 +101,7 @@ class ProjectState extends MagicController with MagicStateMixin<List<Project>> {
   /// Does **not** affect the primary list state. Calls [refreshUI] after
   /// updating [_selectedProject].
   Future<void> fetchProject(String teamId, String projectId) async {
-    final response = await _http.get('/teams/$teamId/projects/$projectId');
+    final response = await Http.get('/teams/$teamId/projects/$projectId');
 
     if (response.successful) {
       final Map<String, dynamic> data =
@@ -196,7 +126,7 @@ class ProjectState extends MagicController with MagicStateMixin<List<Project>> {
     String teamId,
     Map<String, dynamic> data,
   ) async {
-    final response = await _http.post('/teams/$teamId/projects', data: data);
+    final response = await Http.post('/teams/$teamId/projects', data: data);
 
     if (response.successful) {
       final Map<String, dynamic> projectData =
@@ -216,7 +146,7 @@ class ProjectState extends MagicController with MagicStateMixin<List<Project>> {
     String projectId,
     Map<String, dynamic> data,
   ) async {
-    final response = await _http.put(
+    final response = await Http.put(
       '/teams/$teamId/projects/$projectId',
       data: data,
     );
@@ -235,7 +165,7 @@ class ProjectState extends MagicController with MagicStateMixin<List<Project>> {
   ///
   /// Returns `true` on success, `false` on failure.
   Future<bool> deleteProject(String teamId, String projectId) async {
-    final response = await _http.delete('/teams/$teamId/projects/$projectId');
+    final response = await Http.delete('/teams/$teamId/projects/$projectId');
 
     return response.successful;
   }
@@ -250,7 +180,7 @@ class ProjectState extends MagicController with MagicStateMixin<List<Project>> {
   /// new public key string on success, or `null` on failure. On success,
   /// [fetchProject] is called to refresh the project data.
   Future<String?> regenerateSshKey(String teamId, String projectId) async {
-    final response = await _http.post(
+    final response = await Http.post(
       '/teams/$teamId/projects/$projectId/ssh-key',
     );
 
@@ -282,7 +212,7 @@ class ProjectState extends MagicController with MagicStateMixin<List<Project>> {
       return _runtimes;
     }
 
-    final response = await _http.get('/environment/runtimes');
+    final response = await Http.get('/environment/runtimes');
 
     if (response.successful) {
       _runtimes = response.data as Map<String, dynamic>?;

@@ -25,70 +25,6 @@ enum TaskSortField {
 }
 
 // ---------------------------------------------------------------------------
-// HTTP abstraction for testability
-// ---------------------------------------------------------------------------
-
-/// Thin interface over the HTTP verbs [TaskState] uses.
-///
-/// In production the default [_MagicTaskHttpClient] delegates to [Http].
-/// Tests inject a fake that records calls and returns canned responses.
-abstract class TaskHttpClient {
-  /// Perform a GET request.
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  });
-
-  /// Perform a POST request.
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  });
-
-  /// Perform a PUT request.
-  Future<MagicResponse> put(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  });
-
-  /// Perform a DELETE request.
-  Future<MagicResponse> delete(String url, {Map<String, String>? headers});
-}
-
-/// Default production [TaskHttpClient] backed by the Magic [Http] facade.
-class _MagicTaskHttpClient implements TaskHttpClient {
-  const _MagicTaskHttpClient();
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) => Http.get(url, query: query, headers: headers);
-
-  @override
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) => Http.post(url, data: data, headers: headers);
-
-  @override
-  Future<MagicResponse> put(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) => Http.put(url, data: data, headers: headers);
-
-  @override
-  Future<MagicResponse> delete(String url, {Map<String, String>? headers}) =>
-      Http.delete(url, headers: headers);
-}
-
-// ---------------------------------------------------------------------------
 // TaskState controller
 // ---------------------------------------------------------------------------
 
@@ -125,20 +61,14 @@ class _MagicTaskHttpClient implements TaskHttpClient {
 /// tasks.sortTasks(TaskSortField.priority);
 /// ```
 class TaskState extends MagicController with MagicStateMixin<List<Task>> {
-  /// Creates a [TaskState] with an optional [httpClient] for testing.
-  ///
-  /// When [httpClient] is `null` (production), the Magic [Http] facade is
-  /// used via [_MagicTaskHttpClient].
-  TaskState({TaskHttpClient? httpClient})
-    : _http = httpClient ?? const _MagicTaskHttpClient();
+  /// Creates a [TaskState].
+  TaskState();
 
   /// Lazy singleton accessor.
   ///
   /// Uses [Magic.findOrPut] to ensure a single instance is shared across
   /// the application.
   static TaskState get instance => Magic.findOrPut(TaskState.new);
-
-  final TaskHttpClient _http;
 
   // ---------------------------------------------------------------------------
   // Secondary state
@@ -204,7 +134,7 @@ class TaskState extends MagicController with MagicStateMixin<List<Task>> {
       query['sort'] = sort;
     }
 
-    final response = await _http.get(
+    final response = await Http.get(
       '/teams/$teamId/projects/$projectId/tasks',
       query: query.isEmpty ? null : query,
     );
@@ -226,7 +156,7 @@ class TaskState extends MagicController with MagicStateMixin<List<Task>> {
   /// Does **not** affect the primary list state. Calls [refreshUI] after
   /// updating [_selectedTask].
   Future<void> fetchTask(String teamId, String projectId, String taskId) async {
-    final response = await _http.get(
+    final response = await Http.get(
       '/teams/$teamId/projects/$projectId/tasks/$taskId',
     );
 
@@ -254,7 +184,7 @@ class TaskState extends MagicController with MagicStateMixin<List<Task>> {
     String projectId,
     Map<String, dynamic> data,
   ) async {
-    final response = await _http.post(
+    final response = await Http.post(
       '/teams/$teamId/projects/$projectId/tasks',
       data: data,
     );
@@ -279,7 +209,7 @@ class TaskState extends MagicController with MagicStateMixin<List<Task>> {
     String taskId,
     Map<String, dynamic> data,
   ) async {
-    final response = await _http.put(
+    final response = await Http.put(
       '/teams/$teamId/projects/$projectId/tasks/$taskId',
       data: data,
     );
@@ -304,7 +234,7 @@ class TaskState extends MagicController with MagicStateMixin<List<Task>> {
     String projectId,
     String taskId,
   ) async {
-    final response = await _http.delete(
+    final response = await Http.delete(
       '/teams/$teamId/projects/$projectId/tasks/$taskId',
     );
 
@@ -325,7 +255,7 @@ class TaskState extends MagicController with MagicStateMixin<List<Task>> {
     String taskId,
     String newStatus,
   ) async {
-    final response = await _http.put(
+    final response = await Http.put(
       '/teams/$teamId/projects/$projectId/tasks/$taskId',
       data: {'status': newStatus},
     );
@@ -354,7 +284,7 @@ class TaskState extends MagicController with MagicStateMixin<List<Task>> {
     String projectId,
     String taskId,
   ) async {
-    final response = await _http.get(
+    final response = await Http.get(
       '/teams/$teamId/projects/$projectId/tasks/$taskId/sections',
     );
 
@@ -383,7 +313,7 @@ class TaskState extends MagicController with MagicStateMixin<List<Task>> {
     String projectId,
     String taskId,
   ) async {
-    final response = await _http.get(
+    final response = await Http.get(
       '/teams/$teamId/projects/$projectId/conversations',
       query: {'task_id': taskId},
     );
@@ -414,7 +344,7 @@ class TaskState extends MagicController with MagicStateMixin<List<Task>> {
     _startingRun = true;
     refreshUI();
 
-    final response = await _http.post(
+    final response = await Http.post(
       '/teams/$teamId/projects/$projectId/tasks/$taskId/run',
       data: {'agent_role_id': agentRoleId},
     );
@@ -441,7 +371,7 @@ class TaskState extends MagicController with MagicStateMixin<List<Task>> {
   ///
   /// Stores results in [agentRoles] and calls [refreshUI].
   Future<void> fetchAgentRoles(String teamId) async {
-    final response = await _http.get('/teams/$teamId/agent-roles');
+    final response = await Http.get('/teams/$teamId/agent-roles');
 
     if (response.successful) {
       final List<dynamic> items =

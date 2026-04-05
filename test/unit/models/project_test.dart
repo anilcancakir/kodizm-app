@@ -19,7 +19,7 @@ void main() {
       'short_name': 'kodizm',
       'slug': 'kodizm-backend',
       'description': 'Laravel API powering the Kodizm platform.',
-      'tech_stack': 'Laravel, PostgreSQL, Redis',
+      'tech_stack': ['Laravel', 'PostgreSQL', 'Redis'],
       'execution_mode': 'auto',
       'settings': {'timeout': 300, 'retries': 3},
       'ssh_public_key': 'ssh-ed25519 AAAAC3... agent@kodizm',
@@ -66,7 +66,7 @@ void main() {
         project.description,
         equals('Laravel API powering the Kodizm platform.'),
       );
-      expect(project.techStack, equals('Laravel, PostgreSQL, Redis'));
+      expect(project.techStack, equals(['Laravel', 'PostgreSQL', 'Redis']));
     });
 
     test('fromMap hydrates executionMode', () {
@@ -192,7 +192,7 @@ void main() {
       final project = Project.fromMap(minimal);
 
       expect(project.description, isNull);
-      expect(project.techStack, isNull);
+      expect(project.techStack, isEmpty);
       expect(project.settings, isNull);
       expect(project.taskCount, isNull);
       expect(project.activeRunCount, isNull);

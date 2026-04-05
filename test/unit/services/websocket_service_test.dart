@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:magic/magic.dart';
+import 'package:magic/testing.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import 'package:app/app/events/websocket_event.dart';
@@ -88,11 +90,14 @@ class _FakeSink implements WebSocketSink {
 // ---------------------------------------------------------------------------
 
 void main() {
+  MagicTest.init();
+
   group('WebSocketService', () {
     late FakeWebSocketChannel fakeChannel;
     late WebSocketService service;
 
     setUp(() {
+      Log.fake();
       fakeChannel = FakeWebSocketChannel();
       service = WebSocketService(
         channelFactory: (_) => fakeChannel,

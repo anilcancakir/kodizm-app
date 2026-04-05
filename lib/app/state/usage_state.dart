@@ -3,35 +3,6 @@ import 'package:magic/magic.dart';
 import '../models/usage_record.dart';
 
 // ---------------------------------------------------------------------------
-// HTTP abstraction for testability
-// ---------------------------------------------------------------------------
-
-/// Thin read-only interface over the HTTP GET verb [UsageState] uses.
-///
-/// In production the default [_MagicHttpClient] delegates to [Http].
-/// Tests inject a fake that records calls and returns canned responses.
-abstract class UsageHttpClient {
-  /// Perform a GET request.
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  });
-}
-
-/// Default production [UsageHttpClient] backed by the Magic [Http] facade.
-class _MagicHttpClient implements UsageHttpClient {
-  const _MagicHttpClient();
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) => Http.get(url, query: query, headers: headers);
-}
-
-// ---------------------------------------------------------------------------
 // UsageState controller
 // ---------------------------------------------------------------------------
 
@@ -65,20 +36,14 @@ class _MagicHttpClient implements UsageHttpClient {
 /// ```
 class UsageState extends MagicController
     with MagicStateMixin<List<UsageRecord>> {
-  /// Creates a [UsageState] with an optional [httpClient] for testing.
-  ///
-  /// When [httpClient] is `null` (production), the Magic [Http] facade is
-  /// used via [_MagicHttpClient].
-  UsageState({UsageHttpClient? httpClient})
-    : _http = httpClient ?? const _MagicHttpClient();
+  /// Creates a [UsageState].
+  UsageState();
 
   /// Lazy singleton accessor.
   ///
   /// Uses [Magic.findOrPut] to ensure a single instance is shared across
   /// the application.
   static UsageState get instance => Magic.findOrPut(UsageState.new);
-
-  final UsageHttpClient _http;
 
   // ---------------------------------------------------------------------------
   // Secondary state
@@ -176,7 +141,7 @@ class UsageState extends MagicController
     if (projectId != null) query['project_id'] = projectId;
     if (agentRole != null) query['agent_role'] = agentRole;
 
-    final response = await _http.get(
+    final response = await Http.get(
       '/teams/$teamId/usage',
       query: query.isEmpty ? null : query,
     );
@@ -202,7 +167,7 @@ class UsageState extends MagicController
     if (_filterProjectId != null) query['project_id'] = _filterProjectId!;
     if (_filterAgentRole != null) query['agent_role'] = _filterAgentRole!;
 
-    final response = await _http.get('/teams/$_teamId/usage', query: query);
+    final response = await Http.get('/teams/$_teamId/usage', query: query);
 
     if (response.successful) {
       _applyResponse(response, append: true);

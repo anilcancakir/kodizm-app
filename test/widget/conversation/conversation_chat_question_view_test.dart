@@ -4,46 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
+import 'package:magic/testing.dart';
 
 import 'package:app/app/events/websocket_event.dart';
 import 'package:app/app/state/conversation_chat_state.dart';
 import 'package:app/resources/views/conversation/conversation_chat_view.dart';
-
-// ---------------------------------------------------------------------------
-// Fake HTTP client
-// ---------------------------------------------------------------------------
-
-class _FakeHttpClient implements ConversationChatHttpClient {
-  final List<String> calls = [];
-  final List<Map<String, dynamic>> postBodies = [];
-
-  MagicResponse Function(String url)? responder;
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) async {
-    calls.add('GET $url');
-    return responder?.call(url) ??
-        MagicResponse(data: <String, dynamic>{}, statusCode: 404);
-  }
-
-  @override
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) async {
-    calls.add('POST $url');
-    if (data is Map<String, dynamic>) {
-      postBodies.add(data);
-    }
-    return responder?.call(url) ??
-        MagicResponse(data: <String, dynamic>{}, statusCode: 200);
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Fake WebSocket
@@ -65,6 +30,9 @@ class _FakeWebSocket implements ConversationChatWebSocket {
   void unsubscribe(String channel) {
     unsubscribedChannels.add(channel);
   }
+
+  @override
+  Stream<void> get onReconnect => const Stream.empty();
 }
 
 // ---------------------------------------------------------------------------
@@ -135,32 +103,6 @@ Map<String, dynamic> _conversationPayload({String status = 'active'}) {
   };
 }
 
-MagicResponse _agentRolesResponse() {
-  return MagicResponse(
-    data: {
-      'data': [
-        {'id': 'role-uuid-001', 'name': 'Business Analyst', 'slug': 'ba'},
-      ],
-    },
-    statusCode: 200,
-  );
-}
-
-MagicResponse _createConversationResponse({String status = 'active'}) {
-  return MagicResponse(
-    data: {'data': _conversationPayload(status: status)},
-    statusCode: 201,
-  );
-}
-
-MagicResponse _messagesResponse() {
-  return MagicResponse(data: {'data': <dynamic>[]}, statusCode: 200);
-}
-
-MagicResponse _answerResponse() {
-  return MagicResponse(data: {'data': <String, dynamic>{}}, statusCode: 200);
-}
-
 // ---------------------------------------------------------------------------
 // Test helpers
 // ---------------------------------------------------------------------------
@@ -179,7 +121,9 @@ Widget _buildTestWidget({String projectId = kProjectId}) {
 // ---------------------------------------------------------------------------
 
 void main() {
-  late _FakeHttpClient http;
+  MagicTest.init();
+
+  late FakeNetworkDriver driver;
   late _FakeWebSocket ws;
   late ConversationChatState state;
 
@@ -190,15 +134,17 @@ void main() {
   });
 
   setUp(() {
-    http = _FakeHttpClient();
+    Auth.fake();
+    driver = Http.fake();
+    driver.stub('*', Http.response(<String, dynamic>{}, 404));
+
     ws = _FakeWebSocket();
-    state = ConversationChatState(httpClient: http, webSocket: ws);
+    state = ConversationChatState(webSocket: ws);
     Magic.put<ConversationChatState>(state);
   });
 
   tearDown(() {
     state.reset();
-    Magic.delete<ConversationChatState>();
   });
 
   // -----------------------------------------------------------------------
@@ -217,17 +163,20 @@ void main() {
   }) async {
     setViewport(tester);
 
-    http.responder = (url) {
-      if (url.contains('/agent-roles')) return _agentRolesResponse();
-      if (url.contains('/conversations') &&
-          !url.contains('/messages') &&
-          !url.contains('/answer')) {
-        return _createConversationResponse(status: status);
-      }
-      if (url.contains('/messages')) return _messagesResponse();
-      if (url.contains('/answer')) return _answerResponse();
-      return MagicResponse(data: <String, dynamic>{}, statusCode: 404);
-    };
+    driver.stub(
+      '*/agent-roles*',
+      Http.response({
+        'data': [
+          {'id': 'role-uuid-001', 'name': 'Business Analyst', 'slug': 'ba'},
+        ],
+      }),
+    );
+    driver.stub(
+      '*/conversations*',
+      Http.response({'data': _conversationPayload(status: status)}, 201),
+    );
+    driver.stub('*/messages*', Http.response({'data': <dynamic>[]}));
+    driver.stub('*/answer*', Http.response(<String, dynamic>{}));
 
     await state.createConversation(
       kTeamId,
@@ -252,24 +201,22 @@ void main() {
           'type': 'tool_use',
           'content': null,
           'metadata': {
-            'data': {
-              'toolName': 'AskUserQuestion',
-              'input': {
-                'questions': [
-                  {
-                    'options': [
-                      {
-                        'label': 'Option A',
-                        'description': 'First option description',
-                      },
-                      {
-                        'label': 'Option B',
-                        'description': 'Second option description',
-                      },
-                    ],
-                  },
-                ],
-              },
+            'toolName': 'AskUserQuestion',
+            'input': {
+              'questions': [
+                {
+                  'options': [
+                    {
+                      'label': 'Option A',
+                      'description': 'First option description',
+                    },
+                    {
+                      'label': 'Option B',
+                      'description': 'Second option description',
+                    },
+                  ],
+                },
+              ],
             },
           },
         },
@@ -288,10 +235,8 @@ void main() {
           'type': 'question',
           'content': null,
           'metadata': {
-            'data': {
-              'questionId': 'q-uuid-001',
-              'message': 'Which framework do you prefer?',
-            },
+            'questionId': 'q-uuid-001',
+            'message': 'Which framework do you prefer?',
           },
         },
         receivedAt: DateTime.utc(2026, 3, 27, 10, 1, 1),
@@ -311,11 +256,9 @@ void main() {
           'type': 'permission',
           'content': null,
           'metadata': {
-            'data': {
-              'questionId': 'perm-uuid-001',
-              'toolName': 'Bash',
-              'input': {'command': 'rm -rf /tmp/build'},
-            },
+            'questionId': 'perm-uuid-001',
+            'toolName': 'Bash',
+            'input': {'command': 'rm -rf /tmp/build'},
           },
         },
         receivedAt: DateTime.utc(2026, 3, 27, 10, 2),
@@ -335,9 +278,10 @@ void main() {
     injectQuestionEvent();
     await tester.pumpAndSettle();
 
-    // Question title header
+    // Question title header — rendered with `uppercase` className, so the
+    // Flutter Text widget contains the uppercased string.
     expect(
-      find.text(trans('conversation_chat.question_title')),
+      find.text(trans('conversation_chat.question_title').toUpperCase()),
       findsOneWidget,
     );
 
@@ -375,7 +319,7 @@ void main() {
     await tester.pump();
 
     // Verify the POST call was made to /answer
-    expect(http.calls.where((c) => c.contains('/answer')).length, equals(1));
+    driver.assertSent((r) => r.url.contains('/answer'));
   });
 
   // -----------------------------------------------------------------------
@@ -433,7 +377,7 @@ void main() {
     await tester.pump();
 
     // POST to /answer was called
-    expect(http.calls.where((c) => c.contains('/answer')).length, equals(1));
+    driver.assertSent((r) => r.url.contains('/answer'));
   });
 
   // -----------------------------------------------------------------------
@@ -451,7 +395,7 @@ void main() {
     await tester.pump();
 
     // POST to /answer was called
-    expect(http.calls.where((c) => c.contains('/answer')).length, equals(1));
+    driver.assertSent((r) => r.url.contains('/answer'));
   });
 
   // -----------------------------------------------------------------------
@@ -466,9 +410,9 @@ void main() {
     injectQuestionEvent();
     await tester.pumpAndSettle();
 
-    // Card is visible
+    // Card is visible — title rendered with `uppercase` className.
     expect(
-      find.text(trans('conversation_chat.question_title')),
+      find.text(trans('conversation_chat.question_title').toUpperCase()),
       findsOneWidget,
     );
 
@@ -478,7 +422,10 @@ void main() {
     await tester.pumpAndSettle();
 
     // Card should be gone (state clears pendingQuestion on success)
-    expect(find.text(trans('conversation_chat.question_title')), findsNothing);
+    expect(
+      find.text(trans('conversation_chat.question_title').toUpperCase()),
+      findsNothing,
+    );
   });
 
   // -----------------------------------------------------------------------

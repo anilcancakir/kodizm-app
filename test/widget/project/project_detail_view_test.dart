@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
+import 'package:magic/testing.dart';
 import 'package:magic_starter/magic_starter.dart';
 
 import 'package:app/app/events/websocket_event.dart';
@@ -26,7 +27,7 @@ const Map<String, dynamic> kProject = {
   'description': 'First project description.',
   'repository_url': 'git@github.com:acme/alpha.git',
   'default_branch': 'main',
-  'tech_stack': 'Flutter, Dart',
+  'tech_stack': ['Flutter', 'Dart'],
   'ssh_public_key': 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFakeKey',
   'has_ssh_key': true,
   'execution_mode': 'manual',
@@ -65,190 +66,6 @@ const Map<String, dynamic> kRepoFrontendRepo = {
   'created_at': null,
   'updated_at': null,
 };
-
-// ---------------------------------------------------------------------------
-// Fake HTTP client
-// ---------------------------------------------------------------------------
-
-class _FakeHttpClient implements HttpClient {
-  final List<_HttpCall> calls = [];
-  late MagicResponse Function(String url) _responder;
-
-  void whenAny(MagicResponse Function(String url) responder) {
-    _responder = responder;
-  }
-
-  void alwaysReturn(MagicResponse response) {
-    _responder = (_) => response;
-  }
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) async {
-    calls.add(_HttpCall('GET', url));
-    return _responder(url);
-  }
-
-  @override
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) async {
-    calls.add(_HttpCall('POST', url, data: data));
-    return _responder(url);
-  }
-
-  @override
-  Future<MagicResponse> put(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) async {
-    calls.add(_HttpCall('PUT', url, data: data));
-    return _responder(url);
-  }
-
-  @override
-  Future<MagicResponse> delete(
-    String url, {
-    Map<String, String>? headers,
-  }) async {
-    calls.add(_HttpCall('DELETE', url));
-    return _responder(url);
-  }
-}
-
-class _HttpCall {
-  _HttpCall(this.method, this.url, {this.data});
-
-  final String method;
-  final String url;
-  final dynamic data;
-}
-
-// ---------------------------------------------------------------------------
-// Fake Task HTTP client
-// ---------------------------------------------------------------------------
-
-class _FakeTaskHttpClient implements TaskHttpClient {
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) async {
-    return MagicResponse(data: {'data': <dynamic>[]}, statusCode: 200);
-  }
-
-  @override
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) async {
-    return MagicResponse(data: {'data': {}}, statusCode: 200);
-  }
-
-  @override
-  Future<MagicResponse> put(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) async {
-    return MagicResponse(data: {'data': {}}, statusCode: 200);
-  }
-
-  @override
-  Future<MagicResponse> delete(
-    String url, {
-    Map<String, String>? headers,
-  }) async {
-    return MagicResponse(data: {'data': {}}, statusCode: 200);
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Fake ProjectRepository HTTP client
-// ---------------------------------------------------------------------------
-
-class _FakeRepoHttpClient implements ProjectRepositoryHttpClient {
-  MagicResponse _getResponse = MagicResponse(
-    data: {'data': <dynamic>[]},
-    statusCode: 200,
-  );
-  MagicResponse _mutationResponse = MagicResponse(
-    data: {'data': <dynamic>{}},
-    statusCode: 200,
-  );
-
-  /// Response returned for `/repo/status` GET calls.
-  MagicResponse _statusResponse = MagicResponse(
-    data: {
-      'data': <String, dynamic>{'status': 'cloned'},
-    },
-    statusCode: 200,
-  );
-
-  final List<_HttpCall> calls = [];
-
-  void alwaysReturn(MagicResponse response) {
-    _getResponse = response;
-  }
-
-  void alwaysReturnOnMutation(MagicResponse response) {
-    _mutationResponse = response;
-  }
-
-  /// Override the response returned for status-poll requests.
-  void alwaysReturnOnStatus(MagicResponse response) {
-    _statusResponse = response;
-  }
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) async {
-    calls.add(_HttpCall('GET', url));
-    // Route status-poll calls to a dedicated response.
-    if (url.endsWith('/repo/status')) return _statusResponse;
-    return _getResponse;
-  }
-
-  @override
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) async {
-    calls.add(_HttpCall('POST', url, data: data));
-    return _mutationResponse;
-  }
-
-  @override
-  Future<MagicResponse> put(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) async {
-    calls.add(_HttpCall('PUT', url, data: data));
-    return _mutationResponse;
-  }
-
-  @override
-  Future<MagicResponse> delete(
-    String url, {
-    Map<String, String>? headers,
-  }) async {
-    calls.add(_HttpCall('DELETE', url));
-    return _mutationResponse;
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Fake RepoWebSocket
@@ -308,11 +125,6 @@ class _TestAssetLoader implements TranslationLoader {
 // Test helpers
 // ---------------------------------------------------------------------------
 
-/// Configures a standard responder on the fake HTTP client.
-void _configureResponder(_FakeHttpClient http) {
-  http.alwaysReturn(MagicResponse(data: {'data': kProject}, statusCode: 200));
-}
-
 /// Pre-populates the [state] with project data so the widget renders content
 /// without needing a real Auth context.
 Future<void> _preloadState(ProjectState state) async {
@@ -362,30 +174,43 @@ Future<void> _pumpTestWidget(
 // ---------------------------------------------------------------------------
 
 void main() {
-  late _FakeHttpClient http;
+  MagicTest.init();
+
+  late FakeNetworkDriver driver;
   late ProjectState state;
   late TaskState taskState;
-  late _FakeRepoHttpClient repoHttp;
   late ProjectRepositoryState repoState;
 
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
     Translator.instance.setLoader(_TestAssetLoader());
     await Translator.instance.setLocale(const Locale('en'));
-    // Register the magic_starter manager singleton so MagicStarter.modalTheme
-    // and MagicStarterPasswordConfirmDialog can resolve the service.
-    Magic.singleton('magic_starter', () => MagicStarterManager());
   });
 
   setUp(() {
-    http = _FakeHttpClient();
-    state = ProjectState(httpClient: http);
-    taskState = TaskState(httpClient: _FakeTaskHttpClient());
-    repoHttp = _FakeRepoHttpClient();
-    repoState = ProjectRepositoryState(
-      httpClient: repoHttp,
-      ws: _FakeRepoWebSocket(),
+    // Register the magic_starter manager singleton so MagicStarter.modalTheme
+    // and MagicStarterPasswordConfirmDialog can resolve the service.
+    // Must be in setUp (not setUpAll) because MagicTest.init() calls
+    // Magic.flush() in each setUp which clears singletons.
+    Magic.singleton('magic_starter', () => MagicStarterManager());
+
+    driver = Http.fake();
+    // Catch-all first (lowest priority).
+    driver.stub('*', Http.response({'data': kProject}));
+    // Specific patterns after (higher priority).
+    driver.stub('*/tasks*', Http.response({'data': <dynamic>[]}));
+    driver.stub('*/repositories*', Http.response({'data': <dynamic>[]}));
+    driver.stub(
+      '*/repo/status*',
+      Http.response({
+        'data': <String, dynamic>{'status': 'cloned'},
+      }),
     );
+    driver.stub('*/mcp-servers*', Http.response({'data': <dynamic>[]}));
+
+    state = ProjectState();
+    taskState = TaskState();
+    repoState = ProjectRepositoryState(ws: _FakeRepoWebSocket());
 
     // Pre-register fake states so .instance returns them.
     Magic.put<ProjectState>(state);
@@ -393,6 +218,7 @@ void main() {
     Magic.put<ProjectRepositoryState>(repoState);
 
     // Set up auth context — owner/admin role so settings section renders.
+    Auth.fake();
     Auth.manager.setUserFactory((data) => User.fromMap(data));
     Auth.guard().setUser(
       User.fromMap({
@@ -408,15 +234,6 @@ void main() {
     );
   });
 
-  tearDown(() {
-    state.dispose();
-    taskState.dispose();
-    repoState.dispose();
-    Magic.delete<ProjectState>();
-    Magic.delete<TaskState>();
-    Magic.delete<ProjectRepositoryState>();
-  });
-
   // -------------------------------------------------------------------------
   // 1. Renders project header with name and description
   // -------------------------------------------------------------------------
@@ -424,7 +241,6 @@ void main() {
   testWidgets('renders project header with name and description', (
     tester,
   ) async {
-    _configureResponder(http);
     await _preloadState(state);
 
     await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
@@ -447,7 +263,6 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('renders repositories section header', (tester) async {
-    _configureResponder(http);
     await _preloadState(state);
 
     await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
@@ -466,7 +281,6 @@ void main() {
   testWidgets('renders no-repositories empty state when repo list is empty', (
     tester,
   ) async {
-    _configureResponder(http);
     await _preloadState(state);
 
     // repoState has no repos — empty state should be shown.
@@ -480,7 +294,6 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('renders settings section with edit form fields', (tester) async {
-    _configureResponder(http);
     await _preloadState(state);
 
     await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
@@ -510,7 +323,6 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('delete button shows confirmation dialog', (tester) async {
-    _configureResponder(http);
     await _preloadState(state);
 
     await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
@@ -546,9 +358,7 @@ void main() {
     tester,
   ) async {
     // Return an error so selectedProject stays null after fetch.
-    http.alwaysReturn(
-      MagicResponse(data: {'message': 'Not Found'}, statusCode: 404),
-    );
+    driver.stub('*', Http.response({'message': 'Not Found'}, 404));
 
     await tester.pumpWidget(_buildTestWidget(projectId: 'proj-uuid-001'));
     await tester.pump();
@@ -563,13 +373,7 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('renders repositories section with empty state', (tester) async {
-    _configureResponder(http);
     await _preloadState(state);
-
-    // Repo state starts empty (no fetchRepositories call succeeds with data).
-    repoHttp.alwaysReturn(
-      MagicResponse(data: {'data': <dynamic>[]}, statusCode: 200),
-    );
 
     await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
 
@@ -590,17 +394,14 @@ void main() {
   testWidgets(
     'renders repository cards and repo cards do NOT show SSH key buttons',
     (tester) async {
-      _configureResponder(http);
       await _preloadState(state);
 
       // Pre-load two repositories — fixtures no longer carry SSH fields.
-      repoHttp.alwaysReturn(
-        MagicResponse(
-          data: {
-            'data': [kRepoApiRepo, kRepoFrontendRepo],
-          },
-          statusCode: 200,
-        ),
+      driver.stub(
+        '*/repositories*',
+        Http.response({
+          'data': [kRepoApiRepo, kRepoFrontendRepo],
+        }),
       );
       await repoState.fetchRepositories('team-uuid-001', 'proj-uuid-001');
 
@@ -646,7 +447,6 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('renders project short_name in header area', (tester) async {
-    _configureResponder(http);
     await _preloadState(state);
 
     await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
@@ -662,20 +462,17 @@ void main() {
   testWidgets('main repo card shows filled star; non-main shows outline star', (
     tester,
   ) async {
-    _configureResponder(http);
     await _preloadState(state);
 
     // API Repo is the main repo; Frontend Repo is not.
-    repoHttp.alwaysReturn(
-      MagicResponse(
-        data: {
-          'data': [
-            {...kRepoApiRepo, 'is_main': true},
-            {...kRepoFrontendRepo, 'is_main': false},
-          ],
-        },
-        statusCode: 200,
-      ),
+    driver.stub(
+      '*/repositories*',
+      Http.response({
+        'data': [
+          {...kRepoApiRepo, 'is_main': true},
+          {...kRepoFrontendRepo, 'is_main': false},
+        ],
+      }),
     );
     await repoState.fetchRepositories('team-uuid-001', 'proj-uuid-001');
 
@@ -694,31 +491,27 @@ void main() {
   testWidgets(
     'tapping outline star on non-main repo triggers setMainRepository',
     (tester) async {
-      _configureResponder(http);
       await _preloadState(state);
 
       // Only Frontend Repo is non-main; API Repo is main.
-      repoHttp.alwaysReturn(
-        MagicResponse(
-          data: {
-            'data': [
-              {...kRepoApiRepo, 'is_main': true},
-              {...kRepoFrontendRepo, 'is_main': false},
-            ],
-          },
-          statusCode: 200,
-        ),
-      );
-      // PUT (updateRepository) returns a single updated repo map.
-      repoHttp.alwaysReturnOnMutation(
-        MagicResponse(
-          data: {
-            'data': {...kRepoFrontendRepo, 'is_main': true},
-          },
-          statusCode: 200,
-        ),
+      driver.stub(
+        '*/repositories*',
+        Http.response({
+          'data': [
+            {...kRepoApiRepo, 'is_main': true},
+            {...kRepoFrontendRepo, 'is_main': false},
+          ],
+        }),
       );
       await repoState.fetchRepositories('team-uuid-001', 'proj-uuid-001');
+
+      // Stub PUT response for single repo (registered AFTER list stub → higher priority).
+      driver.stub(
+        '*/repositories/repo-uuid-*',
+        Http.response({
+          'data': {...kRepoFrontendRepo, 'is_main': true},
+        }),
+      );
 
       await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
 
@@ -727,8 +520,9 @@ void main() {
       await tester.pumpAndSettle();
 
       // A PUT call should have been made to set is_main.
-      final putCall = repoHttp.calls.where((c) => c.method == 'PUT').toList();
-      expect(putCall, isNotEmpty);
+      driver.assertSent(
+        (r) => r.method == 'PUT' && r.url.contains('repositories'),
+      );
     },
   );
 
@@ -739,31 +533,28 @@ void main() {
   testWidgets('tapping filled star on main repo does not trigger extra calls', (
     tester,
   ) async {
-    _configureResponder(http);
     await _preloadState(state);
 
-    repoHttp.alwaysReturn(
-      MagicResponse(
-        data: {
-          'data': [
-            {...kRepoApiRepo, 'is_main': true},
-          ],
-        },
-        statusCode: 200,
-      ),
+    driver.stub(
+      '*/repositories*',
+      Http.response({
+        'data': [
+          {...kRepoApiRepo, 'is_main': true},
+        ],
+      }),
     );
     await repoState.fetchRepositories('team-uuid-001', 'proj-uuid-001');
 
     await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
 
-    final callsBefore = List.from(repoHttp.calls);
+    final callsBefore = driver.recorded.length;
 
     // Tap the filled star.
     await tester.tap(find.byIcon(Icons.star));
     await tester.pumpAndSettle();
 
     // No new HTTP calls should have been made.
-    expect(repoHttp.calls.length, equals(callsBefore.length));
+    expect(driver.recorded.length, equals(callsBefore));
   });
 
   // -------------------------------------------------------------------------
@@ -773,18 +564,15 @@ void main() {
   testWidgets(
     'repo card shows spinner and clone-in-progress text when status is cloning',
     (tester) async {
-      _configureResponder(http);
       await _preloadState(state);
 
-      repoHttp.alwaysReturn(
-        MagicResponse(
-          data: {
-            'data': [
-              {...kRepoFrontendRepo, 'repo_status': 'cloning'},
-            ],
-          },
-          statusCode: 200,
-        ),
+      driver.stub(
+        '*/repositories*',
+        Http.response({
+          'data': [
+            {...kRepoFrontendRepo, 'repo_status': 'cloning'},
+          ],
+        }),
       );
       await repoState.fetchRepositories('team-uuid-001', 'proj-uuid-001');
 
@@ -806,18 +594,15 @@ void main() {
   testWidgets(
     'repo card shows check_circle icon and clone-complete text when status is cloned',
     (tester) async {
-      _configureResponder(http);
       await _preloadState(state);
 
-      repoHttp.alwaysReturn(
-        MagicResponse(
-          data: {
-            'data': [
-              {...kRepoApiRepo, 'repo_status': 'cloned'},
-            ],
-          },
-          statusCode: 200,
-        ),
+      driver.stub(
+        '*/repositories*',
+        Http.response({
+          'data': [
+            {...kRepoApiRepo, 'repo_status': 'cloned'},
+          ],
+        }),
       );
       await repoState.fetchRepositories('team-uuid-001', 'proj-uuid-001');
 
@@ -838,18 +623,15 @@ void main() {
   testWidgets(
     'repo card shows error_outline icon and clone-failed text when status is error',
     (tester) async {
-      _configureResponder(http);
       await _preloadState(state);
 
-      repoHttp.alwaysReturn(
-        MagicResponse(
-          data: {
-            'data': [
-              {...kRepoFrontendRepo, 'repo_status': 'error'},
-            ],
-          },
-          statusCode: 200,
-        ),
+      driver.stub(
+        '*/repositories*',
+        Http.response({
+          'data': [
+            {...kRepoFrontendRepo, 'repo_status': 'error'},
+          ],
+        }),
       );
       await repoState.fetchRepositories('team-uuid-001', 'proj-uuid-001');
 
@@ -870,19 +652,16 @@ void main() {
   testWidgets(
     'clone button is hidden when repo status is cloned, cloning, or onboarding',
     (tester) async {
-      _configureResponder(http);
       await _preloadState(state);
 
-      repoHttp.alwaysReturn(
-        MagicResponse(
-          data: {
-            'data': [
-              {...kRepoApiRepo, 'repo_status': 'cloned'},
-              {...kRepoFrontendRepo, 'repo_status': 'onboarding'},
-            ],
-          },
-          statusCode: 200,
-        ),
+      driver.stub(
+        '*/repositories*',
+        Http.response({
+          'data': [
+            {...kRepoApiRepo, 'repo_status': 'cloned'},
+            {...kRepoFrontendRepo, 'repo_status': 'onboarding'},
+          ],
+        }),
       );
       await repoState.fetchRepositories('team-uuid-001', 'proj-uuid-001');
 
@@ -901,20 +680,17 @@ void main() {
   testWidgets('repoStatuses map tracks per-repo clone status independently', (
     tester,
   ) async {
-    _configureResponder(http);
     await _preloadState(state);
 
     // Pre-load two repos, one cloning, one cloned.
-    repoHttp.alwaysReturn(
-      MagicResponse(
-        data: {
-          'data': [
-            {...kRepoApiRepo, 'repo_status': 'cloned'},
-            {...kRepoFrontendRepo, 'repo_status': 'cloning'},
-          ],
-        },
-        statusCode: 200,
-      ),
+    driver.stub(
+      '*/repositories*',
+      Http.response({
+        'data': [
+          {...kRepoApiRepo, 'repo_status': 'cloned'},
+          {...kRepoFrontendRepo, 'repo_status': 'cloning'},
+        ],
+      }),
     );
     await repoState.fetchRepositories('team-uuid-001', 'proj-uuid-001');
 
@@ -935,18 +711,15 @@ void main() {
   testWidgets(
     'repo card shows spinner and onboarding-in-progress text when status is onboarding',
     (tester) async {
-      _configureResponder(http);
       await _preloadState(state);
 
-      repoHttp.alwaysReturn(
-        MagicResponse(
-          data: {
-            'data': [
-              {...kRepoFrontendRepo, 'repo_status': 'onboarding'},
-            ],
-          },
-          statusCode: 200,
-        ),
+      driver.stub(
+        '*/repositories*',
+        Http.response({
+          'data': [
+            {...kRepoFrontendRepo, 'repo_status': 'onboarding'},
+          ],
+        }),
       );
       await repoState.fetchRepositories('team-uuid-001', 'proj-uuid-001');
 
@@ -971,18 +744,15 @@ void main() {
   testWidgets(
     'repo card shows check_circle icon and repository-ready text when status is ready',
     (tester) async {
-      _configureResponder(http);
       await _preloadState(state);
 
-      repoHttp.alwaysReturn(
-        MagicResponse(
-          data: {
-            'data': [
-              {...kRepoApiRepo, 'repo_status': 'ready'},
-            ],
-          },
-          statusCode: 200,
-        ),
+      driver.stub(
+        '*/repositories*',
+        Http.response({
+          'data': [
+            {...kRepoApiRepo, 'repo_status': 'ready'},
+          ],
+        }),
       );
       await repoState.fetchRepositories('team-uuid-001', 'proj-uuid-001');
 
@@ -1003,19 +773,16 @@ void main() {
   testWidgets(
     'Re-analyze button is visible when repo status is ready or cloned',
     (tester) async {
-      _configureResponder(http);
       await _preloadState(state);
 
-      repoHttp.alwaysReturn(
-        MagicResponse(
-          data: {
-            'data': [
-              {...kRepoApiRepo, 'repo_status': 'ready'},
-              {...kRepoFrontendRepo, 'repo_status': 'cloned'},
-            ],
-          },
-          statusCode: 200,
-        ),
+      driver.stub(
+        '*/repositories*',
+        Http.response({
+          'data': [
+            {...kRepoApiRepo, 'repo_status': 'ready'},
+            {...kRepoFrontendRepo, 'repo_status': 'cloned'},
+          ],
+        }),
       );
       await repoState.fetchRepositories('team-uuid-001', 'proj-uuid-001');
 
@@ -1033,24 +800,21 @@ void main() {
   testWidgets(
     'tapping Re-analyze button triggers a POST to the reanalyze endpoint',
     (tester) async {
-      _configureResponder(http);
       await _preloadState(state);
 
-      repoHttp.alwaysReturn(
-        MagicResponse(
-          data: {
-            'data': [
-              {...kRepoApiRepo, 'repo_status': 'ready'},
-            ],
-          },
-          statusCode: 200,
-        ),
+      driver.stub(
+        '*/repositories*',
+        Http.response({
+          'data': [
+            {...kRepoApiRepo, 'repo_status': 'ready'},
+          ],
+        }),
       );
       await repoState.fetchRepositories('team-uuid-001', 'proj-uuid-001');
 
       await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
 
-      final callsBefore = List.from(repoHttp.calls);
+      final callsBefore = driver.recorded.length;
 
       // Tap Re-analyze button. Use pump (not pumpAndSettle) because the
       // optimistic status change triggers a CircularProgressIndicator which
@@ -1060,9 +824,9 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
 
       // A POST call should have been made.
-      final newCalls = repoHttp.calls
-          .skip(callsBefore.length)
-          .where((c) => c.method == 'POST')
+      final newCalls = driver.recorded
+          .skip(callsBefore)
+          .where((entry) => entry.$1.method == 'POST')
           .toList();
       expect(newCalls, isNotEmpty);
     },
@@ -1075,7 +839,6 @@ void main() {
   testWidgets(
     'shows container section with empty state for admin when no container',
     (tester) async {
-      _configureResponder(http);
       await _preloadState(state);
 
       await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
@@ -1099,29 +862,31 @@ void main() {
     'shows container section with status badge when container exists',
     (tester) async {
       // Return a project WITH a container in the API response.
-      http.alwaysReturn(
-        MagicResponse(
-          data: {
-            'data': {
-              ...kProject,
-              'container': {
-                'id': 'pc-uuid-001',
-                'container_name': 'kodizm-proj-abc123',
-                'volume_name': 'kodizm-vol-abc123',
-                'status': 'running',
-                'docker_host_id': 'dh-uuid-001',
-                'last_activity_at': null,
-                'health_checked_at': null,
-                'bootstrapped_at': null,
-                'last_error': null,
-                'created_at': '2026-03-30T12:00:00.000Z',
-                'updated_at': '2026-04-01T10:00:00.000Z',
-              },
+      // Re-register specific stubs AFTER the catch-all so they take priority.
+      driver.stub(
+        '*',
+        Http.response({
+          'data': {
+            ...kProject,
+            'container': {
+              'id': 'pc-uuid-001',
+              'container_name': 'kodizm-proj-abc123',
+              'volume_name': 'kodizm-vol-abc123',
+              'status': 'running',
+              'docker_host_id': 'dh-uuid-001',
+              'last_activity_at': null,
+              'health_checked_at': null,
+              'bootstrapped_at': null,
+              'last_error': null,
+              'created_at': '2026-03-30T12:00:00.000Z',
+              'updated_at': '2026-04-01T10:00:00.000Z',
             },
           },
-          statusCode: 200,
-        ),
+        }),
       );
+      driver.stub('*/tasks*', Http.response({'data': <dynamic>[]}));
+      driver.stub('*/repositories*', Http.response({'data': <dynamic>[]}));
+      driver.stub('*/mcp-servers*', Http.response({'data': <dynamic>[]}));
       await state.fetchProject('team-uuid-001', 'proj-uuid-001');
 
       await _pumpTestWidget(tester, projectId: 'proj-uuid-001');
@@ -1142,7 +907,6 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('hides container section when user is not admin', (tester) async {
-    _configureResponder(http);
     await _preloadState(state);
 
     // Override Auth to a member role (not owner/admin).

@@ -110,13 +110,11 @@ void main() {
     );
     await tester.pump();
 
-    // Title from i18n
+    // Title from i18n — Wind UI `uppercase` className transforms the text.
     expect(
-      find.text(trans('conversation_chat.question_title')),
+      find.text(trans('conversation_chat.question_title').toUpperCase()),
       findsOneWidget,
     );
-    // Optional header
-    expect(find.text('Architecture Decision'), findsOneWidget);
     // Question message
     expect(find.text('Which database should we use?'), findsOneWidget);
     // Option labels

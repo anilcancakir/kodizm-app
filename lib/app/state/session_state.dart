@@ -6,56 +6,6 @@ import '../models/session_usage_record.dart';
 import '../models/stream_event.dart';
 
 // ---------------------------------------------------------------------------
-// HTTP abstraction for testability
-// ---------------------------------------------------------------------------
-
-/// Thin interface over the HTTP verbs [SessionState] uses.
-///
-/// In production the default [_MagicSessionHttpClient] delegates to [Http].
-/// Tests inject a fake that records calls and returns canned responses.
-abstract class SessionHttpClient {
-  /// Perform a GET request.
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  });
-
-  /// Perform a POST request.
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  });
-
-  /// Perform a DELETE request.
-  Future<MagicResponse> delete(String url, {Map<String, String>? headers});
-}
-
-/// Default production [SessionHttpClient] backed by the Magic [Http] facade.
-class _MagicSessionHttpClient implements SessionHttpClient {
-  const _MagicSessionHttpClient();
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) => Http.get(url, query: query, headers: headers);
-
-  @override
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) => Http.post(url, data: data, headers: headers);
-
-  @override
-  Future<MagicResponse> delete(String url, {Map<String, String>? headers}) =>
-      Http.delete(url, headers: headers);
-}
-
-// ---------------------------------------------------------------------------
 // WebSocket abstraction for testability
 // ---------------------------------------------------------------------------
 
@@ -121,12 +71,10 @@ class _MagicSessionWebSocket implements SessionWebSocket {
 class SessionState extends MagicController with MagicStateMixin<void> {
   /// Creates a [SessionState] with optional injectable dependencies for testing.
   ///
-  /// When [httpClient] is `null` (production), the Magic [Http] facade is
-  /// used via [_MagicSessionHttpClient]. When [webSocket] is `null`,
-  /// [_MagicSessionWebSocket] resolves the registered WebSocketService.
-  SessionState({SessionHttpClient? httpClient, SessionWebSocket? webSocket})
-    : _http = httpClient ?? const _MagicSessionHttpClient(),
-      _ws = webSocket ?? const _MagicSessionWebSocket();
+  /// When [webSocket] is `null`, [_MagicSessionWebSocket] resolves the
+  /// registered WebSocketService.
+  SessionState({SessionWebSocket? webSocket})
+    : _ws = webSocket ?? const _MagicSessionWebSocket();
 
   /// Lazy singleton accessor.
   ///
@@ -134,7 +82,6 @@ class SessionState extends MagicController with MagicStateMixin<void> {
   /// the application.
   static SessionState get instance => Magic.findOrPut(SessionState.new);
 
-  final SessionHttpClient _http;
   final SessionWebSocket _ws;
 
   // ---------------------------------------------------------------------------
@@ -221,7 +168,7 @@ class SessionState extends MagicController with MagicStateMixin<void> {
     _error = null;
     refreshUI();
 
-    final response = await _http.get(
+    final response = await Http.get(
       '/v1/sessions',
       query: query.isNotEmpty ? query : null,
     );
@@ -255,7 +202,7 @@ class SessionState extends MagicController with MagicStateMixin<void> {
     _error = null;
     refreshUI();
 
-    final response = await _http.get('/v1/sessions/$sessionId');
+    final response = await Http.get('/v1/sessions/$sessionId');
 
     if (response.successful) {
       final Map<String, dynamic> data =
@@ -284,7 +231,7 @@ class SessionState extends MagicController with MagicStateMixin<void> {
     final Map<String, dynamic> query = {};
     if (type != null) query['type'] = type;
 
-    final response = await _http.get(
+    final response = await Http.get(
       '/v1/sessions/$sessionId/events',
       query: query.isNotEmpty ? query : null,
     );
@@ -318,7 +265,7 @@ class SessionState extends MagicController with MagicStateMixin<void> {
     String shareableId,
     String permission,
   ) async {
-    final response = await _http.post(
+    final response = await Http.post(
       '/v1/sessions/$sessionId/share',
       data: {
         'shareable_type': shareableType,
@@ -340,7 +287,7 @@ class SessionState extends MagicController with MagicStateMixin<void> {
   ///
   /// Returns `true` on success, `false` otherwise.
   Future<bool> unshare(String sessionId, String shareId) async {
-    final response = await _http.delete(
+    final response = await Http.delete(
       '/v1/sessions/$sessionId/shares/$shareId',
     );
 

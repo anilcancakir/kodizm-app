@@ -4,50 +4,6 @@ import '../models/conversation.dart';
 import '../models/conversation_message.dart';
 
 // ---------------------------------------------------------------------------
-// HTTP abstraction for testability
-// ---------------------------------------------------------------------------
-
-/// Thin interface over the HTTP verbs [ConversationDetailState] uses.
-///
-/// In production the default [_MagicHttpClient] delegates to [Http].
-/// Tests inject a fake that records calls and returns canned responses.
-abstract class ConversationDetailHttpClient {
-  /// Perform a GET request.
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  });
-
-  /// Perform a POST request.
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  });
-}
-
-/// Default production [ConversationDetailHttpClient] backed by the Magic
-/// [Http] facade.
-class _MagicHttpClient implements ConversationDetailHttpClient {
-  const _MagicHttpClient();
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) => Http.get(url, query: query, headers: headers);
-
-  @override
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) => Http.post(url, data: data, headers: headers);
-}
-
-// ---------------------------------------------------------------------------
 // ConversationDetailState controller
 // ---------------------------------------------------------------------------
 
@@ -67,12 +23,15 @@ class _MagicHttpClient implements ConversationDetailHttpClient {
 /// ```
 class ConversationDetailState extends MagicController
     with MagicStateMixin<Conversation> {
-  /// Creates a [ConversationDetailState] with an optional [httpClient]
-  /// for testing.
-  ConversationDetailState({ConversationDetailHttpClient? httpClient})
-    : _http = httpClient ?? const _MagicHttpClient();
+  /// Creates a [ConversationDetailState].
+  ConversationDetailState();
 
-  final ConversationDetailHttpClient _http;
+  /// Lazy singleton accessor.
+  ///
+  /// Uses [Magic.findOrPut] to ensure a single instance is shared across
+  /// the application.
+  static ConversationDetailState get instance =>
+      Magic.findOrPut(ConversationDetailState.new);
 
   // ---------------------------------------------------------------------------
   // State fields
@@ -117,7 +76,7 @@ class ConversationDetailState extends MagicController
     _conversationId = conversationId;
     setLoading();
 
-    final response = await _http.get(
+    final response = await Http.get(
       '/teams/$teamId/projects/$projectId/conversations/$conversationId',
     );
 
@@ -142,7 +101,7 @@ class ConversationDetailState extends MagicController
     String projectId,
     String conversationId,
   ) async {
-    final response = await _http.get(
+    final response = await Http.get(
       '/teams/$teamId/projects/$projectId/conversations/$conversationId/messages',
     );
 
@@ -184,7 +143,7 @@ class ConversationDetailState extends MagicController
     _messages = [..._messages, optimistic];
     notifyListeners();
 
-    final response = await _http.post(
+    final response = await Http.post(
       '/teams/$_teamId/projects/$_projectId/conversations/$_conversationId/messages',
       data: {'content': content.trim()},
     );

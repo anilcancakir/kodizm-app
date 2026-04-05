@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
+import 'package:magic/testing.dart';
 
 import 'package:app/app/models/task.dart';
 import 'package:app/app/state/task_state.dart';
@@ -43,74 +44,6 @@ const Map<String, dynamic> kTaskBPayload = {
 
 /// Builds a [Task] from the given [payload].
 Task _buildTask(Map<String, dynamic> payload) => Task.fromMap(payload);
-
-// ---------------------------------------------------------------------------
-// Fake HTTP client
-// ---------------------------------------------------------------------------
-
-/// A test double for [TaskHttpClient] that records calls and returns canned
-/// responses.
-class FakeTaskHttpClient implements TaskHttpClient {
-  /// Recorded HTTP calls in order.
-  final List<TaskHttpCall> calls = [];
-
-  late MagicResponse Function(String url) _responder;
-
-  /// Sets [response] as the return value for every call.
-  void alwaysReturn(MagicResponse response) {
-    _responder = (_) => response;
-  }
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) async {
-    calls.add(TaskHttpCall('GET', url, query: query));
-    return _responder(url);
-  }
-
-  @override
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) async {
-    calls.add(TaskHttpCall('POST', url, data: data));
-    return _responder(url);
-  }
-
-  @override
-  Future<MagicResponse> put(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) async {
-    calls.add(TaskHttpCall('PUT', url, data: data));
-    return _responder(url);
-  }
-
-  @override
-  Future<MagicResponse> delete(
-    String url, {
-    Map<String, String>? headers,
-  }) async {
-    calls.add(TaskHttpCall('DELETE', url));
-    return _responder(url);
-  }
-}
-
-/// A recorded HTTP call from [FakeTaskHttpClient].
-class TaskHttpCall {
-  /// Creates a recorded call.
-  TaskHttpCall(this.method, this.url, {this.data, this.query});
-
-  final String method;
-  final String url;
-  final dynamic data;
-  final Map<String, dynamic>? query;
-}
 
 // ---------------------------------------------------------------------------
 // Test-safe translation loader
@@ -175,7 +108,8 @@ Widget _buildTestWidget({String projectId = 'proj-uuid-001'}) {
 // ---------------------------------------------------------------------------
 
 void main() {
-  late FakeTaskHttpClient http;
+  MagicTest.init();
+
   late TaskState state;
 
   setUpAll(() async {
@@ -185,17 +119,11 @@ void main() {
   });
 
   setUp(() {
-    http = FakeTaskHttpClient();
-    http.alwaysReturn(
-      MagicResponse(data: {'data': <dynamic>[]}, statusCode: 200),
-    );
-    state = TaskState(httpClient: http);
-    Magic.put<TaskState>(state);
-  });
+    Auth.fake();
+    Http.fake().stub('*', Http.response({'data': <dynamic>[]}));
 
-  tearDown(() {
-    state.dispose();
-    Magic.delete<TaskState>();
+    state = TaskState();
+    Magic.put<TaskState>(state);
   });
 
   // -------------------------------------------------------------------------

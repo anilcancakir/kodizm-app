@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
+import 'package:magic/testing.dart';
 
 import 'package:app/app/state/ai_token_state.dart';
 import 'package:app/resources/views/settings/ai_token_list_view.dart';
@@ -50,29 +51,6 @@ const Map<String, dynamic> kTokenRateLimited = {
 const Map<String, dynamic> kTokenResponse = {
   'data': [kTokenActive],
 };
-
-// ---------------------------------------------------------------------------
-// Fake HTTP client
-// ---------------------------------------------------------------------------
-
-class _FakeAiTokenHttpClient implements AiTokenHttpClient {
-  final List<String> calls = [];
-  late MagicResponse Function(String url) _responder;
-
-  void alwaysReturn(MagicResponse response) {
-    _responder = (_) => response;
-  }
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) async {
-    calls.add('GET $url');
-    return _responder(url);
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Test-safe translation loader
@@ -137,7 +115,9 @@ Future<void> _pumpView(WidgetTester tester) async {
 // ---------------------------------------------------------------------------
 
 void main() {
-  late _FakeAiTokenHttpClient http;
+  MagicTest.init();
+
+  late FakeNetworkDriver driver;
   late AiTokenState state;
 
   setUpAll(() async {
@@ -147,14 +127,12 @@ void main() {
   });
 
   setUp(() {
-    http = _FakeAiTokenHttpClient();
-    state = AiTokenState(httpClient: http);
-    Magic.put<AiTokenState>(state);
-  });
+    Auth.fake();
+    driver = Http.fake();
+    driver.stub('*', Http.response({'data': <dynamic>[]}));
 
-  tearDown(() {
-    state.dispose();
-    Magic.delete<AiTokenState>();
+    state = AiTokenState();
+    Magic.put<AiTokenState>(state);
   });
 
   // -------------------------------------------------------------------------
@@ -162,10 +140,6 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('widget constructor instantiates correctly', (tester) async {
-    http.alwaysReturn(
-      MagicResponse(data: {'data': <dynamic>[]}, statusCode: 200),
-    );
-
     await _pumpView(tester);
 
     expect(find.byType(AiTokenListView), findsOneWidget);
@@ -176,10 +150,6 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('shows loading state before tokens load', (tester) async {
-    http.alwaysReturn(
-      MagicResponse(data: {'data': <dynamic>[]}, statusCode: 200),
-    );
-
     // Manually set loading state before pumping.
     state.setLoading();
 
@@ -206,10 +176,6 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('shows empty state when no tokens exist', (tester) async {
-    http.alwaysReturn(
-      MagicResponse(data: {'data': <dynamic>[]}, statusCode: 200),
-    );
-
     // Pre-load empty state.
     await state.loadTokens('team-001');
 
@@ -224,10 +190,6 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('renders MagicStarterPageHeader with title', (tester) async {
-    http.alwaysReturn(
-      MagicResponse(data: {'data': <dynamic>[]}, statusCode: 200),
-    );
-
     // Pre-load empty state to get past loading.
     await state.loadTokens('team-001');
 
@@ -245,13 +207,11 @@ void main() {
   testWidgets('renders token cards with label and provider badge', (
     tester,
   ) async {
-    http.alwaysReturn(
-      MagicResponse(
-        data: {
-          'data': <dynamic>[kTokenActive],
-        },
-        statusCode: 200,
-      ),
+    driver.stub(
+      '*',
+      Http.response({
+        'data': <dynamic>[kTokenActive],
+      }),
     );
 
     // Pre-load tokens.
@@ -271,13 +231,11 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('shows status text matching token status', (tester) async {
-    http.alwaysReturn(
-      MagicResponse(
-        data: {
-          'data': <dynamic>[kTokenActive, kTokenRateLimited],
-        },
-        statusCode: 200,
-      ),
+    driver.stub(
+      '*',
+      Http.response({
+        'data': <dynamic>[kTokenActive, kTokenRateLimited],
+      }),
     );
 
     // Pre-load tokens.
@@ -297,13 +255,11 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('shows usage count for each token', (tester) async {
-    http.alwaysReturn(
-      MagicResponse(
-        data: {
-          'data': <dynamic>[kTokenActive],
-        },
-        statusCode: 200,
-      ),
+    driver.stub(
+      '*',
+      Http.response({
+        'data': <dynamic>[kTokenActive],
+      }),
     );
 
     // Pre-load tokens.

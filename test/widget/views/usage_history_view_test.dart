@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
+import 'package:magic/testing.dart';
 
 import 'package:app/app/state/usage_state.dart';
 import 'package:app/resources/views/billing/usage_history_view.dart';
@@ -58,29 +59,6 @@ const Map<String, dynamic> kUsageResponseEmpty = {
     },
   },
 };
-
-// ---------------------------------------------------------------------------
-// Fake HTTP client
-// ---------------------------------------------------------------------------
-
-class _FakeUsageHttpClient implements UsageHttpClient {
-  final List<String> calls = [];
-  late MagicResponse Function(String url) _responder;
-
-  void alwaysReturn(MagicResponse response) {
-    _responder = (_) => response;
-  }
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) async {
-    calls.add('GET $url');
-    return _responder(url);
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Test-safe translation loader
@@ -144,7 +122,9 @@ Future<void> _pumpView(WidgetTester tester) async {
 // ---------------------------------------------------------------------------
 
 void main() {
-  late _FakeUsageHttpClient http;
+  MagicTest.init();
+
+  late FakeNetworkDriver driver;
   late UsageState state;
 
   setUpAll(() async {
@@ -154,14 +134,12 @@ void main() {
   });
 
   setUp(() {
-    http = _FakeUsageHttpClient();
-    state = UsageState(httpClient: http);
-    Magic.put<UsageState>(state);
-  });
+    Auth.fake();
+    driver = Http.fake();
+    driver.stub('*', Http.response(kUsageResponseEmpty));
 
-  tearDown(() {
-    state.dispose();
-    Magic.delete<UsageState>();
+    state = UsageState();
+    Magic.put<UsageState>(state);
   });
 
   // -------------------------------------------------------------------------
@@ -169,10 +147,6 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('widget constructor creates UsageHistoryView', (tester) async {
-    http.alwaysReturn(
-      MagicResponse(data: kUsageResponseEmpty, statusCode: 200),
-    );
-
     await _pumpView(tester);
 
     expect(find.byType(UsageHistoryView), findsOneWidget);
@@ -183,7 +157,7 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('renders MagicStarterPageHeader with title', (tester) async {
-    http.alwaysReturn(MagicResponse(data: kUsageResponse, statusCode: 200));
+    driver.stub('*', Http.response(kUsageResponse));
 
     await state.loadUsage('team-001');
     await _pumpView(tester);
@@ -198,10 +172,6 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('shows loading state while usage is loading', (tester) async {
-    http.alwaysReturn(
-      MagicResponse(data: kUsageResponseEmpty, statusCode: 200),
-    );
-
     // Manually set loading state before pumping.
     state.setLoading();
 
@@ -230,10 +200,6 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('shows empty state when no usage records exist', (tester) async {
-    http.alwaysReturn(
-      MagicResponse(data: kUsageResponseEmpty, statusCode: 200),
-    );
-
     await state.loadUsage('team-001');
     await _pumpView(tester);
 
@@ -246,7 +212,7 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('renders record rows with model name and cost', (tester) async {
-    http.alwaysReturn(MagicResponse(data: kUsageResponse, statusCode: 200));
+    driver.stub('*', Http.response(kUsageResponse));
 
     await state.loadUsage('team-001');
     await _pumpView(tester);
@@ -264,7 +230,7 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('displays total cost from meta.totals', (tester) async {
-    http.alwaysReturn(MagicResponse(data: kUsageResponse, statusCode: 200));
+    driver.stub('*', Http.response(kUsageResponse));
 
     await state.loadUsage('team-001');
     await _pumpView(tester);
@@ -278,7 +244,7 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('renders agent role badge for record', (tester) async {
-    http.alwaysReturn(MagicResponse(data: kUsageResponse, statusCode: 200));
+    driver.stub('*', Http.response(kUsageResponse));
 
     await state.loadUsage('team-001');
     await _pumpView(tester);

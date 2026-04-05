@@ -34,7 +34,7 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
-  magic: ^1.0.0-alpha.5
+  magic: ^1.0.0-alpha.6
   magic_starter: ^0.0.1-alpha.6
   magic_notifications: ^0.0.1-alpha.1
   web_socket_channel: ^3.0.3
@@ -56,8 +56,12 @@ dev_dependencies:
   flutter_lints: ^6.0.0
 
 dependency_overrides:
+  magic:
+    path: /Users/anilcan/Code/fluttersdk/magic
   magic_starter:
     path: /Users/anilcan/Code/fluttersdk/magic_starter
+  fluttersdk_wind:
+    path: /Users/anilcan/Code/fluttersdk/wind/fluttersdk_wind
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

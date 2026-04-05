@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
+import 'package:magic/testing.dart';
 
 import 'package:app/app/state/project_state.dart';
 
@@ -42,93 +43,22 @@ const Map<String, dynamic> kProjectB = {
 };
 
 // ---------------------------------------------------------------------------
-// Fake HTTP client
-// ---------------------------------------------------------------------------
-
-/// Injectable HTTP client for testing [ProjectState] without hitting the
-/// network. Each method records the call and returns a pre-configured
-/// [MagicResponse].
-class FakeHttpClient implements HttpClient {
-  final List<HttpCall> calls = [];
-  late MagicResponse Function(String url) _responder;
-
-  /// Set a responder that maps URL to [MagicResponse].
-  void whenAny(MagicResponse Function(String url) responder) {
-    _responder = responder;
-  }
-
-  /// Shortcut: always return the same response regardless of URL.
-  void alwaysReturn(MagicResponse response) {
-    _responder = (_) => response;
-  }
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) async {
-    calls.add(HttpCall('GET', url));
-    return _responder(url);
-  }
-
-  @override
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) async {
-    calls.add(HttpCall('POST', url, data: data));
-    return _responder(url);
-  }
-
-  @override
-  Future<MagicResponse> put(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) async {
-    calls.add(HttpCall('PUT', url, data: data));
-    return _responder(url);
-  }
-
-  @override
-  Future<MagicResponse> delete(
-    String url, {
-    Map<String, String>? headers,
-  }) async {
-    calls.add(HttpCall('DELETE', url));
-    return _responder(url);
-  }
-}
-
-class HttpCall {
-  HttpCall(this.method, this.url, {this.data});
-
-  final String method;
-  final String url;
-  final dynamic data;
-
-  @override
-  String toString() => '$method $url';
-}
-
-// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
 void main() {
+  MagicTest.init();
+
   group('ProjectState', () {
-    late FakeHttpClient http;
     late ProjectState state;
 
     setUp(() {
-      http = FakeHttpClient();
-      state = ProjectState(httpClient: http);
+      state = ProjectState();
     });
 
     tearDown(() {
       state.dispose();
+      Http.unfake();
     });
 
     // -----------------------------------------------------------------------
@@ -136,8 +66,8 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('fetchProjects sets loading then success with project list', () async {
-      http.alwaysReturn(
-        MagicResponse(
+      final fake = Http.fake(
+        (MagicRequest req) => MagicResponse(
           data: {
             'data': [kProjectA, kProjectB],
           },
@@ -162,9 +92,12 @@ void main() {
       expect(state.rxState![1].id, equals('proj-uuid-002'));
 
       // Verify correct URL was called.
-      expect(http.calls.length, equals(1));
-      expect(http.calls.first.method, equals('GET'));
-      expect(http.calls.first.url, equals('/teams/team-uuid-001/projects'));
+      expect(fake.recorded.length, equals(1));
+      expect(fake.recorded.first.$1.method, equals('GET'));
+      expect(
+        fake.recorded.first.$1.url,
+        equals('/teams/team-uuid-001/projects'),
+      );
     });
 
     // -----------------------------------------------------------------------
@@ -172,8 +105,9 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('fetchProjects sets loading then error on failure', () async {
-      http.alwaysReturn(
-        MagicResponse(data: {'message': 'Unauthorized'}, statusCode: 401),
+      Http.fake(
+        (MagicRequest req) =>
+            MagicResponse(data: {'message': 'Unauthorized'}, statusCode: 401),
       );
 
       final future = state.fetchProjects('team-uuid-001');
@@ -190,8 +124,9 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('fetchProject stores selectedProject', () async {
-      http.alwaysReturn(
-        MagicResponse(data: {'data': kProjectA}, statusCode: 200),
+      final fake = Http.fake(
+        (MagicRequest req) =>
+            MagicResponse(data: {'data': kProjectA}, statusCode: 200),
       );
 
       await state.fetchProject('team-uuid-001', 'proj-uuid-001');
@@ -201,7 +136,7 @@ void main() {
       expect(state.selectedProject!.name, equals('Alpha'));
 
       expect(
-        http.calls.first.url,
+        fake.recorded.first.$1.url,
         equals('/teams/team-uuid-001/projects/proj-uuid-001'),
       );
     });
@@ -211,8 +146,9 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('createProject posts data and returns created project', () async {
-      http.alwaysReturn(
-        MagicResponse(data: {'data': kProjectA}, statusCode: 201),
+      final fake = Http.fake(
+        (MagicRequest req) =>
+            MagicResponse(data: {'data': kProjectA}, statusCode: 201),
       );
 
       final project = await state.createProject('team-uuid-001', {
@@ -229,8 +165,11 @@ void main() {
       );
       expect(project.hasSshKey, isTrue);
 
-      expect(http.calls.first.method, equals('POST'));
-      expect(http.calls.first.url, equals('/teams/team-uuid-001/projects'));
+      expect(fake.recorded.first.$1.method, equals('POST'));
+      expect(
+        fake.recorded.first.$1.url,
+        equals('/teams/team-uuid-001/projects'),
+      );
     });
 
     // -----------------------------------------------------------------------
@@ -238,8 +177,9 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('updateProject sends PUT and returns updated project', () async {
-      http.alwaysReturn(
-        MagicResponse(data: {'data': kProjectA}, statusCode: 200),
+      final fake = Http.fake(
+        (MagicRequest req) =>
+            MagicResponse(data: {'data': kProjectA}, statusCode: 200),
       );
 
       final project = await state.updateProject(
@@ -251,9 +191,9 @@ void main() {
       expect(project, isNotNull);
       expect(project!.id, equals('proj-uuid-001'));
 
-      expect(http.calls.first.method, equals('PUT'));
+      expect(fake.recorded.first.$1.method, equals('PUT'));
       expect(
-        http.calls.first.url,
+        fake.recorded.first.$1.url,
         equals('/teams/team-uuid-001/projects/proj-uuid-001'),
       );
     });
@@ -263,7 +203,9 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('deleteProject sends DELETE and returns true on success', () async {
-      http.alwaysReturn(MagicResponse(data: null, statusCode: 204));
+      final fake = Http.fake(
+        (MagicRequest req) => MagicResponse(data: null, statusCode: 204),
+      );
 
       final result = await state.deleteProject(
         'team-uuid-001',
@@ -272,9 +214,9 @@ void main() {
 
       expect(result, isTrue);
 
-      expect(http.calls.first.method, equals('DELETE'));
+      expect(fake.recorded.first.$1.method, equals('DELETE'));
       expect(
-        http.calls.first.url,
+        fake.recorded.first.$1.url,
         equals('/teams/team-uuid-001/projects/proj-uuid-001'),
       );
     });
@@ -285,8 +227,8 @@ void main() {
 
     test('sortProjects by name sorts alphabetically', () async {
       // Load projects in reverse alphabetical order.
-      http.alwaysReturn(
-        MagicResponse(
+      Http.fake(
+        (MagicRequest req) => MagicResponse(
           data: {
             'data': [kProjectB, kProjectA],
           },
@@ -308,8 +250,8 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('sortProjects by lastUpdated sorts most recent first', () async {
-      http.alwaysReturn(
-        MagicResponse(
+      Http.fake(
+        (MagicRequest req) => MagicResponse(
           data: {
             'data': [kProjectA, kProjectB],
           },
@@ -333,16 +275,19 @@ void main() {
 
     test('fetchProject sets selectedProject to null on error', () async {
       // First, set a successful selectedProject.
-      http.whenAny((url) {
-        return MagicResponse(data: {'data': kProjectA}, statusCode: 200);
-      });
+      Http.fake(
+        (MagicRequest req) =>
+            MagicResponse(data: {'data': kProjectA}, statusCode: 200),
+      );
       await state.fetchProject('team-uuid-001', 'proj-uuid-001');
       expect(state.selectedProject, isNotNull);
 
       // Now simulate an error.
-      http.whenAny((url) {
-        return MagicResponse(data: {'message': 'Not found'}, statusCode: 404);
-      });
+      Http.unfake();
+      Http.fake(
+        (MagicRequest req) =>
+            MagicResponse(data: {'message': 'Not found'}, statusCode: 404),
+      );
       await state.fetchProject('team-uuid-001', 'proj-uuid-999');
 
       expect(state.selectedProject, isNull);
@@ -353,8 +298,9 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('deleteProject returns false on failure', () async {
-      http.alwaysReturn(
-        MagicResponse(data: {'message': 'Forbidden'}, statusCode: 403),
+      Http.fake(
+        (MagicRequest req) =>
+            MagicResponse(data: {'message': 'Forbidden'}, statusCode: 403),
       );
 
       final result = await state.deleteProject(
@@ -372,8 +318,8 @@ void main() {
     test(
       'regenerateSshKey posts to project ssh-key endpoint and returns public key',
       () async {
-        http.alwaysReturn(
-          MagicResponse(
+        final fake = Http.fake(
+          (MagicRequest req) => MagicResponse(
             data: {
               'data': {
                 'ssh_public_key': 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINewKey',
@@ -390,9 +336,9 @@ void main() {
 
         expect(key, equals('ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINewKey'));
 
-        expect(http.calls.first.method, equals('POST'));
+        expect(fake.recorded.first.$1.method, equals('POST'));
         expect(
-          http.calls.first.url,
+          fake.recorded.first.$1.url,
           equals('/teams/team-uuid-001/projects/proj-uuid-001/ssh-key'),
         );
       },
@@ -403,8 +349,9 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('regenerateSshKey returns null on failure', () async {
-      http.alwaysReturn(
-        MagicResponse(data: {'message': 'Not Found'}, statusCode: 404),
+      Http.fake(
+        (MagicRequest req) =>
+            MagicResponse(data: {'message': 'Not Found'}, statusCode: 404),
       );
 
       final key = await state.regenerateSshKey(

@@ -3,70 +3,6 @@ import 'package:magic/magic.dart';
 import '../models/mcp_server.dart';
 
 // ---------------------------------------------------------------------------
-// HTTP abstraction for testability
-// ---------------------------------------------------------------------------
-
-/// Thin interface over the HTTP verbs [McpServerState] uses.
-///
-/// In production the default [_MagicHttpClient] delegates to [Http].
-/// Tests inject a fake that records calls and returns canned responses.
-abstract class McpServerHttpClient {
-  /// Perform a GET request.
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  });
-
-  /// Perform a POST request.
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  });
-
-  /// Perform a PUT request.
-  Future<MagicResponse> put(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  });
-
-  /// Perform a DELETE request.
-  Future<MagicResponse> delete(String url, {Map<String, String>? headers});
-}
-
-/// Default production [McpServerHttpClient] backed by the Magic [Http] facade.
-class _MagicHttpClient implements McpServerHttpClient {
-  const _MagicHttpClient();
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) => Http.get(url, query: query, headers: headers);
-
-  @override
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) => Http.post(url, data: data, headers: headers);
-
-  @override
-  Future<MagicResponse> put(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) => Http.put(url, data: data, headers: headers);
-
-  @override
-  Future<MagicResponse> delete(String url, {Map<String, String>? headers}) =>
-      Http.delete(url, headers: headers);
-}
-
-// ---------------------------------------------------------------------------
 // McpServerState controller
 // ---------------------------------------------------------------------------
 
@@ -95,20 +31,14 @@ class _MagicHttpClient implements McpServerHttpClient {
 /// ```
 class McpServerState extends MagicController
     with MagicStateMixin<List<McpServer>> {
-  /// Creates an [McpServerState] with an optional [httpClient] for testing.
-  ///
-  /// When [httpClient] is `null` (production), the Magic [Http] facade is
-  /// used via [_MagicHttpClient].
-  McpServerState({McpServerHttpClient? httpClient})
-    : _http = httpClient ?? const _MagicHttpClient();
+  /// Creates an [McpServerState].
+  McpServerState();
 
   /// Lazy singleton accessor.
   ///
   /// Uses [Magic.findOrPut] to ensure a single instance is shared across
   /// the application.
   static McpServerState get instance => Magic.findOrPut(McpServerState.new);
-
-  final McpServerHttpClient _http;
 
   // ---------------------------------------------------------------------------
   // Convenience accessor
@@ -128,7 +58,7 @@ class McpServerState extends MagicController
   Future<void> fetchServers(String teamId, String projectId) async {
     setLoading();
 
-    final response = await _http.get(
+    final response = await Http.get(
       '/teams/$teamId/projects/$projectId/mcp-servers',
     );
 
@@ -159,7 +89,7 @@ class McpServerState extends MagicController
     String projectId,
     Map<String, dynamic> data,
   ) async {
-    final response = await _http.post(
+    final response = await Http.post(
       '/teams/$teamId/projects/$projectId/mcp-servers',
       data: data,
     );
@@ -189,7 +119,7 @@ class McpServerState extends MagicController
     String serverId,
     Map<String, dynamic> data,
   ) async {
-    final response = await _http.put(
+    final response = await Http.put(
       '/teams/$teamId/projects/$projectId/mcp-servers/$serverId',
       data: data,
     );
@@ -218,7 +148,7 @@ class McpServerState extends MagicController
     String projectId,
     String serverId,
   ) async {
-    final response = await _http.delete(
+    final response = await Http.delete(
       '/teams/$teamId/projects/$projectId/mcp-servers/$serverId',
     );
 

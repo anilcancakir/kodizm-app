@@ -49,7 +49,7 @@ class _SessionDetailViewState extends State<SessionDetailView> {
   void initState() {
     super.initState();
 
-    _state = Magic.findOrPut<SessionState>(SessionState.new);
+    _state = SessionState.instance;
     _state.loadSession(widget.sessionId);
     _state.loadEvents(widget.sessionId);
     subscribeToSession();

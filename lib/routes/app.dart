@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:magic/magic.dart';
 import 'package:magic_starter/magic_starter.dart';
 
-// import '../resources/views/welcome_view.dart'; // Replaced by DashboardView
 import '../resources/views/dashboard_view.dart';
 import '../resources/views/project/project_list_view.dart';
 import '../resources/views/project/project_detail_view.dart';

@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
+import 'package:magic/testing.dart';
 
 import 'package:app/app/events/websocket_event.dart';
 import 'package:app/app/state/session_state.dart';
@@ -89,68 +90,6 @@ const Map<String, dynamic> kStreamEventFixture = {
 };
 
 // ---------------------------------------------------------------------------
-// Fake HTTP client
-// ---------------------------------------------------------------------------
-
-/// Injectable HTTP client for testing [SessionState] without hitting the
-/// network. Records calls and returns pre-configured [MagicResponse] values.
-class _FakeSessionHttpClient implements SessionHttpClient {
-  final List<_HttpCall> calls = [];
-  late MagicResponse Function(String url, String method) _responder;
-
-  /// Set a responder that maps URL + method to [MagicResponse].
-  void whenAny(MagicResponse Function(String url, String method) responder) {
-    _responder = responder;
-  }
-
-  /// Shortcut: always return the same response regardless of URL.
-  void alwaysReturn(MagicResponse response) {
-    _responder = (_, m) => response;
-  }
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) async {
-    calls.add(_HttpCall('GET', url, query: query));
-    return _responder(url, 'GET');
-  }
-
-  @override
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) async {
-    calls.add(_HttpCall('POST', url, data: data));
-    return _responder(url, 'POST');
-  }
-
-  @override
-  Future<MagicResponse> delete(
-    String url, {
-    Map<String, String>? headers,
-  }) async {
-    calls.add(_HttpCall('DELETE', url));
-    return _responder(url, 'DELETE');
-  }
-}
-
-class _HttpCall {
-  _HttpCall(this.method, this.url, {this.data, this.query});
-
-  final String method;
-  final String url;
-  final dynamic data;
-  final Map<String, dynamic>? query;
-
-  @override
-  String toString() => '$method $url';
-}
-
-// ---------------------------------------------------------------------------
 // Fake WebSocket client
 // ---------------------------------------------------------------------------
 
@@ -178,15 +117,17 @@ class _FakeSessionWebSocket implements SessionWebSocket {
 // ---------------------------------------------------------------------------
 
 void main() {
+  MagicTest.init();
+
   group('SessionState', () {
-    late _FakeSessionHttpClient http;
+    late FakeNetworkDriver driver;
     late _FakeSessionWebSocket ws;
     late SessionState state;
 
     setUp(() {
-      http = _FakeSessionHttpClient();
+      driver = Http.fake();
       ws = _FakeSessionWebSocket();
-      state = SessionState(httpClient: http, webSocket: ws);
+      state = SessionState(webSocket: ws);
     });
 
     tearDown(() {
@@ -210,13 +151,11 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('loadSessions parses sessions list from response', () async {
-      http.alwaysReturn(
-        MagicResponse(
-          data: {
-            'data': [kSession, kSession2],
-          },
-          statusCode: 200,
-        ),
+      driver.stub(
+        '*/sessions*',
+        Http.response({
+          'data': [kSession, kSession2],
+        }),
       );
 
       await state.loadSessions();
@@ -226,9 +165,8 @@ void main() {
       expect(state.sessions[0].type, equals('autonomous'));
       expect(state.sessions[1].id, equals('session-uuid-002'));
 
-      expect(http.calls.length, equals(1));
-      expect(http.calls.first.method, equals('GET'));
-      expect(http.calls.first.url, equals('/v1/sessions'));
+      driver.assertSentCount(1);
+      driver.assertSent((r) => r.method == 'GET' && r.url == '/v1/sessions');
     });
 
     // -----------------------------------------------------------------------
@@ -238,11 +176,9 @@ void main() {
     test(
       'loadSessions sends projectId, type, and phase as query params',
       () async {
-        http.alwaysReturn(
-          MagicResponse(
-            data: {'data': <Map<String, dynamic>>[]},
-            statusCode: 200,
-          ),
+        driver.stub(
+          '*/sessions*',
+          Http.response({'data': <Map<String, dynamic>>[]}),
         );
 
         await state.loadSessions(
@@ -251,10 +187,10 @@ void main() {
           phase: 'executing',
         );
 
-        final call = http.calls.first;
-        expect(call.query?['project_id'], equals('proj-uuid-001'));
-        expect(call.query?['type'], equals('autonomous'));
-        expect(call.query?['phase'], equals('executing'));
+        final request = driver.recorded.first.$1;
+        expect(request.queryParameters?['project_id'], equals('proj-uuid-001'));
+        expect(request.queryParameters?['type'], equals('autonomous'));
+        expect(request.queryParameters?['phase'], equals('executing'));
       },
     );
 
@@ -263,19 +199,17 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('loadSessions omits null filters from query params', () async {
-      http.alwaysReturn(
-        MagicResponse(
-          data: {'data': <Map<String, dynamic>>[]},
-          statusCode: 200,
-        ),
+      driver.stub(
+        '*/sessions*',
+        Http.response({'data': <Map<String, dynamic>>[]}),
       );
 
       await state.loadSessions(projectId: 'proj-uuid-001');
 
-      final call = http.calls.first;
-      expect(call.query?['project_id'], equals('proj-uuid-001'));
-      expect(call.query?.containsKey('type'), isFalse);
-      expect(call.query?.containsKey('phase'), isFalse);
+      final request = driver.recorded.first.$1;
+      expect(request.queryParameters?['project_id'], equals('proj-uuid-001'));
+      expect(request.queryParameters?.containsKey('type'), isFalse);
+      expect(request.queryParameters?.containsKey('phase'), isFalse);
     });
 
     // -----------------------------------------------------------------------
@@ -283,11 +217,9 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('loadSessions sets empty list on error', () async {
-      http.alwaysReturn(
-        MagicResponse(
-          data: {'message': 'Internal Server Error'},
-          statusCode: 500,
-        ),
+      driver.stub(
+        '*/sessions*',
+        Http.response({'message': 'Internal Server Error'}, 500),
       );
 
       await state.loadSessions();
@@ -306,8 +238,9 @@ void main() {
         'shares': [kShare],
       };
 
-      http.alwaysReturn(
-        MagicResponse(data: {'data': sessionWithRelations}, statusCode: 200),
+      driver.stub(
+        '*/sessions/*',
+        Http.response({'data': sessionWithRelations}),
       );
 
       await state.loadSession('session-uuid-001');
@@ -321,8 +254,9 @@ void main() {
         closeTo(0.0126, 0.0001),
       );
 
-      expect(http.calls.first.url, equals('/v1/sessions/session-uuid-001'));
-      expect(http.calls.first.method, equals('GET'));
+      driver.assertSent(
+        (r) => r.url == '/v1/sessions/session-uuid-001' && r.method == 'GET',
+      );
     });
 
     // -----------------------------------------------------------------------
@@ -330,9 +264,7 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('loadSession sets currentSession to null on error', () async {
-      http.alwaysReturn(
-        MagicResponse(data: {'message': 'Not found'}, statusCode: 404),
-      );
+      driver.stub('*/sessions/*', Http.response({'message': 'Not found'}, 404));
 
       await state.loadSession('session-uuid-999');
 
@@ -344,13 +276,11 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('loadEvents populates events from response', () async {
-      http.alwaysReturn(
-        MagicResponse(
-          data: {
-            'data': [kStreamEventFixture],
-          },
-          statusCode: 200,
-        ),
+      driver.stub(
+        '*/events*',
+        Http.response({
+          'data': [kStreamEventFixture],
+        }),
       );
 
       await state.loadEvents('session-uuid-001');
@@ -359,10 +289,7 @@ void main() {
       expect(state.events.first.id, equals('evt-uuid-001'));
       expect(state.events.first.contentText, equals('Hello'));
 
-      expect(
-        http.calls.first.url,
-        equals('/v1/sessions/session-uuid-001/events'),
-      );
+      driver.assertSent((r) => r.url == '/v1/sessions/session-uuid-001/events');
     });
 
     // -----------------------------------------------------------------------
@@ -370,16 +297,15 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('loadEvents passes type as query param', () async {
-      http.alwaysReturn(
-        MagicResponse(
-          data: {'data': <Map<String, dynamic>>[]},
-          statusCode: 200,
-        ),
+      driver.stub(
+        '*/events*',
+        Http.response({'data': <Map<String, dynamic>>[]}),
       );
 
       await state.loadEvents('session-uuid-001', type: 'assistant_delta');
 
-      expect(http.calls.first.query?['type'], equals('assistant_delta'));
+      final request = driver.recorded.first.$1;
+      expect(request.queryParameters?['type'], equals('assistant_delta'));
     });
 
     // -----------------------------------------------------------------------
@@ -387,9 +313,7 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('loadEvents sets empty list on error', () async {
-      http.alwaysReturn(
-        MagicResponse(data: {'message': 'Server error'}, statusCode: 500),
-      );
+      driver.stub('*/events*', Http.response({'message': 'Server error'}, 500));
 
       await state.loadEvents('session-uuid-001');
 
@@ -401,7 +325,7 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('share posts to correct URL and returns true on success', () async {
-      http.alwaysReturn(MagicResponse(data: {'data': kShare}, statusCode: 201));
+      driver.stub('*/share', Http.response({'data': kShare}, 201));
 
       final result = await state.share(
         'session-uuid-001',
@@ -412,18 +336,21 @@ void main() {
 
       expect(result, isTrue);
 
-      final call = http.calls.first;
-      expect(call.method, equals('POST'));
-      expect(call.url, equals('/v1/sessions/session-uuid-001/share'));
+      final request = driver.recorded.first.$1;
+      expect(request.method, equals('POST'));
+      expect(request.url, equals('/v1/sessions/session-uuid-001/share'));
       expect(
-        (call.data as Map<String, dynamic>)['shareable_type'],
+        (request.data as Map<String, dynamic>)['shareable_type'],
         equals('App\\Models\\Project'),
       );
       expect(
-        (call.data as Map<String, dynamic>)['shareable_id'],
+        (request.data as Map<String, dynamic>)['shareable_id'],
         equals('project-uuid-001'),
       );
-      expect((call.data as Map<String, dynamic>)['permission'], equals('read'));
+      expect(
+        (request.data as Map<String, dynamic>)['permission'],
+        equals('read'),
+      );
     });
 
     // -----------------------------------------------------------------------
@@ -431,9 +358,7 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('share returns false on error', () async {
-      http.alwaysReturn(
-        MagicResponse(data: {'message': 'Forbidden'}, statusCode: 403),
-      );
+      driver.stub('*/share', Http.response({'message': 'Forbidden'}, 403));
 
       final result = await state.share(
         'session-uuid-001',
@@ -450,16 +375,16 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('unshare sends DELETE to correct URL and returns true', () async {
-      http.alwaysReturn(MagicResponse(data: null, statusCode: 204));
+      driver.stub('*/shares/*', Http.response(null, 204));
 
       final result = await state.unshare('session-uuid-001', 'share-uuid-001');
 
       expect(result, isTrue);
 
-      final call = http.calls.first;
-      expect(call.method, equals('DELETE'));
+      final request = driver.recorded.first.$1;
+      expect(request.method, equals('DELETE'));
       expect(
-        call.url,
+        request.url,
         equals('/v1/sessions/session-uuid-001/shares/share-uuid-001'),
       );
     });
@@ -469,9 +394,7 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('unshare returns false on error', () async {
-      http.alwaysReturn(
-        MagicResponse(data: {'message': 'Not found'}, statusCode: 404),
-      );
+      driver.stub('*/shares/*', Http.response({'message': 'Not found'}, 404));
 
       final result = await state.unshare('session-uuid-001', 'share-uuid-999');
 
@@ -485,13 +408,11 @@ void main() {
     test(
       'reset clears sessions, currentSession, events, and filters',
       () async {
-        http.alwaysReturn(
-          MagicResponse(
-            data: {
-              'data': [kSession],
-            },
-            statusCode: 200,
-          ),
+        driver.stub(
+          '*/sessions*',
+          Http.response({
+            'data': [kSession],
+          }),
         );
 
         await state.loadSessions(projectId: 'proj-001', type: 'autonomous');
@@ -514,9 +435,7 @@ void main() {
 
     group('WebSocket event handlers', () {
       setUp(() async {
-        http.alwaysReturn(
-          MagicResponse(data: {'data': kSession}, statusCode: 200),
-        );
+        driver.stub('*/sessions/*', Http.response({'data': kSession}));
         await state.loadSession('session-uuid-001');
       });
 
@@ -768,9 +687,7 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('reset clears activeChannel and pendingQuestion', () async {
-      http.alwaysReturn(
-        MagicResponse(data: {'data': kSession}, statusCode: 200),
-      );
+      driver.stub('*/sessions/*', Http.response({'data': kSession}));
       await state.loadSession('session-uuid-001');
 
       state.subscribeToSession('session-uuid-001');

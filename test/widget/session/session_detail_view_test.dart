@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
+import 'package:magic/testing.dart';
 
 import 'package:app/app/events/websocket_event.dart';
 import 'package:app/app/state/session_state.dart';
@@ -117,62 +118,6 @@ const List<Map<String, dynamic>> kEvents = [
     'metadata': null,
   },
 ];
-
-// ---------------------------------------------------------------------------
-// Fake HTTP client
-// ---------------------------------------------------------------------------
-
-class _FakeSessionHttpClient implements SessionHttpClient {
-  final List<String> calls = [];
-  MagicResponse _sessionResponse = MagicResponse(
-    data: {'data': kSessionDetail},
-    statusCode: 200,
-  );
-  MagicResponse _eventsResponse = MagicResponse(
-    data: {'data': kEvents},
-    statusCode: 200,
-  );
-
-  void setSessionResponse(MagicResponse response) {
-    _sessionResponse = response;
-  }
-
-  void setEventsResponse(MagicResponse response) {
-    _eventsResponse = response;
-  }
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) async {
-    calls.add('GET $url');
-    if (url.contains('/events')) {
-      return _eventsResponse;
-    }
-    return _sessionResponse;
-  }
-
-  @override
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) async {
-    calls.add('POST $url');
-    return MagicResponse(data: {'data': {}}, statusCode: 200);
-  }
-
-  @override
-  Future<MagicResponse> delete(
-    String url, {
-    Map<String, String>? headers,
-  }) async {
-    calls.add('DELETE $url');
-    return MagicResponse(data: {'data': {}}, statusCode: 200);
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Fake WebSocket
@@ -290,7 +235,9 @@ Future<void> _pumpMobileView(
 // ---------------------------------------------------------------------------
 
 void main() {
-  late _FakeSessionHttpClient http;
+  MagicTest.init();
+
+  late FakeNetworkDriver driver;
   late _FakeSessionWebSocket ws;
   late SessionState state;
 
@@ -301,15 +248,13 @@ void main() {
   });
 
   setUp(() {
-    http = _FakeSessionHttpClient();
-    ws = _FakeSessionWebSocket();
-    state = SessionState(httpClient: http, webSocket: ws);
-    Magic.put<SessionState>(state);
-  });
+    driver = Http.fake();
+    driver.stub('*', Http.response({'data': kSessionDetail}));
+    driver.stub('*/events*', Http.response({'data': kEvents}));
 
-  tearDown(() {
-    state.dispose();
-    Magic.delete<SessionState>();
+    ws = _FakeSessionWebSocket();
+    state = SessionState(webSocket: ws);
+    Magic.put<SessionState>(state);
   });
 
   // -------------------------------------------------------------------------
@@ -476,11 +421,6 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('shows loading indicator when session is null', (tester) async {
-    // Use a session ID that won't match any preloaded data.
-    http.setSessionResponse(
-      MagicResponse(data: {'data': kSessionDetail}, statusCode: 200),
-    );
-
     await _pumpView(tester);
 
     // After pumps, session should be loaded. We verify loading was transient
@@ -495,8 +435,13 @@ void main() {
   testWidgets('shows no_usage message when usage records are empty', (
     tester,
   ) async {
-    http.setSessionResponse(
-      MagicResponse(data: {'data': kSessionNoRecords}, statusCode: 200),
+    driver.stub(
+      '*/sessions/sess-uuid-empty-001',
+      Http.response({'data': kSessionNoRecords}),
+    );
+    driver.stub(
+      '*/sessions/sess-uuid-empty-001/events*',
+      Http.response({'data': <dynamic>[]}),
     );
 
     await _pumpView(tester, sessionId: 'sess-uuid-empty-001');
@@ -511,8 +456,13 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('shows empty shares state when no shares exist', (tester) async {
-    http.setSessionResponse(
-      MagicResponse(data: {'data': kSessionNoRecords}, statusCode: 200),
+    driver.stub(
+      '*/sessions/sess-uuid-empty-001',
+      Http.response({'data': kSessionNoRecords}),
+    );
+    driver.stub(
+      '*/sessions/sess-uuid-empty-001/events*',
+      Http.response({'data': <dynamic>[]}),
     );
 
     await _pumpView(tester, sessionId: 'sess-uuid-empty-001');
@@ -551,13 +501,8 @@ void main() {
   testWidgets('calls loadSession and loadEvents on init', (tester) async {
     await _pumpView(tester);
 
-    expect(
-      http.calls,
-      containsAll([
-        'GET /v1/sessions/$kSessionId',
-        'GET /v1/sessions/$kSessionId/events',
-      ]),
-    );
+    driver.assertSent((r) => r.url.contains('/v1/sessions/$kSessionId'));
+    driver.assertSent((r) => r.url.contains('/v1/sessions/$kSessionId/events'));
   });
 
   // -------------------------------------------------------------------------
@@ -606,8 +551,13 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('hides execution context fields when null', (tester) async {
-    http.setSessionResponse(
-      MagicResponse(data: {'data': kSessionNoRecords}, statusCode: 200),
+    driver.stub(
+      '*/sessions/sess-uuid-empty-001',
+      Http.response({'data': kSessionNoRecords}),
+    );
+    driver.stub(
+      '*/sessions/sess-uuid-empty-001/events*',
+      Http.response({'data': <dynamic>[]}),
     );
 
     await _pumpView(tester, sessionId: 'sess-uuid-empty-001');

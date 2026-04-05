@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
+import 'package:magic/testing.dart';
 
 import 'package:app/app/state/conversation_list_state.dart';
 import 'package:app/resources/views/conversation/conversation_list_view.dart';
@@ -58,52 +59,6 @@ const Map<String, dynamic> kConversation2 = {
   'created_at': '2025-06-10T09:00:00.000Z',
   'updated_at': '2025-06-10T10:00:00.000Z',
 };
-
-// ---------------------------------------------------------------------------
-// Fake HTTP client
-// ---------------------------------------------------------------------------
-
-class _FakeConversationHttpClient implements ConversationListHttpClient {
-  final List<String> calls = [];
-  late MagicResponse Function(String url) _responder;
-
-  void whenAny(MagicResponse Function(String url) responder) {
-    _responder = responder;
-  }
-
-  void alwaysReturn(MagicResponse response) {
-    _responder = (_) => response;
-  }
-
-  @override
-  Future<MagicResponse> get(
-    String url, {
-    Map<String, dynamic>? query,
-    Map<String, String>? headers,
-  }) async {
-    calls.add('GET $url');
-    return _responder(url);
-  }
-
-  @override
-  Future<MagicResponse> post(
-    String url, {
-    dynamic data,
-    Map<String, String>? headers,
-  }) async {
-    calls.add('POST $url');
-    return _responder(url);
-  }
-
-  @override
-  Future<MagicResponse> delete(
-    String url, {
-    Map<String, String>? headers,
-  }) async {
-    calls.add('DELETE $url');
-    return _responder(url);
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Test-safe translation loader
@@ -175,7 +130,9 @@ Future<void> _pumpView(
 // ---------------------------------------------------------------------------
 
 void main() {
-  late _FakeConversationHttpClient http;
+  MagicTest.init();
+
+  late FakeNetworkDriver driver;
   late ConversationListState state;
 
   setUpAll(() async {
@@ -185,14 +142,12 @@ void main() {
   });
 
   setUp(() {
-    http = _FakeConversationHttpClient();
-    state = ConversationListState(httpClient: http);
-    Magic.put<ConversationListState>(state);
-  });
+    Auth.fake();
+    driver = Http.fake();
+    driver.stub('*', Http.response({'data': <dynamic>[]}));
 
-  tearDown(() {
-    state.dispose();
-    Magic.delete<ConversationListState>();
+    state = ConversationListState();
+    Magic.put<ConversationListState>(state);
   });
 
   // -------------------------------------------------------------------------
@@ -200,10 +155,6 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('widget constructor accepts projectId', (tester) async {
-    http.alwaysReturn(
-      MagicResponse(data: {'data': <dynamic>[]}, statusCode: 200),
-    );
-
     await _pumpView(tester, projectId: 'proj-test-001');
 
     expect(find.byType(ConversationListView), findsOneWidget);
@@ -214,10 +165,6 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('renders MagicStarterPageHeader with title', (tester) async {
-    http.alwaysReturn(
-      MagicResponse(data: {'data': <dynamic>[]}, statusCode: 200),
-    );
-
     await _pumpView(tester);
 
     expect(find.byType(MagicStarterPageHeader), findsOneWidget);
@@ -229,10 +176,6 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('shows loading state before conversations load', (tester) async {
-    http.alwaysReturn(
-      MagicResponse(data: {'data': <dynamic>[]}, statusCode: 200),
-    );
-
     // Manually set loading state before pumping.
     state.setLoading();
 
@@ -263,10 +206,6 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('shows empty state when no conversations exist', (tester) async {
-    http.alwaysReturn(
-      MagicResponse(data: {'data': <dynamic>[]}, statusCode: 200),
-    );
-
     // Pre-load empty state.
     await state.loadConversations('team-uuid-001', 'proj-uuid-001');
 
@@ -283,13 +222,11 @@ void main() {
   testWidgets('renders conversation rows when conversations are loaded', (
     tester,
   ) async {
-    http.alwaysReturn(
-      MagicResponse(
-        data: {
-          'data': [kConversation1, kConversation2],
-        },
-        statusCode: 200,
-      ),
+    driver.stub(
+      '*',
+      Http.response({
+        'data': [kConversation1, kConversation2],
+      }),
     );
 
     // Pre-load conversations.
@@ -314,13 +251,11 @@ void main() {
   testWidgets('conversation rows are wrapped in WAnchor for navigation', (
     tester,
   ) async {
-    http.alwaysReturn(
-      MagicResponse(
-        data: {
-          'data': [kConversation1],
-        },
-        statusCode: 200,
-      ),
+    driver.stub(
+      '*',
+      Http.response({
+        'data': [kConversation1],
+      }),
     );
 
     // Pre-load conversations.
@@ -337,10 +272,6 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('renders New Conversation action button', (tester) async {
-    http.alwaysReturn(
-      MagicResponse(data: {'data': <dynamic>[]}, statusCode: 200),
-    );
-
     await _pumpView(tester);
 
     // trans('conversations.new') = 'New Conversation'
@@ -352,13 +283,11 @@ void main() {
   // -------------------------------------------------------------------------
 
   testWidgets('renders status badge for active conversation', (tester) async {
-    http.alwaysReturn(
-      MagicResponse(
-        data: {
-          'data': [kConversation1],
-        },
-        statusCode: 200,
-      ),
+    driver.stub(
+      '*',
+      Http.response({
+        'data': [kConversation1],
+      }),
     );
 
     await state.loadConversations('team-uuid-001', 'proj-uuid-001');

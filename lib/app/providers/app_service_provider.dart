@@ -59,6 +59,16 @@ class AppServiceProvider extends ServiceProvider {
           path: '/skills',
         ),
         MagicStarterNavItem(
+          icon: Icons.menu_book_outlined,
+          labelKey: 'nav.knowledge',
+          path: '/documents',
+        ),
+        MagicStarterNavItem(
+          icon: Icons.psychology_outlined,
+          labelKey: 'nav.memories',
+          path: '/memories',
+        ),
+        MagicStarterNavItem(
           icon: Icons.settings_outlined,
           labelKey: 'nav.settings',
           path: MagicStarterConfig.profileRoute(),

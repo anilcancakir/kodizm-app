@@ -173,6 +173,7 @@
     "next": "Next",
     "delete": "Delete",
     "done": "Done",
+    "edit": "Edit",
     "error_occurred": "An unexpected error occurred. Please try again.",
     "generate": "Generate",
     "go_to_dashboard": "Go to Dashboard",
@@ -336,6 +337,31 @@
     "title": "Dashboard",
     "total_tasks": "Total Tasks"
   },
+  "documents": {
+    "title": "Knowledge Base",
+    "subtitle": "Project documents, guides, and architecture decisions",
+    "empty_title": "No documents yet",
+    "empty_subtitle": "Documents created by agents and team members will appear here",
+    "create_title": "New Document",
+    "edit_title": "Edit Document",
+    "form_title": "Title",
+    "form_content": "Content",
+    "form_category": "Category",
+    "category_architecture": "Architecture",
+    "category_api": "API",
+    "category_guide": "Guide",
+    "category_convention": "Convention",
+    "category_runbook": "Runbook",
+    "category_agent_output": "Agent Output",
+    "category_other": "Other",
+    "created_by": "Created by :name",
+    "updated_at": "Updated :date",
+    "save": "Save Document",
+    "delete_confirm": "Are you sure you want to delete this document?",
+    "category_all": "All",
+    "not_found": "Document not found",
+    "not_found_subtitle": "The document you are looking for does not exist or has been removed"
+  },
   "errors": {
     "unexpected": "An unexpected error occurred. Please try again.",
     "network_error": "Network connection failed. Please check your internet connection and try again.",
@@ -408,6 +434,26 @@
       }
     }
   },
+  "memories": {
+    "title": "Agent Memories",
+    "subtitle": "Context accumulated by agents across sessions",
+    "empty_title": "No memories yet",
+    "empty_subtitle": "Agents will accumulate memories as they work on this project",
+    "create_title": "New Memory",
+    "edit_title": "Edit Memory",
+    "form_file_name": "File Name",
+    "form_name": "Name",
+    "form_description": "Description",
+    "form_type": "Type",
+    "form_content": "Content",
+    "type_user": "User",
+    "type_feedback": "Feedback",
+    "type_project": "Project",
+    "type_reference": "Reference",
+    "delete_confirm": "Are you sure you want to delete this memory?",
+    "save": "Save Memory",
+    "last_synced": "Last synced :date"
+  },
   "nav": {
     "dashboard": "Dashboard",
     "projects": "Projects",
@@ -420,7 +466,9 @@
     "billing": "Billing",
     "ai_tokens": "AI Tokens",
     "sessions": "Sessions",
-    "conversations": "Conversations"
+    "conversations": "Conversations",
+    "knowledge": "Knowledge Base",
+    "memories": "Agent Memories"
   },
   "notifications": {
     "empty": "No notifications",

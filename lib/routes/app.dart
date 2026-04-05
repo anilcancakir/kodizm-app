@@ -17,6 +17,10 @@ import '../resources/views/conversation/conversation_list_view.dart';
 import '../resources/views/nav/project_scoped_nav_view.dart';
 import '../resources/views/session/session_detail_view.dart';
 import '../resources/views/session/session_list_view.dart';
+import '../resources/views/document/document_detail_view.dart';
+import '../resources/views/document/document_list_view.dart';
+import '../resources/views/memory/memory_detail_view.dart';
+import '../resources/views/memory/memory_list_view.dart';
 import '../resources/views/skill/skill_detail_view.dart';
 import '../resources/views/skill/skill_list_view.dart';
 import '../resources/views/skill/skill_marketplace_view.dart';
@@ -94,6 +98,43 @@ void registerAppRoutes() {
       MagicRoute.page(
         '/projects/:projectId/conversations',
         (String projectId) => ConversationListView(projectId: projectId),
+      );
+
+      // Top-level nav redirects for document and memory sections.
+      MagicRoute.page(
+        '/documents',
+        () => const ProjectScopedNavView(targetPath: 'documents'),
+      );
+      MagicRoute.page(
+        '/memories',
+        () => const ProjectScopedNavView(targetPath: 'memories'),
+      );
+
+      // Project-scoped document routes.
+      MagicRoute.page(
+        '/projects/:projectId/documents',
+        (String projectId) => DocumentListView(projectId: projectId),
+      );
+      MagicRoute.page(
+        '/projects/:projectId/documents/:documentId',
+        (String projectId, String documentId) =>
+            DocumentDetailView(projectId: projectId, documentId: documentId),
+      );
+
+      // Project-scoped memory routes.
+      MagicRoute.page(
+        '/projects/:projectId/memories',
+        (String projectId) => MemoryListView(projectId: projectId),
+      );
+      MagicRoute.page(
+        '/projects/:projectId/memories/new',
+        (String projectId) =>
+            MemoryDetailView(projectId: projectId, isCreateMode: true),
+      );
+      MagicRoute.page(
+        '/projects/:projectId/memories/:memoryId',
+        (String projectId, String memoryId) =>
+            MemoryDetailView(projectId: projectId, memoryId: memoryId),
       );
     },
   );

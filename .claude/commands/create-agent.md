@@ -21,7 +21,7 @@ Spawn these research agents IN PARALLEL in a single message. Do not proceed to P
 
 ### 1A: CC Built-in Agent Analysis
 
-Spawn an explore agent to read from the **clean CC source** at `/Users/anilcan/Downloads/src`:
+Spawn an explore agent to read from the **clean CC source** at `/Users/anilcan/Code/kodizm/api/references/claude-code-cli-source-code`:
 
 - `tools/AgentTool/built-in/` — Read ALL built-in agent definitions. Find the one closest to the requested agent role.
 - `tools/AgentTool/prompt.ts` — What CC injects into the Agent tool description (agent listing, usage notes). This is what the ORCHESTRATOR sees.
@@ -39,7 +39,7 @@ Spawn an explore agent to read from the **clean CC source** at `/Users/anilcan/D
 
 ### 1B: ac Plugin Agent Patterns
 
-Spawn an explore agent to read from `/Users/anilcan/Code/ac/plugins/ac/agents/`:
+Spawn an explore agent to read from `/Users/anilcan/Code/kodizm/api/references/ac/plugins/ac/agents/`:
 
 - Read agent file(s) most similar to the requested role.
 - Read `explore.md` as baseline reference for format and conciseness.
@@ -49,7 +49,7 @@ Spawn an explore agent to read from `/Users/anilcan/Code/ac/plugins/ac/agents/`:
 
 ### 1C: oh-my-openagent Reference
 
-Spawn an explore agent to search `/Users/anilcan/Code/ai-help/repos/oh-my-openagent/src/agents/`:
+Spawn an explore agent to search `/Users/anilcan/Code/kodizm/api/references/oh-my-openagent/src/agents/`:
 
 - Find the agent most similar to the requested role.
 - Read its prompt and factory function.
@@ -413,15 +413,15 @@ If the role needs an autonomous initial instruction, also write `/Users/anilcan/
 
 | Source | Path | What to Look For |
 |--------|------|-----------------|
-| CC Clean Source | `/Users/anilcan/Downloads/src` | Built-in agents, auto-injected prompts, agent system |
-| CC runAgent.ts | `/Users/anilcan/Downloads/src/tools/AgentTool/runAgent.ts` | Subagent lifecycle, context isolation, CLAUDE.md omission, tool filtering |
-| CC loadAgentsDir.ts | `/Users/anilcan/Downloads/src/tools/AgentTool/loadAgentsDir.ts` | Frontmatter schema (lines 73-99), parsing, deduplication |
-| CC prompt.ts | `/Users/anilcan/Downloads/src/tools/AgentTool/prompt.ts` | Agent tool description for orchestrator, agent listing format |
-| CC prompts.ts | `/Users/anilcan/Downloads/src/constants/prompts.ts` | enhanceSystemPromptWithEnvDetails, DEFAULT_AGENT_PROMPT, computeEnvInfo |
-| CC context.ts | `/Users/anilcan/Downloads/src/context.ts` | getUserContext (CLAUDE.md loading), getSystemContext (git status) |
-| CC Minified Source | `/Users/anilcan/Code/ai-help/repos/cc-source` | Fallback if clean source missing |
-| ac Plugin Agents | `/Users/anilcan/Code/ac/plugins/ac/agents/` | Agent design patterns, format reference |
-| oh-my-openagent | `/Users/anilcan/Code/ai-help/repos/oh-my-openagent/src/agents/` | Alternative agent patterns |
+| CC Clean Source | `/Users/anilcan/Code/kodizm/api/references/claude-code-cli-source-code` | Built-in agents, auto-injected prompts, agent system |
+| CC runAgent.ts | `/Users/anilcan/Code/kodizm/api/references/claude-code-cli-source-code/tools/AgentTool/runAgent.ts` | Subagent lifecycle, context isolation, CLAUDE.md omission, tool filtering |
+| CC loadAgentsDir.ts | `/Users/anilcan/Code/kodizm/api/references/claude-code-cli-source-code/tools/AgentTool/loadAgentsDir.ts` | Frontmatter schema (lines 73-99), parsing, deduplication |
+| CC prompt.ts | `/Users/anilcan/Code/kodizm/api/references/claude-code-cli-source-code/tools/AgentTool/prompt.ts` | Agent tool description for orchestrator, agent listing format |
+| CC prompts.ts | `/Users/anilcan/Code/kodizm/api/references/claude-code-cli-source-code/constants/prompts.ts` | enhanceSystemPromptWithEnvDetails, DEFAULT_AGENT_PROMPT, computeEnvInfo |
+| CC context.ts | `/Users/anilcan/Code/kodizm/api/references/claude-code-cli-source-code/context.ts` | getUserContext (CLAUDE.md loading), getSystemContext (git status) |
+| CC Minified Source | `/Users/anilcan/Code/kodizm/api/references/claude-code-cli-reversed` | Fallback if clean source missing |
+| ac Plugin Agents | `/Users/anilcan/Code/kodizm/api/references/ac/plugins/ac/agents/` | Agent design patterns, format reference |
+| oh-my-openagent | `/Users/anilcan/Code/kodizm/api/references/oh-my-openagent/src/agents/` | Alternative agent patterns |
 | Kodizm Agents | `/Users/anilcan/Code/kodizm/api/resources/agents/` | Existing CC agent overrides |
 | Kodizm Prompts | `/Users/anilcan/Code/kodizm/api/resources/views/prompts/` | Existing role prompts + claude-md template |
 | PromptRenderer | `/Users/anilcan/Code/kodizm/api/app/Services/PromptRenderer.php` | Blade rendering + bindings |

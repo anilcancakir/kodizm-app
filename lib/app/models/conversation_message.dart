@@ -1,14 +1,20 @@
+import 'package:app/app/models/message_attachment.dart';
+
 /// A single message within a conversation between a user and an agent.
 ///
 /// Maps directly to `ConversationMessageResource` from the Kodizm API.
 /// Covers both user-authored messages (`role: 'user'`) and agent responses
 /// (`role: 'assistant'`), including cost, token usage, and timing metadata.
+/// Attachment-only messages may have a `null` [content] field.
 ///
 /// ## Usage
 /// ```dart
 /// final message = ConversationMessage.fromMap(json['message']);
 /// if (message.role == 'assistant') {
 ///   display(message.content);
+/// }
+/// if (message.hasAttachments) {
+///   renderAttachments(message.attachments);
 /// }
 /// ```
 class ConversationMessage {
@@ -19,8 +25,8 @@ class ConversationMessage {
     required this.id,
     required this.conversationId,
     required this.role,
-    required this.content,
     required this.createdAt,
+    this.content,
     this.metadata,
     this.streamEvents,
     this.costUsd,
@@ -31,6 +37,7 @@ class ConversationMessage {
     this.status,
     this.startedAt,
     this.completedAt,
+    this.attachments = const [],
   });
 
   // -------
@@ -45,7 +52,9 @@ class ConversationMessage {
   final String role;
 
   /// The text content of the message.
-  final String content;
+  ///
+  /// Nullable — attachment-only messages may carry no text content.
+  final String? content;
 
   /// Arbitrary metadata payload for this message. Null for most messages.
   final Map<String, dynamic>? metadata;
@@ -81,11 +90,22 @@ class ConversationMessage {
   /// UTC timestamp when this message record was created.
   final DateTime createdAt;
 
+  /// Files attached to this message.
+  ///
+  /// Defaults to an empty list when the API returns no attachments.
+  final List<MessageAttachment> attachments;
+
+  // -------
+
+  /// Returns `true` when this message has one or more [attachments].
+  bool get hasAttachments => attachments.isNotEmpty;
+
   // -------
 
   /// Parses a [ConversationMessage] from a JSON-decoded map.
   ///
   /// [costUsd] is parsed from an API string value when present.
+  /// [content] is nullable — messages with only attachments may omit it.
   factory ConversationMessage.fromMap(Map<String, dynamic> map) {
     final costString = map['cost_usd'] as String?;
 
@@ -93,7 +113,7 @@ class ConversationMessage {
       id: map['id'] as String,
       conversationId: map['conversation_id'] as String,
       role: map['role'] as String,
-      content: map['content'] as String,
+      content: map['content'] as String?,
       metadata: map['metadata'] as Map<String, dynamic>?,
       streamEvents: map['stream_events'] as List<dynamic>?,
       costUsd: costString != null ? double.parse(costString) : null,
@@ -109,6 +129,11 @@ class ConversationMessage {
           ? DateTime.parse(map['completed_at'] as String)
           : null,
       createdAt: DateTime.parse(map['created_at'] as String),
+      attachments:
+          (map['attachments'] as List<dynamic>?)
+              ?.map((a) => MessageAttachment.fromMap(a as Map<String, dynamic>))
+              .toList() ??
+          const [],
     );
   }
 
@@ -117,31 +142,34 @@ class ConversationMessage {
   /// Returns a copy of this [ConversationMessage] with the specified fields replaced.
   ///
   /// All fields not provided retain their current values.
-  /// To explicitly set [status] to null, pass a sentinel [_unset] value and handle separately.
+  /// To explicitly set [status] to null, pass `null` — the sentinel pattern handles it.
+  /// To explicitly set [content] to null, pass `null` — it will clear the content.
   ConversationMessage copyWith({
     String? role,
-    String? content,
+    Object? content = _unset,
     double? costUsd,
-    String? status = _unset,
+    Object? status = _unset,
     DateTime? completedAt,
+    List<MessageAttachment>? attachments,
   }) {
     return ConversationMessage(
       id: id,
       conversationId: conversationId,
       role: role ?? this.role,
-      content: content ?? this.content,
+      content: identical(content, _unset) ? this.content : content as String?,
       metadata: metadata,
       costUsd: costUsd ?? this.costUsd,
       usage: usage,
       durationMs: durationMs,
       numTurns: numTurns,
       error: error,
-      status: identical(status, _unset) ? this.status : status,
+      status: identical(status, _unset) ? this.status : status as String?,
       startedAt: startedAt,
       completedAt: completedAt ?? this.completedAt,
       createdAt: createdAt,
+      attachments: attachments ?? this.attachments,
     );
   }
 
-  static const String _unset = '__UNSET__';
+  static const Object _unset = Object();
 }

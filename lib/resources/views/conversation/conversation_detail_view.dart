@@ -407,7 +407,7 @@ class _ConversationDetailViewState extends State<ConversationDetailView> {
             ${isOptimistic ? 'opacity-60' : ''}
           ''',
           child: SelectableText(
-            message.content,
+            message.content ?? '',
             style: TextStyle(
               fontSize: 13,
               height: 1.6,

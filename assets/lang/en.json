@@ -57,6 +57,18 @@
     "privacy_policy": "Privacy Policy",
     "legal_and": "and"
   },
+  "chat": {
+    "attach_file": "Attach file",
+    "attachment_image": "Image",
+    "attachment_pdf": "PDF Document",
+    "attachment_size": ":size",
+    "attachment_tap_preview": "Tap to preview",
+    "attachment_limit_count": "Maximum :max files per message",
+    "attachment_limit_size": "File must be under :max MB",
+    "attachment_type_invalid": "Only images and PDFs are supported",
+    "attachment_uploading": "Uploading attachments...",
+    "attachment_sent": ":count attachment(s) sent"
+  },
   "ai_tokens": {
     "title": "AI Tokens",
     "subtitle": "Team AI provider tokens",
@@ -251,6 +263,8 @@
     "event_subagent_start": ":name",
     "event_subagent_done": "Done (:tools tool uses · :duration)",
     "event_subagent_working": "Running...",
+    "event_subagent_working_label": "Running",
+    "event_subagent_tool_count": ":count tool uses",
     "event_file_created": "Created",
     "event_file_modified": "Modified",
     "event_file_deleted": "Deleted",

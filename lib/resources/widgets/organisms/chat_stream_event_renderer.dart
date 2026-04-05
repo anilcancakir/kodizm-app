@@ -92,6 +92,7 @@ class ChatStreamEventRenderer extends StatelessWidget {
         :final isComplete,
         :final toolUseCount,
         :final durationMs,
+        :final startedAt,
         :final children,
       ) =>
         WDiv(
@@ -103,6 +104,7 @@ class ChatStreamEventRenderer extends StatelessWidget {
             isComplete: isComplete,
             toolUseCount: toolUseCount,
             durationMs: durationMs,
+            startedAt: startedAt,
             children: children,
           ),
         ),

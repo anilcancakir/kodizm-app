@@ -3,6 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:magic/magic.dart';
 
 import '../../../app/models/conversation_message.dart';
+import '../../../app/models/message_attachment.dart';
+import '../atoms/attachment_thumbnail.dart';
+import '../atoms/pdf_file_card.dart';
 import 'markdown_viewer.dart';
 
 /// A chat message bubble displaying user or assistant content.
@@ -93,10 +96,14 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
               className:
                   'px-3.5 py-2.5 rounded-2xl rounded-br-sm bg-secondary-400/15',
               children: [
-                WText(
-                  widget.message.content,
-                  className: 'text-sm text-primary-600 dark:text-slate-100',
-                ),
+                if (widget.message.hasAttachments)
+                  _buildAttachments(widget.message.attachments),
+                if (widget.message.content != null &&
+                    widget.message.content!.isNotEmpty)
+                  WText(
+                    widget.message.content!,
+                    className: 'text-sm text-primary-600 dark:text-slate-100',
+                  ),
                 WDiv(
                   className: 'flex flex-row justify-end mt-1',
                   children: [
@@ -113,6 +120,37 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
           ],
         ),
         _buildUserAvatar(),
+      ],
+    );
+  }
+
+  /// Renders image and PDF attachments before the message text.
+  ///
+  /// Images are shown in a horizontal scrolling row ([overflow-x-auto]).
+  /// PDFs are stacked vertically below the image row.
+  Widget _buildAttachments(List<MessageAttachment> attachments) {
+    final List<MessageAttachment> images = attachments
+        .where((a) => a.isImage)
+        .toList();
+    final List<MessageAttachment> pdfs = attachments
+        .where((a) => a.isPdf)
+        .toList();
+
+    return WDiv(
+      className: 'flex flex-col gap-1.5 mb-2',
+      children: [
+        if (images.isNotEmpty)
+          WDiv(
+            className: 'overflow-x-auto',
+            child: WDiv(
+              className: 'flex flex-row gap-2',
+              children: [
+                for (final image in images)
+                  AttachmentThumbnail(attachment: image),
+              ],
+            ),
+          ),
+        for (final pdf in pdfs) PdfFileCard(attachment: pdf),
       ],
     );
   }
@@ -191,7 +229,7 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
                     ? WDiv(
                         className: 'py-1',
                         child: SelectableText(
-                          widget.message.content,
+                          widget.message.content ?? '',
                           style: const TextStyle(
                             fontFamily: 'JetBrains Mono',
                             fontSize: 13,
@@ -199,7 +237,7 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
                           ),
                         ),
                       )
-                    : MarkdownViewer(data: widget.message.content),
+                    : MarkdownViewer(data: widget.message.content ?? ''),
                 _buildAssistantFooter(),
               ],
             ),
@@ -288,7 +326,7 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
 
   /// Copies the message content to clipboard with brief visual feedback.
   void _handleCopy() {
-    Clipboard.setData(ClipboardData(text: widget.message.content));
+    Clipboard.setData(ClipboardData(text: widget.message.content ?? ''));
     setState(() => _copied = true);
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) setState(() => _copied = false);

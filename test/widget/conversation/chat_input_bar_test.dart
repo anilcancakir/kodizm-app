@@ -53,6 +53,7 @@ Widget _buildWidget({
   bool awaitingResponse = false,
   VoidCallback? onSend,
   VoidCallback? onStop,
+  ValueChanged<List<PlatformFile>>? onAttachmentsChanged,
 }) {
   return WindTheme(
     data: WindThemeData(),
@@ -66,11 +67,17 @@ Widget _buildWidget({
             awaitingResponse: awaitingResponse,
             onSend: onSend,
             onStop: onStop,
+            onAttachmentsChanged: onAttachmentsChanged,
           ),
         ),
       ),
     ),
   );
+}
+
+/// Build a fake [PlatformFile] with controllable size for test validation.
+PlatformFile _fakePlatformFile({required String name, required int size}) {
+  return PlatformFile(name: name, size: size);
 }
 
 void _setViewport(WidgetTester tester) {
@@ -325,5 +332,234 @@ void main() {
 
     expect(find.byIcon(Icons.send), findsOneWidget);
     expect(find.byIcon(Icons.stop_rounded), findsNothing);
+  });
+
+  // -----------------------------------------------------------------------
+  // 11. onAttachmentsChanged callback is accepted without error
+  // -----------------------------------------------------------------------
+
+  testWidgets('accepts onAttachmentsChanged callback', (tester) async {
+    _setViewport(tester);
+    final controller = TextEditingController();
+    List<PlatformFile>? received;
+
+    await tester.pumpWidget(
+      _buildWidget(
+        controller: controller,
+        onAttachmentsChanged: (files) => received = files,
+      ),
+    );
+    await tester.pump();
+
+    // Widget renders without error when callback is provided.
+    expect(find.byIcon(Icons.attach_file_rounded), findsOneWidget);
+    expect(received, isNull); // not fired yet
+  });
+
+  // -----------------------------------------------------------------------
+  // 12. Attachment preview strip renders when attachments are pre-seeded
+  //     via the internal state — verified through the ChatInputBar widget key
+  // -----------------------------------------------------------------------
+
+  testWidgets('attachment preview strip shows close icon per attachment', (
+    tester,
+  ) async {
+    _setViewport(tester);
+    final controller = TextEditingController();
+    final key = GlobalKey<ChatInputBarState>();
+
+    await tester.pumpWidget(
+      WindTheme(
+        data: WindThemeData(),
+        child: MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: ChatInputBar(
+                key: key,
+                controller: controller,
+                isSending: false,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    // Seed two attachments directly into the state.
+    key.currentState!.addAttachments([
+      _fakePlatformFile(name: 'photo.jpg', size: 1024 * 100),
+      _fakePlatformFile(name: 'doc.pdf', size: 1024 * 200),
+    ]);
+    await tester.pump();
+
+    // One close icon per attachment.
+    expect(find.byIcon(Icons.close), findsNWidgets(2));
+  });
+
+  // -----------------------------------------------------------------------
+  // 13. Removing an attachment via close button removes it from the strip
+  // -----------------------------------------------------------------------
+
+  testWidgets('tapping close icon removes that attachment', (tester) async {
+    _setViewport(tester);
+    final controller = TextEditingController();
+    final key = GlobalKey<ChatInputBarState>();
+
+    await tester.pumpWidget(
+      WindTheme(
+        data: WindThemeData(),
+        child: MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: ChatInputBar(
+                key: key,
+                controller: controller,
+                isSending: false,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    key.currentState!.addAttachments([
+      _fakePlatformFile(name: 'photo.jpg', size: 1024 * 100),
+      _fakePlatformFile(name: 'report.pdf', size: 1024 * 300),
+    ]);
+    await tester.pump();
+
+    expect(find.byIcon(Icons.close), findsNWidgets(2));
+
+    // Tap the first close icon.
+    await tester.tap(find.byIcon(Icons.close).first);
+    await tester.pump();
+
+    expect(find.byIcon(Icons.close), findsOneWidget);
+  });
+
+  // -----------------------------------------------------------------------
+  // 14. File size validation: >5 MB triggers SnackBar error
+  // -----------------------------------------------------------------------
+
+  testWidgets('oversized file triggers validation SnackBar', (tester) async {
+    _setViewport(tester);
+    final controller = TextEditingController();
+    final key = GlobalKey<ChatInputBarState>();
+    const fiveMbPlus = 5 * 1024 * 1024 + 1;
+
+    await tester.pumpWidget(
+      WindTheme(
+        data: WindThemeData(),
+        child: MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: ChatInputBar(
+                key: key,
+                controller: controller,
+                isSending: false,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    key.currentState!.validateAndAddAttachments([
+      _fakePlatformFile(name: 'huge.jpg', size: fiveMbPlus),
+    ]);
+    await tester.pump();
+
+    // SnackBar appears with the size-limit message.
+    expect(
+      find.text(trans('chat.attachment_limit_size', {'max': '5'})),
+      findsOneWidget,
+    );
+    // No attachment added.
+    expect(find.byIcon(Icons.close), findsNothing);
+  });
+
+  // -----------------------------------------------------------------------
+  // 15. Count validation: >4 files triggers SnackBar error
+  // -----------------------------------------------------------------------
+
+  testWidgets('more than 4 files triggers validation SnackBar', (tester) async {
+    _setViewport(tester);
+    final controller = TextEditingController();
+    final key = GlobalKey<ChatInputBarState>();
+
+    await tester.pumpWidget(
+      WindTheme(
+        data: WindThemeData(),
+        child: MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: ChatInputBar(
+                key: key,
+                controller: controller,
+                isSending: false,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    key.currentState!.validateAndAddAttachments(
+      List.generate(
+        5,
+        (i) => _fakePlatformFile(name: 'file_$i.jpg', size: 1024),
+      ),
+    );
+    await tester.pump();
+
+    expect(
+      find.text(trans('chat.attachment_limit_count', {'max': '4'})),
+      findsOneWidget,
+    );
+    expect(find.byIcon(Icons.close), findsNothing);
+  });
+
+  // -----------------------------------------------------------------------
+  // 16. Attachments cleared after onSend fires via clearAttachments
+  // -----------------------------------------------------------------------
+
+  testWidgets('clearAttachments removes all previews', (tester) async {
+    _setViewport(tester);
+    final controller = TextEditingController();
+    final key = GlobalKey<ChatInputBarState>();
+
+    await tester.pumpWidget(
+      WindTheme(
+        data: WindThemeData(),
+        child: MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: ChatInputBar(
+                key: key,
+                controller: controller,
+                isSending: false,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    key.currentState!.addAttachments([
+      _fakePlatformFile(name: 'photo.jpg', size: 512),
+    ]);
+    await tester.pump();
+
+    expect(find.byIcon(Icons.close), findsOneWidget);
+
+    key.currentState!.clearAttachments();
+    await tester.pump();
+
+    expect(find.byIcon(Icons.close), findsNothing);
   });
 }

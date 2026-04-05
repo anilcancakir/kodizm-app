@@ -5,12 +5,20 @@ import 'package:magic/magic.dart';
 /// Sticky bottom input bar for the conversation chat screen.
 ///
 /// Renders a native [TextField] with auto-expand (1–6 lines), keyboard shortcut
-/// support (Enter=send, Shift+Enter=newline), a placeholder attachment button,
+/// support (Enter=send, Shift+Enter=newline), an attachment picker button,
 /// and an amber send button that disables when the input is empty or sending.
 ///
 /// When [awaitingResponse] is true, both the send and stop buttons are visible
 /// simultaneously so messages can be queued while the agent is executing.
 /// A [queuedCount] badge appears above the input when messages are pending.
+///
+/// Selected attachments are shown as a preview strip above the text field.
+/// Images display a thumbnail; PDFs display a file icon and name.
+/// Each preview has an (×) remove button. Attachments are cleared after send.
+///
+/// Validation rules (enforced via [validateAndAddAttachments]):
+/// - Maximum **4** files per message.
+/// - Maximum **5 MB** per file.
 ///
 /// ## Usage
 ///
@@ -22,6 +30,7 @@ import 'package:magic/magic.dart';
 ///   queuedCount: state.queuedCount,
 ///   onSend: _handleSend,
 ///   onStop: _handleStop,
+///   onAttachmentsChanged: (files) => state.setPendingAttachments(files),
 /// )
 /// ```
 class ChatInputBar extends StatefulWidget {
@@ -36,6 +45,7 @@ class ChatInputBar extends StatefulWidget {
     this.onSend,
     this.onStop,
     this.onCancelQueue,
+    this.onAttachmentsChanged,
     super.key,
   });
 
@@ -70,13 +80,29 @@ class ChatInputBar extends StatefulWidget {
   /// Reserved for future use — not yet wired to a UI element.
   final VoidCallback? onCancelQueue;
 
+  /// Callback fired whenever the pending attachment list changes.
+  /// Receives the updated full list after each add or remove.
+  final ValueChanged<List<PlatformFile>>? onAttachmentsChanged;
+
   @override
-  State<ChatInputBar> createState() => _ChatInputBarState();
+  State<ChatInputBar> createState() => ChatInputBarState();
 }
 
-class _ChatInputBarState extends State<ChatInputBar> {
+/// Public state class so callers can hold a [GlobalKey<ChatInputBarState>]
+/// and call [addAttachments], [validateAndAddAttachments], [clearAttachments].
+class ChatInputBarState extends State<ChatInputBar> {
   late final FocusNode _internalFocusNode;
   bool _isEmpty = true;
+
+  /// Current pending attachments shown in the preview strip.
+  final List<PlatformFile> _attachments = [];
+
+  // ---------------------------------------------------------------------------
+  // Limits
+  // ---------------------------------------------------------------------------
+
+  static const int _maxFiles = 4;
+  static const int _maxBytes = 5 * 1024 * 1024; // 5 MB
 
   // ---------------------------------------------------------------------------
   // Lifecycle
@@ -109,6 +135,46 @@ class _ChatInputBarState extends State<ChatInputBar> {
   }
 
   // ---------------------------------------------------------------------------
+  // Public API
+  // ---------------------------------------------------------------------------
+
+  /// Appends [files] to the attachment list without validation.
+  /// Triggers a rebuild and fires [onAttachmentsChanged].
+  void addAttachments(List<PlatformFile> files) {
+    setState(() => _attachments.addAll(files));
+    widget.onAttachmentsChanged?.call(List.unmodifiable(_attachments));
+  }
+
+  /// Validates [files] for count and size limits, then adds them if valid.
+  ///
+  /// Shows a [SnackBar] and aborts if:
+  /// - Total would exceed [_maxFiles] files.
+  /// - Any single file exceeds [_maxBytes].
+  void validateAndAddAttachments(List<PlatformFile> files) {
+    if (_attachments.length + files.length > _maxFiles) {
+      _showError(
+        trans('chat.attachment_limit_count', {'max': _maxFiles.toString()}),
+      );
+      return;
+    }
+
+    for (final file in files) {
+      if (file.size > _maxBytes) {
+        _showError(trans('chat.attachment_limit_size', {'max': '5'}));
+        return;
+      }
+    }
+
+    addAttachments(files);
+  }
+
+  /// Removes all pending attachments and fires [onAttachmentsChanged].
+  void clearAttachments() {
+    setState(() => _attachments.clear());
+    widget.onAttachmentsChanged?.call([]);
+  }
+
+  // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
 
@@ -121,7 +187,37 @@ class _ChatInputBarState extends State<ChatInputBar> {
     }
   }
 
-  bool get _canSend => !_isEmpty && !widget.isSending && !widget.disabled;
+  bool get _canSend =>
+      (!_isEmpty || _attachments.isNotEmpty) &&
+      !widget.isSending &&
+      !widget.disabled;
+
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _pickFiles() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf'],
+      allowMultiple: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+    validateAndAddAttachments(result.files);
+  }
+
+  void _removeAttachment(int index) {
+    setState(() => _attachments.removeAt(index));
+    widget.onAttachmentsChanged?.call(List.unmodifiable(_attachments));
+  }
+
+  void _handleSend() {
+    widget.onSend?.call();
+    clearAttachments();
+  }
 
   /// Handles keyboard events on the [TextField].
   ///
@@ -143,10 +239,74 @@ class _ChatInputBarState extends State<ChatInputBar> {
     if (shiftHeld) return KeyEventResult.ignored;
 
     if (_canSend) {
-      widget.onSend?.call();
+      _handleSend();
     }
 
     return KeyEventResult.handled;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Build helpers
+  // ---------------------------------------------------------------------------
+
+  bool _isPdf(PlatformFile file) => file.name.toLowerCase().endsWith('.pdf');
+
+  Widget _buildAttachmentPreview(PlatformFile file, int index) {
+    final isPdf = _isPdf(file);
+
+    return SizedBox(
+      width: 60,
+      height: 60,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // Thumbnail or PDF icon tile
+          WDiv(
+            className: '''
+                w-14 h-14 rounded-lg overflow-hidden
+                bg-slate-100 dark:bg-slate-800
+                flex items-center justify-center
+                ''',
+            child: isPdf
+                ? WIcon(
+                    Icons.picture_as_pdf_rounded,
+                    className: 'text-2xl text-red-500',
+                  )
+                : WIcon(
+                    Icons.image_rounded,
+                    className: 'text-2xl text-slate-400',
+                  ),
+          ),
+
+          // Remove button — top-right corner
+          Positioned(
+            top: -4,
+            right: -4,
+            child: WAnchor(
+              onTap: () => _removeAttachment(index),
+              child: WDiv(
+                className: '''
+                    w-5 h-5 rounded-full
+                    bg-slate-700 dark:bg-slate-600
+                    flex items-center justify-center
+                    ''',
+                child: WIcon(Icons.close, className: 'text-xs text-white'),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAttachmentStrip() {
+    return WDiv(
+      className: 'flex flex-row gap-2 pb-2 overflow-x-auto',
+      children: [
+        for (var i = 0; i < _attachments.length; i++)
+          _buildAttachmentPreview(_attachments[i], i),
+      ],
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -177,12 +337,15 @@ class _ChatInputBarState extends State<ChatInputBar> {
             ),
           ),
 
+        // Attachment preview strip — shown above the input row when files are selected
+        if (_attachments.isNotEmpty) _buildAttachmentStrip(),
+
         WDiv(
           className: 'flex flex-row gap-3 items-center axis-max',
           children: [
-            // Attachment button (placeholder — functionality added later)
+            // Attachment button — opens file picker
             WAnchor(
-              onTap: null,
+              onTap: widget.disabled ? null : _pickFiles,
               child: WIcon(
                 Icons.attach_file_rounded,
                 className: 'text-xl text-slate-400 dark:text-slate-600',
@@ -224,7 +387,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
             // Send button — always visible; enabled when there is text and not
             // in a transient sending state, regardless of awaitingResponse.
             WAnchor(
-              onTap: _canSend ? widget.onSend : null,
+              onTap: _canSend ? _handleSend : null,
               child: WDiv(
                 className: _canSend
                     ? 'w-10 h-10 rounded-full bg-amber-400 flex items-center justify-center'

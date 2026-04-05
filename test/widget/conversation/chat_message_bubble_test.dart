@@ -6,6 +6,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
 
 import 'package:app/app/models/conversation_message.dart';
+import 'package:app/app/models/message_attachment.dart';
+import 'package:app/resources/widgets/atoms/attachment_thumbnail.dart';
+import 'package:app/resources/widgets/atoms/pdf_file_card.dart';
 import 'package:app/resources/widgets/organisms/chat_message_bubble.dart';
 import 'package:app/resources/widgets/organisms/markdown_viewer.dart';
 
@@ -48,13 +51,39 @@ class _TestAssetLoader implements TranslationLoader {
 // Fixtures
 // ---------------------------------------------------------------------------
 
-ConversationMessage _makeUserMessage({String content = 'Hello!'}) {
+ConversationMessage _makeUserMessage({
+  String content = 'Hello!',
+  List<MessageAttachment> attachments = const [],
+}) {
   return ConversationMessage(
     id: 'msg-user-001',
     conversationId: 'conv-001',
     role: 'user',
     content: content,
+    attachments: attachments,
     createdAt: DateTime.now().subtract(const Duration(minutes: 2)),
+  );
+}
+
+MessageAttachment _makeImageAttachment() {
+  return const MessageAttachment(
+    id: 'att-001',
+    messageId: 'msg-user-001',
+    filename: 'photo.png',
+    mimeType: 'image/png',
+    size: 204800,
+    url: 'https://example.com/attachments/photo.png',
+  );
+}
+
+MessageAttachment _makePdfAttachment() {
+  return const MessageAttachment(
+    id: 'att-002',
+    messageId: 'msg-user-001',
+    filename: 'document.pdf',
+    mimeType: 'application/pdf',
+    size: 1258291,
+    url: 'https://example.com/attachments/document.pdf',
   );
 }
 
@@ -284,4 +313,127 @@ void main() {
     expect(find.byIcon(Icons.copy), findsOneWidget);
     expect(find.byIcon(Icons.check), findsNothing);
   });
+
+  // -------------------------------------------------------------------------
+  // Test 6: User bubble with image attachment renders AttachmentThumbnail
+  // -------------------------------------------------------------------------
+
+  testWidgets('user bubble with image attachment renders AttachmentThumbnail', (
+    tester,
+  ) async {
+    _setViewport(tester);
+
+    await tester.pumpWidget(
+      _buildBubble(
+        ChatMessageBubble(
+          message: _makeUserMessage(
+            content: 'Check this image',
+            attachments: [_makeImageAttachment()],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(AttachmentThumbnail), findsOneWidget);
+  });
+
+  // -------------------------------------------------------------------------
+  // Test 7: User bubble with PDF attachment renders PdfFileCard
+  // -------------------------------------------------------------------------
+
+  testWidgets('user bubble with PDF attachment renders PdfFileCard', (
+    tester,
+  ) async {
+    _setViewport(tester);
+
+    await tester.pumpWidget(
+      _buildBubble(
+        ChatMessageBubble(
+          message: _makeUserMessage(
+            content: 'See attached PDF',
+            attachments: [_makePdfAttachment()],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(PdfFileCard), findsOneWidget);
+  });
+
+  // -------------------------------------------------------------------------
+  // Test 8: User bubble with mixed attachments renders both widget types
+  // -------------------------------------------------------------------------
+
+  testWidgets('user bubble with mixed attachments renders both widget types', (
+    tester,
+  ) async {
+    _setViewport(tester);
+
+    await tester.pumpWidget(
+      _buildBubble(
+        ChatMessageBubble(
+          message: _makeUserMessage(
+            content: 'Mixed',
+            attachments: [_makeImageAttachment(), _makePdfAttachment()],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.byType(AttachmentThumbnail), findsOneWidget);
+    expect(find.byType(PdfFileCard), findsOneWidget);
+  });
+
+  // -------------------------------------------------------------------------
+  // Test 9: User bubble without attachments does not render attachment widgets
+  // -------------------------------------------------------------------------
+
+  testWidgets(
+    'user bubble without attachments does not render attachment widgets',
+    (tester) async {
+      _setViewport(tester);
+
+      await tester.pumpWidget(
+        _buildBubble(
+          ChatMessageBubble(message: _makeUserMessage(content: 'Plain text')),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byType(AttachmentThumbnail), findsNothing);
+      expect(find.byType(PdfFileCard), findsNothing);
+    },
+  );
+
+  // -------------------------------------------------------------------------
+  // Test 10: User bubble with attachment-only message (null content)
+  // -------------------------------------------------------------------------
+
+  testWidgets(
+    'user bubble with null content and image attachment renders thumbnail',
+    (tester) async {
+      _setViewport(tester);
+
+      await tester.pumpWidget(
+        _buildBubble(
+          ChatMessageBubble(
+            message: ConversationMessage(
+              id: 'msg-user-att',
+              conversationId: 'conv-001',
+              role: 'user',
+              content: null,
+              attachments: [_makeImageAttachment()],
+              createdAt: DateTime.now().subtract(const Duration(minutes: 1)),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byType(AttachmentThumbnail), findsOneWidget);
+    },
+  );
 }

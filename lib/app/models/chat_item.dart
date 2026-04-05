@@ -183,6 +183,7 @@ final class ChatSubagentItem extends ChatItem {
     this.description,
     this.parentToolUseId,
     this.durationMs,
+    this.startedAt,
     this.children = const [],
   });
 
@@ -214,6 +215,9 @@ final class ChatSubagentItem extends ChatItem {
   /// Wall-clock duration of the sub-agent's execution in milliseconds.
   /// Populated on the stop event; null on the start event.
   final int? durationMs;
+
+  /// UTC timestamp when the sub-agent started, used for live elapsed display.
+  final DateTime? startedAt;
 
   /// Nested chat items (tool_use, thinking, file_change, etc.) produced
   /// by this sub-agent during its execution.

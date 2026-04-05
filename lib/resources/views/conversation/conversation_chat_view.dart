@@ -238,7 +238,7 @@ class _ConversationChatViewState extends State<ConversationChatView> {
   String? _firstUserMessagePreview() {
     for (final item in _state.chatItems) {
       if (item is ChatMessageItem && item.message.role == 'user') {
-        final content = item.message.content.trim();
+        final content = item.message.content?.trim() ?? '';
         if (content.isEmpty) continue;
         return content.length > 60 ? '${content.substring(0, 60)}...' : content;
       }
@@ -248,7 +248,9 @@ class _ConversationChatViewState extends State<ConversationChatView> {
 
   Future<void> _handleSendMessage() async {
     final text = _inputController.text.trim();
-    if (text.isEmpty) return;
+    final hasAttachments = _state.pendingAttachments.isNotEmpty;
+
+    if (text.isEmpty && !hasAttachments) return;
 
     _inputController.clear();
     await _state.sendMessage(text);
@@ -408,6 +410,7 @@ class _ConversationChatViewState extends State<ConversationChatView> {
             queuedCount: _state.queuedCount,
             onSend: _handleSendMessage,
             onStop: _state.stopMessage,
+            onAttachmentsChanged: _state.setPendingAttachments,
           ),
 
         // Debug panel — scrollable within remaining space

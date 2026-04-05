@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:magic/magic.dart';
@@ -8,6 +10,7 @@ import '../models/agent_role.dart';
 import '../models/chat_item.dart';
 import '../models/conversation.dart';
 import '../models/conversation_message.dart';
+import '../models/message_attachment.dart';
 
 // ---------------------------------------------------------------------------
 // WebSocket abstraction for testability
@@ -147,6 +150,9 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   List<Map<String, dynamic>>? _pendingOptions;
   bool _isAnswering = false;
 
+  // Attachment state — files staged for the next sendMessage call.
+  List<PlatformFile> _pendingAttachments = [];
+
   // ---------------------------------------------------------------------------
   // Public getters
   // ---------------------------------------------------------------------------
@@ -230,6 +236,25 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
 
   /// Whether an answer submission is currently in progress.
   bool get isAnswering => _isAnswering;
+
+  /// Files staged for the next [sendMessage] call.
+  ///
+  /// Cleared automatically after each send. The view layer stages files here
+  /// via [setPendingAttachments] before calling [sendMessage].
+  List<PlatformFile> get pendingAttachments =>
+      List.unmodifiable(_pendingAttachments);
+
+  // ---------------------------------------------------------------------------
+  // Attachment staging
+  // ---------------------------------------------------------------------------
+
+  /// Stage [files] to be uploaded with the next [sendMessage] call.
+  ///
+  /// Replaces any previously staged files. Call with an empty list to clear.
+  void setPendingAttachments(List<PlatformFile> files) {
+    _pendingAttachments = List.of(files);
+    refreshUI();
+  }
 
   // ---------------------------------------------------------------------------
   // Test helpers
@@ -329,15 +354,25 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
       _awaitingResponse = true;
     }
 
-    // Restore pending question from API — survives page refresh.
+    // Restore pending question/permission from API — survives page refresh.
     final pendingQ = data['pending_question'] as Map<String, dynamic>?;
     if (pendingQ != null) {
-      _pendingQuestion = {
-        'questionId': pendingQ['questionId'] as String?,
-        'message': pendingQ['message'] as String?,
-        'options': (pendingQ['options'] as List<dynamic>?)
-            ?.cast<Map<String, dynamic>>(),
-      };
+      final requestType = pendingQ['requestType'] as String?;
+
+      if (requestType == 'permission') {
+        _pendingPermission = {
+          'questionId': pendingQ['questionId'] as String?,
+          'toolName': pendingQ['toolName'] as String?,
+          'input': pendingQ['input'],
+        };
+      } else {
+        _pendingQuestion = {
+          'questionId': pendingQ['questionId'] as String?,
+          'message': pendingQ['message'] as String?,
+          'options': (pendingQ['options'] as List<dynamic>?)
+              ?.cast<Map<String, dynamic>>(),
+        };
+      }
     }
 
     // -- Recover mid-turn events from pending_events --
@@ -416,11 +451,22 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   /// Send a user message in the current conversation.
   ///
   /// Guards against missing conversation or concurrent sends. Appends an
-  /// optimistic user message immediately, then POSTs to the API. The
-  /// assistant response arrives asynchronously via WebSocket.
-  Future<void> sendMessage(String text) async {
+  /// optimistic user message immediately (with attachment previews when
+  /// [attachments] are provided), then POSTs to the API. The assistant
+  /// response arrives asynchronously via WebSocket.
+  ///
+  /// [attachments] defaults to the currently staged [pendingAttachments] when
+  /// not supplied explicitly, allowing the view layer to stage files via
+  /// [setPendingAttachments] before calling this method.
+  Future<void> sendMessage(
+    String text, {
+    List<PlatformFile>? attachments,
+  }) async {
     if (_conversation == null) return;
     if (_pendingQuestion != null || _pendingPermission != null) return;
+
+    // Resolve attachments — explicit param wins; fall back to staged files.
+    final resolvedAttachments = attachments ?? List.of(_pendingAttachments);
 
     // Await any in-flight POST before starting a new one.
     if (_activeSendFuture != null) {
@@ -431,13 +477,27 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
     _awaitingResponse = true;
     refreshUI();
 
+    // Build optimistic attachment previews (no URL yet — URL set on response).
+    final optimisticId = 'optimistic_${DateTime.now().microsecondsSinceEpoch}';
+    final optimisticAttachments = resolvedAttachments.map((f) {
+      return MessageAttachment(
+        id: 'optimistic_${f.name}',
+        messageId: optimisticId,
+        filename: f.name,
+        mimeType: _guessMimeType(f.name),
+        size: f.size,
+        url: '',
+      );
+    }).toList();
+
     // Optimistic append.
     final optimisticMessage = ConversationMessage(
-      id: 'optimistic_${DateTime.now().microsecondsSinceEpoch}',
+      id: optimisticId,
       conversationId: _conversation!.id,
       role: 'user',
-      content: text,
+      content: text.isEmpty ? null : text,
       createdAt: DateTime.now().toUtc(),
+      attachments: optimisticAttachments,
     );
     _chatItems = [
       ..._chatItems,
@@ -445,23 +505,63 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
     ];
     refreshUI();
 
-    _activeSendFuture = _postMessage(text, optimisticMessage);
+    _activeSendFuture = _postMessage(
+      text,
+      optimisticMessage,
+      attachments: resolvedAttachments,
+    );
     await _activeSendFuture;
     _activeSendFuture = null;
 
+    // Clear staged attachments after send.
+    _pendingAttachments = [];
     _isSending = false;
     refreshUI();
   }
 
   /// Sends the POST request for a message and handles the response.
+  ///
+  /// When [attachments] are provided, encodes each file as base64 and sends
+  /// them as a JSON array alongside the message content. Text-only messages
+  /// use the existing JSON POST path.
   Future<void> _postMessage(
     String text,
-    ConversationMessage optimisticMessage,
-  ) async {
-    final response = await Http.post(
-      '/teams/$_teamId/projects/$_projectId/conversations/${_conversation!.id}/messages',
-      data: {'content': text},
-    );
+    ConversationMessage optimisticMessage, {
+    List<PlatformFile> attachments = const [],
+  }) async {
+    final url =
+        '/teams/$_teamId/projects/$_projectId/conversations/${_conversation!.id}/messages';
+
+    final MagicResponse response;
+
+    if (attachments.isNotEmpty) {
+      // Encode each file as base64 and include alongside message content.
+      final attachmentData = <Map<String, dynamic>>[];
+      for (final file in attachments) {
+        final Uint8List bytes;
+        if (file.bytes != null) {
+          bytes = file.bytes!;
+        } else if (file.path != null) {
+          bytes = await File(file.path!).readAsBytes();
+        } else {
+          continue;
+        }
+        attachmentData.add({
+          'filename': file.name,
+          'data': base64Encode(bytes),
+          'mime_type': _guessMimeType(file.name),
+        });
+      }
+      response = await Http.post(
+        url,
+        data: {
+          'content': text.isEmpty ? null : text,
+          'attachments': attachmentData,
+        },
+      );
+    } else {
+      response = await Http.post(url, data: {'content': text});
+    }
 
     if (!response.successful) {
       _error = response.errorMessage ?? 'Failed to send message';
@@ -489,6 +589,21 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
         }
       }
     }
+  }
+
+  /// Infers a MIME type from a [filename] extension.
+  ///
+  /// Falls back to `application/octet-stream` for unknown extensions.
+  String _guessMimeType(String filename) {
+    final ext = filename.split('.').last.toLowerCase();
+    return switch (ext) {
+      'jpg' || 'jpeg' => 'image/jpeg',
+      'png' => 'image/png',
+      'gif' => 'image/gif',
+      'webp' => 'image/webp',
+      'pdf' => 'application/pdf',
+      _ => 'application/octet-stream',
+    };
   }
 
   /// Stop the currently running message.
@@ -592,15 +707,33 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   ///
   /// POSTs to the answer endpoint and clears pending state on success.
   /// Guards against missing conversation or concurrent answer submissions.
+  ///
+  /// For permission requests, [answerText] is `'approve'` or `'deny'` which
+  /// maps to `behavior: 'allow'` / `'deny'` on the API. For questions,
+  /// [answerText] is the free-form or option-selected answer.
   Future<void> answerQuestion(String questionId, String answerText) async {
     if (_conversation == null || _isAnswering) return;
 
     _isAnswering = true;
     refreshUI();
 
+    // Determine if this is a permission answer and map to API behavior field.
+    final isPermission =
+        _pendingPermission != null &&
+        _pendingPermission!['questionId'] == questionId;
+
+    final data = <String, dynamic>{
+      'question_id': questionId,
+      'answer_text': answerText,
+    };
+
+    if (isPermission) {
+      data['behavior'] = answerText == 'deny' ? 'deny' : 'allow';
+    }
+
     final response = await Http.post(
       '/teams/$_teamId/projects/$_projectId/conversations/${_conversation!.id}/answer',
-      data: {'question_id': questionId, 'answer_text': answerText},
+      data: data,
     );
 
     if (response.successful) {
@@ -794,7 +927,7 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
             ChatSystemItem(
               id: message.id,
               occurredAt: message.createdAt,
-              content: _localizeSystemMessage(message.content),
+              content: _localizeSystemMessage(message.content ?? ''),
             ),
           );
         } else {
@@ -1155,6 +1288,7 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
                 metadata?['description'] as String? ??
                 metadata?['agentType'] as String?,
             isComplete: false,
+            startedAt: DateTime.now().toUtc(),
           ),
         ];
         _activeSubagents[subagentId] = index;
@@ -1193,6 +1327,7 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
               description: existing.description,
               isComplete: true,
               durationMs: _extractDurationMs(metadata),
+              startedAt: existing.startedAt,
               children: existing.children,
             );
             _chatItems = List.of(_chatItems)..[index] = updated;

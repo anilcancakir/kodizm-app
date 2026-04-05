@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:magic/magic.dart';
 
@@ -40,6 +42,7 @@ class ChatSubagentBlock extends StatefulWidget {
     this.agentName,
     this.description,
     this.durationMs,
+    this.startedAt,
     this.children = const [],
     super.key,
   });
@@ -62,6 +65,9 @@ class ChatSubagentBlock extends StatefulWidget {
   /// Total execution time in milliseconds, populated on completion.
   final int? durationMs;
 
+  /// UTC timestamp when the sub-agent started, for live elapsed display.
+  final DateTime? startedAt;
+
   /// Nested [ChatItem]s produced by this sub-agent during execution.
   final List<ChatItem> children;
 
@@ -71,6 +77,13 @@ class ChatSubagentBlock extends StatefulWidget {
 
 class _ChatSubagentBlockState extends State<ChatSubagentBlock> {
   bool _expanded = false;
+  Timer? _elapsedTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _startTimerIfNeeded();
+  }
 
   @override
   void didUpdateWidget(ChatSubagentBlock oldWidget) {
@@ -78,6 +91,28 @@ class _ChatSubagentBlockState extends State<ChatSubagentBlock> {
     // Auto-collapse when the subagent completes.
     if (!oldWidget.isComplete && widget.isComplete) {
       _expanded = false;
+      _elapsedTimer?.cancel();
+      _elapsedTimer = null;
+    }
+    _startTimerIfNeeded();
+  }
+
+  @override
+  void dispose() {
+    _elapsedTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Starts a 1-second periodic timer to refresh the elapsed display
+  /// while the subagent is still running.
+  void _startTimerIfNeeded() {
+    if (!widget.isComplete &&
+        widget.startedAt != null &&
+        _elapsedTimer == null) {
+      _elapsedTimer = Timer.periodic(
+        const Duration(seconds: 1),
+        (_) => setState(() {}),
+      );
     }
   }
 
@@ -138,8 +173,27 @@ class _ChatSubagentBlockState extends State<ChatSubagentBlock> {
     );
   }
 
-  /// Renders the running state with spinner and "Running..." label.
+  /// Renders the running state with spinner, elapsed time, and tool count.
   Widget _buildRunning() {
+    final parts = <String>[];
+
+    if (widget.startedAt != null) {
+      final elapsed = DateTime.now().toUtc().difference(widget.startedAt!);
+      parts.add('${elapsed.inSeconds}s');
+    }
+
+    if (widget.toolUseCount > 0) {
+      parts.add(
+        trans('conversation_chat.event_subagent_tool_count', {
+          'count': widget.toolUseCount.toString(),
+        }),
+      );
+    }
+
+    final statusText = parts.isEmpty
+        ? trans('conversation_chat.event_subagent_working')
+        : '${trans('conversation_chat.event_subagent_working_label')} · ${parts.join(' · ')}';
+
     return WDiv(
       className: 'flex flex-row items-center gap-2',
       children: [
@@ -148,10 +202,7 @@ class _ChatSubagentBlockState extends State<ChatSubagentBlock> {
           height: 14,
           child: CircularProgressIndicator(strokeWidth: 2),
         ),
-        WText(
-          trans('conversation_chat.event_subagent_working'),
-          className: 'text-xs text-slate-400',
-        ),
+        WText(statusText, className: 'text-xs text-slate-400'),
       ],
     );
   }

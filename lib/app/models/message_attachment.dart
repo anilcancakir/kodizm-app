@@ -17,12 +17,13 @@ class MessageAttachment {
   /// Creates a [MessageAttachment] with all fields.
   const MessageAttachment({
     required this.id,
-    required this.messageId,
+    this.messageId,
     required this.filename,
     required this.mimeType,
     required this.size,
     required this.url,
     this.metadata,
+    this.thumbnailUrl,
   });
 
   // -------
@@ -30,8 +31,8 @@ class MessageAttachment {
   /// The unique identifier of this attachment (UUID).
   final String id;
 
-  /// The identifier of the parent message (UUID).
-  final String messageId;
+  /// The identifier of the parent message (UUID). Null for pre-upload attachments.
+  final String? messageId;
 
   /// The original filename as uploaded by the user.
   final String filename;
@@ -47,6 +48,9 @@ class MessageAttachment {
 
   /// Arbitrary metadata payload for this attachment. Null for most attachments.
   final Map<String, dynamic>? metadata;
+
+  /// Thumbnail image URL for preview. Available for images and PDFs.
+  final String? thumbnailUrl;
 
   // -------
 
@@ -83,12 +87,13 @@ class MessageAttachment {
   static MessageAttachment fromMap(Map<String, dynamic> map) {
     return MessageAttachment(
       id: map['id'] as String,
-      messageId: map['message_id'] as String,
+      messageId: map['message_id'] as String?,
       filename: map['filename'] as String,
       mimeType: map['mime_type'] as String,
       size: map['size'] as int,
       url: map['url'] as String,
       metadata: map['metadata'] as Map<String, dynamic>?,
+      thumbnailUrl: map['thumbnail_url'] as String?,
     );
   }
 }

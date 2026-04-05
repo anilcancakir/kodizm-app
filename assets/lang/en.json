@@ -67,7 +67,8 @@
     "attachment_limit_size": "File must be under :max MB",
     "attachment_type_invalid": "Only images and PDFs are supported",
     "attachment_uploading": "Uploading attachments...",
-    "attachment_sent": ":count attachment(s) sent"
+    "attachment_sent": ":count attachment(s) sent",
+    "attachment_upload_failed": "Failed to upload :filename"
   },
   "ai_tokens": {
     "title": "AI Tokens",

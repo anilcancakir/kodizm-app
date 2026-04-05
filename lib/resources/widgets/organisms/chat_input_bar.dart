@@ -40,12 +40,14 @@ class ChatInputBar extends StatefulWidget {
     required this.isSending,
     this.awaitingResponse = false,
     this.disabled = false,
+    this.isUploading = false,
     this.queuedCount = 0,
     this.focusNode,
     this.onSend,
     this.onStop,
     this.onCancelQueue,
     this.onAttachmentsChanged,
+    this.onFilesAdded,
     super.key,
   });
 
@@ -62,6 +64,10 @@ class ChatInputBar extends StatefulWidget {
   /// Whether the input is fully disabled (e.g. pending question/permission).
   /// When true, the TextField is read-only and the bar is visually dimmed.
   final bool disabled;
+
+  /// Whether attachment uploads are in progress. When true, a progress
+  /// indicator overlays each attachment preview tile.
+  final bool isUploading;
 
   /// Number of messages currently queued for delivery after the agent finishes.
   /// When greater than zero, a badge is shown above the input field.
@@ -83,6 +89,10 @@ class ChatInputBar extends StatefulWidget {
   /// Callback fired whenever the pending attachment list changes.
   /// Receives the updated full list after each add or remove.
   final ValueChanged<List<PlatformFile>>? onAttachmentsChanged;
+
+  /// Callback fired with only the newly added files after a pick operation.
+  /// Used to trigger immediate upload without re-uploading existing files.
+  final ValueChanged<List<PlatformFile>>? onFilesAdded;
 
   @override
   State<ChatInputBar> createState() => ChatInputBarState();
@@ -139,10 +149,12 @@ class ChatInputBarState extends State<ChatInputBar> {
   // ---------------------------------------------------------------------------
 
   /// Appends [files] to the attachment list without validation.
-  /// Triggers a rebuild and fires [onAttachmentsChanged].
+  /// Triggers a rebuild, fires [onAttachmentsChanged], and fires
+  /// [onFilesAdded] with only the newly added files.
   void addAttachments(List<PlatformFile> files) {
     setState(() => _attachments.addAll(files));
     widget.onAttachmentsChanged?.call(List.unmodifiable(_attachments));
+    widget.onFilesAdded?.call(files);
   }
 
   /// Validates [files] for count and size limits, then adds them if valid.
@@ -190,6 +202,7 @@ class ChatInputBarState extends State<ChatInputBar> {
   bool get _canSend =>
       (!_isEmpty || _attachments.isNotEmpty) &&
       !widget.isSending &&
+      !widget.isUploading &&
       !widget.disabled;
 
   void _showError(String message) {
@@ -251,6 +264,23 @@ class ChatInputBarState extends State<ChatInputBar> {
 
   bool _isPdf(PlatformFile file) => file.name.toLowerCase().endsWith('.pdf');
 
+  /// Builds an image preview for a picked file.
+  ///
+  /// Uses [Image.memory] from local bytes when available (web / after read),
+  /// falling back to a generic image icon placeholder.
+  Widget _buildImagePreview(PlatformFile file) {
+    if (file.bytes != null) {
+      return Image.memory(
+        file.bytes!,
+        fit: BoxFit.cover,
+        width: 56,
+        height: 56,
+      );
+    }
+
+    return WIcon(Icons.image_rounded, className: 'text-2xl text-slate-400');
+  }
+
   Widget _buildAttachmentPreview(PlatformFile file, int index) {
     final isPdf = _isPdf(file);
 
@@ -260,7 +290,7 @@ class ChatInputBarState extends State<ChatInputBar> {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          // Thumbnail or PDF icon tile
+          // Thumbnail or PDF icon tile — real image preview for non-PDFs
           WDiv(
             className: '''
                 w-14 h-14 rounded-lg overflow-hidden
@@ -272,11 +302,26 @@ class ChatInputBarState extends State<ChatInputBar> {
                     Icons.picture_as_pdf_rounded,
                     className: 'text-2xl text-red-500',
                   )
-                : WIcon(
-                    Icons.image_rounded,
-                    className: 'text-2xl text-slate-400',
-                  ),
+                : _buildImagePreview(file),
           ),
+
+          // Upload progress overlay — shown while uploads are in progress
+          if (widget.isUploading)
+            WDiv(
+              className: '''
+                  w-14 h-14 rounded-lg
+                  bg-black/40
+                  flex items-center justify-center
+                  ''',
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              ),
+            ),
 
           // Remove button — top-right corner
           Positioned(

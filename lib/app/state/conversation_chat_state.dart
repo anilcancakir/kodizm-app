@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:flutter/foundation.dart';
 import 'package:magic/magic.dart';
@@ -153,6 +154,10 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   // Attachment state — files staged for the next sendMessage call.
   List<PlatformFile> _pendingAttachments = [];
 
+  // Upload-first attachment state — server-confirmed attachments with real IDs.
+  List<MessageAttachment> _uploadedAttachments = [];
+  bool _isUploading = false;
+
   // ---------------------------------------------------------------------------
   // Public getters
   // ---------------------------------------------------------------------------
@@ -244,6 +249,16 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   List<PlatformFile> get pendingAttachments =>
       List.unmodifiable(_pendingAttachments);
 
+  /// Server-confirmed attachments ready to be sent with the next message.
+  ///
+  /// Populated by [uploadAndTrackAttachments] after each file is uploaded
+  /// to the dedicated attachment endpoint. Contains real IDs and thumbnailUrls.
+  List<MessageAttachment> get uploadedAttachments =>
+      List.unmodifiable(_uploadedAttachments);
+
+  /// Whether attachment uploads are currently in progress.
+  bool get isUploading => _isUploading;
+
   // ---------------------------------------------------------------------------
   // Attachment staging
   // ---------------------------------------------------------------------------
@@ -254,6 +269,80 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   void setPendingAttachments(List<PlatformFile> files) {
     _pendingAttachments = List.of(files);
     refreshUI();
+  }
+
+  /// Upload [files] immediately and track the server-confirmed attachments.
+  ///
+  /// Each file is uploaded in parallel to the dedicated attachment endpoint.
+  /// Successfully uploaded files are stored in [_uploadedAttachments] with
+  /// real IDs and thumbnail URLs. Failed uploads are logged but do not crash
+  /// the flow — partial uploads are still usable.
+  Future<void> uploadAndTrackAttachments(List<PlatformFile> files) async {
+    if (_conversation == null || files.isEmpty) return;
+
+    _isUploading = true;
+    refreshUI();
+
+    final futures = files.map(_uploadAttachment);
+    final results = await Future.wait(futures);
+    _uploadedAttachments.addAll(results.whereType<MessageAttachment>());
+
+    _isUploading = false;
+    refreshUI();
+  }
+
+  /// Upload a single [file] to the attachment endpoint.
+  ///
+  /// Reads bytes from [PlatformFile.bytes] (web) or disk (mobile), base64-
+  /// encodes in a background isolate to avoid UI jank, and POSTs to the API.
+  /// Returns the parsed [MessageAttachment] on success, or `null` on failure.
+  Future<MessageAttachment?> _uploadAttachment(PlatformFile file) async {
+    try {
+      final Uint8List bytes;
+      if (file.bytes != null) {
+        bytes = file.bytes!;
+      } else if (file.path != null) {
+        bytes = await File(file.path!).readAsBytes();
+      } else {
+        return null;
+      }
+
+      // Base64-encode off the UI thread. On web, Isolate.run() is unavailable
+      // so we fall back to synchronous encoding (web files are already in
+      // memory, so the cost is minimal).
+      final String encoded;
+      if (kIsWeb) {
+        encoded = base64Encode(bytes);
+      } else {
+        encoded = await Isolate.run(() => base64Encode(bytes));
+      }
+
+      final response = await Http.post(
+        '/teams/$_teamId/projects/$_projectId'
+        '/conversations/${_conversation!.id}/attachments',
+        data: {
+          'filename': file.name,
+          'data': encoded,
+          'mime_type': _guessMimeType(file.name),
+        },
+      );
+
+      if (!response.successful) {
+        Log.error(
+          'Attachment upload failed for ${file.name}: '
+          '${response.errorMessage}',
+        );
+        return null;
+      }
+
+      final data =
+          (response.data as Map<String, dynamic>)['data']
+              as Map<String, dynamic>;
+      return MessageAttachment.fromMap(data);
+    } catch (e) {
+      Log.error('Attachment upload exception for ${file.name}: $e');
+      return null;
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -451,22 +540,17 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   /// Send a user message in the current conversation.
   ///
   /// Guards against missing conversation or concurrent sends. Appends an
-  /// optimistic user message immediately (with attachment previews when
-  /// [attachments] are provided), then POSTs to the API. The assistant
-  /// response arrives asynchronously via WebSocket.
+  /// optimistic user message immediately (with real attachment data from
+  /// [_uploadedAttachments] when available), then POSTs to the API with
+  /// attachment IDs only — no base64 payload at send time.
   ///
-  /// [attachments] defaults to the currently staged [pendingAttachments] when
-  /// not supplied explicitly, allowing the view layer to stage files via
-  /// [setPendingAttachments] before calling this method.
-  Future<void> sendMessage(
-    String text, {
-    List<PlatformFile>? attachments,
-  }) async {
+  /// The assistant response arrives asynchronously via WebSocket.
+  Future<void> sendMessage(String text) async {
     if (_conversation == null) return;
     if (_pendingQuestion != null || _pendingPermission != null) return;
 
-    // Resolve attachments — explicit param wins; fall back to staged files.
-    final resolvedAttachments = attachments ?? List.of(_pendingAttachments);
+    // Snapshot uploaded attachments before clearing.
+    final attachmentsToSend = List<MessageAttachment>.of(_uploadedAttachments);
 
     // Await any in-flight POST before starting a new one.
     if (_activeSendFuture != null) {
@@ -477,16 +561,17 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
     _awaitingResponse = true;
     refreshUI();
 
-    // Build optimistic attachment previews (no URL yet — URL set on response).
+    // Build optimistic message with real attachment data (real IDs, thumbnails).
     final optimisticId = 'optimistic_${DateTime.now().microsecondsSinceEpoch}';
-    final optimisticAttachments = resolvedAttachments.map((f) {
+    final optimisticAttachments = attachmentsToSend.map((a) {
       return MessageAttachment(
-        id: 'optimistic_${f.name}',
+        id: a.id,
         messageId: optimisticId,
-        filename: f.name,
-        mimeType: _guessMimeType(f.name),
-        size: f.size,
-        url: '',
+        filename: a.filename,
+        mimeType: a.mimeType,
+        size: a.size,
+        url: a.url,
+        thumbnailUrl: a.thumbnailUrl,
       );
     }).toList();
 
@@ -508,60 +593,38 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
     _activeSendFuture = _postMessage(
       text,
       optimisticMessage,
-      attachments: resolvedAttachments,
+      attachmentIds: attachmentsToSend.map((a) => a.id).toList(),
     );
     await _activeSendFuture;
     _activeSendFuture = null;
 
-    // Clear staged attachments after send.
+    // Clear staged and uploaded attachments after send.
     _pendingAttachments = [];
+    _uploadedAttachments = [];
     _isSending = false;
     refreshUI();
   }
 
   /// Sends the POST request for a message and handles the response.
   ///
-  /// When [attachments] are provided, encodes each file as base64 and sends
-  /// them as a JSON array alongside the message content. Text-only messages
-  /// use the existing JSON POST path.
+  /// When [attachmentIds] are provided, sends them as a flat list of UUID
+  /// strings — files were already uploaded via the dedicated attachment
+  /// endpoint. Text-only messages omit the attachments field entirely.
   Future<void> _postMessage(
     String text,
     ConversationMessage optimisticMessage, {
-    List<PlatformFile> attachments = const [],
+    List<String> attachmentIds = const [],
   }) async {
     final url =
         '/teams/$_teamId/projects/$_projectId/conversations/${_conversation!.id}/messages';
 
-    final MagicResponse response;
+    final data = <String, dynamic>{'content': text.isEmpty ? null : text};
 
-    if (attachments.isNotEmpty) {
-      // Encode each file as base64 and include alongside message content.
-      final attachmentData = <Map<String, dynamic>>[];
-      for (final file in attachments) {
-        final Uint8List bytes;
-        if (file.bytes != null) {
-          bytes = file.bytes!;
-        } else if (file.path != null) {
-          bytes = await File(file.path!).readAsBytes();
-        } else {
-          continue;
-        }
-        attachmentData.add({
-          'filename': file.name,
-          'data': base64Encode(bytes),
-          'mime_type': _guessMimeType(file.name),
-        });
-      }
-      response = await Http.post(
-        url,
-        data: {
-          'content': text.isEmpty ? null : text,
-          'attachments': attachmentData,
-        },
-      );
-    } else {
-      response = await Http.post(url, data: {'content': text});
+    if (attachmentIds.isNotEmpty) {
+      data['attachments'] = attachmentIds;
     }
+
+    final response = await Http.post(url, data: data);
 
     if (!response.successful) {
       _error = response.errorMessage ?? 'Failed to send message';
@@ -1027,6 +1090,8 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
     _streamingMessageId = null;
     _streamingThinkingBuffer = StringBuffer();
     _streamingThinkingId = null;
+    _uploadedAttachments = [];
+    _isUploading = false;
 
     refreshUI();
   }

@@ -248,7 +248,7 @@ class _ConversationChatViewState extends State<ConversationChatView> {
 
   Future<void> _handleSendMessage() async {
     final text = _inputController.text.trim();
-    final hasAttachments = _state.pendingAttachments.isNotEmpty;
+    final hasAttachments = _state.uploadedAttachments.isNotEmpty;
 
     if (text.isEmpty && !hasAttachments) return;
 
@@ -410,7 +410,9 @@ class _ConversationChatViewState extends State<ConversationChatView> {
             queuedCount: _state.queuedCount,
             onSend: _handleSendMessage,
             onStop: _state.stopMessage,
+            isUploading: _state.isUploading,
             onAttachmentsChanged: _state.setPendingAttachments,
+            onFilesAdded: _state.uploadAndTrackAttachments,
           ),
 
         // Debug panel — scrollable within remaining space

@@ -32,17 +32,34 @@ class AttachmentThumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final previewUrl = attachment.thumbnailUrl ?? attachment.url;
+
     return WAnchor(
       onTap: () => _openFullscreen(context),
       child: WDiv(
         className: 'w-48 h-48 rounded-lg overflow-hidden',
-        child: Image.network(
-          attachment.url,
-          fit: BoxFit.cover,
-          semanticLabel: trans('chat.attachment_image'),
-          loadingBuilder: _buildLoadingPlaceholder,
-          errorBuilder: _buildErrorPlaceholder,
-        ),
+        child: previewUrl.isEmpty
+            ? _buildEmptyUrlPlaceholder()
+            : Image.network(
+                previewUrl,
+                fit: BoxFit.cover,
+                semanticLabel: trans('chat.attachment_image'),
+                loadingBuilder: _buildLoadingPlaceholder,
+                errorBuilder: _buildErrorPlaceholder,
+              ),
+      ),
+    );
+  }
+
+  /// Placeholder shown when no URL is available yet (optimistic pre-upload state).
+  Widget _buildEmptyUrlPlaceholder() {
+    return WDiv(
+      className:
+          'w-48 h-48 bg-slate-100 dark:bg-slate-800 rounded-lg flex items-center justify-center',
+      child: const SizedBox(
+        width: 24,
+        height: 24,
+        child: CircularProgressIndicator(strokeWidth: 2),
       ),
     );
   }
@@ -96,6 +113,9 @@ class AttachmentThumbnail extends StatelessWidget {
   // -----------------------------------------------------------------------
 
   /// Opens the image in a fullscreen [InteractiveViewer] dialog.
+  ///
+  /// Uses [attachment.url] (original resolution) — not the thumbnail.
+  /// If [attachment.url] is empty, the error placeholder is shown instead.
   void _openFullscreen(BuildContext context) {
     showDialog<void>(
       context: context,
@@ -107,11 +127,13 @@ class AttachmentThumbnail extends StatelessWidget {
             InteractiveViewer(
               minScale: 0.5,
               maxScale: 4.0,
-              child: Image.network(
-                attachment.url,
-                fit: BoxFit.contain,
-                semanticLabel: trans('chat.attachment_image'),
-              ),
+              child: attachment.url.isEmpty
+                  ? _buildErrorPlaceholder(context, '', null)
+                  : Image.network(
+                      attachment.url,
+                      fit: BoxFit.contain,
+                      semanticLabel: trans('chat.attachment_image'),
+                    ),
             ),
             Positioned(
               top: 16,

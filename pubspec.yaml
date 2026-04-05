@@ -57,13 +57,6 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   sentry_dart_plugin: ^2.0.0
 
-dependency_overrides:
-  magic:
-    path: /Users/anilcan/Code/fluttersdk/magic
-  magic_starter:
-    path: /Users/anilcan/Code/fluttersdk/magic_starter
-  fluttersdk_wind:
-    path: /Users/anilcan/Code/fluttersdk/wind/fluttersdk_wind
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

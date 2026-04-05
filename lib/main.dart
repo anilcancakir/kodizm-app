@@ -15,6 +15,12 @@ import 'config/sentry.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Register SentryNavigatorObserver BEFORE Magic.init() — router is built
+  // during boot(), so observers must be added before that. Unconditional
+  // because env() isn't loaded yet; the observer is a no-op when Sentry
+  // has no DSN.
+  MagicRouter.instance.addObserver(SentryNavigatorObserver());
+
   await Magic.init(
     configFactories: [
       () => appConfig,
@@ -98,12 +104,6 @@ void main() async {
 
   // -- Sentry Initialization --
   final sentryDsn = Config.get<String>('sentry.dsn', '') ?? '';
-
-  // Register SentryNavigatorObserver before routerConfig is accessed.
-  if (sentryDsn.isNotEmpty) {
-    MagicRouter.instance.addObserver(SentryNavigatorObserver());
-  }
-
   if (sentryDsn.isNotEmpty) {
     await SentryFlutter.init((options) {
       options.dsn = sentryDsn;

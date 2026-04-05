@@ -7,7 +7,7 @@ import 'package:magic/magic.dart';
 import 'package:magic/testing.dart';
 import 'package:magic_starter/magic_starter.dart';
 
-import 'package:app/app/events/websocket_event.dart';
+
 import 'package:app/app/models/user.dart';
 import 'package:app/app/state/project_repository_state.dart';
 import 'package:app/app/state/project_state.dart';
@@ -76,7 +76,7 @@ class _FakeRepoWebSocket implements RepoWebSocket {
   final List<String> unsubscribedChannels = [];
 
   @override
-  void subscribe(String channel, void Function(WebSocketEvent) onEvent) {
+  void subscribe(String channel, void Function(BroadcastEvent) onEvent) {
     subscribedChannels.add(channel);
   }
 

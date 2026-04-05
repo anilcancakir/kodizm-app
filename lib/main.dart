@@ -4,13 +4,13 @@ import 'package:magic_starter/magic_starter.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 import 'config/app.dart';
 import 'config/auth.dart';
+import 'config/broadcasting.dart';
 import 'config/cache.dart';
 import 'config/database.dart';
 import 'config/logging.dart';
 import 'config/magic_starter.dart';
 import 'config/network.dart';
 import 'config/sentry.dart';
-import 'config/websocket.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,12 +19,12 @@ void main() async {
     configFactories: [
       () => appConfig,
       () => authConfig,
+      () => broadcastingConfig,
       () => databaseConfig,
       () => networkConfig,
       () => cacheConfig,
       () => loggingConfig,
       () => magicStarterConfig,
-      () => websocketConfig,
       () => sentryConfig,
     ],
   );
@@ -98,6 +98,11 @@ void main() async {
 
   // -- Sentry Initialization --
   final sentryDsn = Config.get<String>('sentry.dsn', '') ?? '';
+
+  // Register SentryNavigatorObserver before routerConfig is accessed.
+  if (sentryDsn.isNotEmpty) {
+    MagicRouter.instance.addObserver(SentryNavigatorObserver());
+  }
 
   if (sentryDsn.isNotEmpty) {
     await SentryFlutter.init((options) {

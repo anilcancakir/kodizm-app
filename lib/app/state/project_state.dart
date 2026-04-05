@@ -80,20 +80,7 @@ class ProjectState extends MagicController with MagicStateMixin<List<Project>> {
   /// Sets loading, then populates `rxState` with the parsed project list on
   /// success, or transitions to error on failure.
   Future<void> fetchProjects(String teamId) async {
-    setLoading();
-
-    final response = await Http.get('/teams/$teamId/projects');
-
-    if (response.successful) {
-      final List<dynamic> items =
-          (response.data as Map<String, dynamic>)['data'] as List<dynamic>;
-      final projects = items
-          .map((item) => Project.fromMap(item as Map<String, dynamic>))
-          .toList();
-      projects.isEmpty ? setEmpty() : setSuccess(projects);
-    } else {
-      setError(response.errorMessage ?? 'Failed to fetch projects');
-    }
+    await fetchList<Project>('/teams/$teamId/projects', Project.fromMap);
   }
 
   /// Fetch a single project and store it as [selectedProject].

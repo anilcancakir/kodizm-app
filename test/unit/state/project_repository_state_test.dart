@@ -2,7 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
 import 'package:magic/testing.dart';
 
-import 'package:app/app/events/websocket_event.dart';
 import 'package:app/app/state/project_repository_state.dart';
 
 // ---------------------------------------------------------------------------
@@ -44,10 +43,10 @@ const Map<String, dynamic> kRepoB = {
 /// Injectable WebSocket for testing without a real Pusher connection.
 class _FakeWebSocket implements RepoWebSocket {
   String? subscribedChannel;
-  void Function(WebSocketEvent)? handler;
+  void Function(BroadcastEvent)? handler;
 
   @override
-  void subscribe(String channel, void Function(WebSocketEvent) onEvent) {
+  void subscribe(String channel, void Function(BroadcastEvent) onEvent) {
     subscribedChannel = channel;
     handler = onEvent;
   }
@@ -59,7 +58,7 @@ class _FakeWebSocket implements RepoWebSocket {
   }
 
   /// Emit a fake WebSocket event to the registered handler.
-  void emit(WebSocketEvent event) => handler?.call(event);
+  void emit(BroadcastEvent event) => handler?.call(event);
 }
 
 // ---------------------------------------------------------------------------
@@ -449,16 +448,15 @@ void main() {
         wsState.dispose();
       });
 
-      WebSocketEvent makeRepoStatusEvent({
+      BroadcastEvent makeRepoStatusEvent({
         required String repoId,
         required String status,
         String projectId = 'proj-uuid-001',
         String? error,
       }) {
-        return WebSocketEvent(
-          id: 'test-id',
+        return BroadcastEvent(
           channel: 'private-team.team-uuid-001',
-          eventName: '.repo.status',
+          event: '.repo.status',
           data: {
             'project_id': projectId,
             'repository_id': repoId,
@@ -481,7 +479,7 @@ void main() {
           );
 
           wsState.subscribeToTeam('team-uuid-001', 'proj-uuid-001');
-          expect(ws.subscribedChannel, equals('private-team.team-uuid-001'));
+          expect(ws.subscribedChannel, equals('team.team-uuid-001'));
 
           ws.emit(
             makeRepoStatusEvent(repoId: 'repo-uuid-001', status: 'onboarding'),

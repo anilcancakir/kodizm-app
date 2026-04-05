@@ -117,8 +117,6 @@ class TaskState extends MagicController with MagicStateMixin<List<Task>> {
     List<String>? priorityFilter,
     String? sort,
   }) async {
-    setLoading();
-
     final Map<String, dynamic> query = {};
 
     if (statusFilter != null && statusFilter.isNotEmpty) {
@@ -134,21 +132,11 @@ class TaskState extends MagicController with MagicStateMixin<List<Task>> {
       query['sort'] = sort;
     }
 
-    final response = await Http.get(
+    await fetchList<Task>(
       '/teams/$teamId/projects/$projectId/tasks',
+      Task.fromMap,
       query: query.isEmpty ? null : query,
     );
-
-    if (response.successful) {
-      final List<dynamic> items =
-          (response.data as Map<String, dynamic>)['data'] as List<dynamic>;
-      final tasks = items
-          .map((item) => Task.fromMap(item as Map<String, dynamic>))
-          .toList();
-      tasks.isEmpty ? setEmpty() : setSuccess(tasks);
-    } else {
-      setError(response.errorMessage ?? 'Failed to fetch tasks');
-    }
   }
 
   /// Fetch a single task and store it as [selectedTask].

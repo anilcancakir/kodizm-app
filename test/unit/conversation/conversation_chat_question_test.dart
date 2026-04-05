@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
 import 'package:magic/testing.dart';
 
-import 'package:app/app/events/websocket_event.dart';
+
 import 'package:app/app/state/conversation_chat_state.dart';
 
 // ---------------------------------------------------------------------------
@@ -47,13 +47,13 @@ const Map<String, dynamic> kConversationResponse = {
 class _FakeWebSocketService implements ConversationChatWebSocket {
   final List<String> subscribedChannels = [];
   final List<String> unsubscribedChannels = [];
-  final Map<String, void Function(WebSocketEvent)> callbacks = {};
+  final Map<String, void Function(BroadcastEvent)> callbacks = {};
 
   @override
   Stream<void> get onReconnect => const Stream.empty();
 
   @override
-  void subscribe(String channel, void Function(WebSocketEvent) onEvent) {
+  void subscribe(String channel, void Function(BroadcastEvent) onEvent) {
     subscribedChannels.add(channel);
     callbacks[channel] = onEvent;
   }
@@ -64,7 +64,7 @@ class _FakeWebSocketService implements ConversationChatWebSocket {
     callbacks.remove(channel);
   }
 
-  void simulateEvent(String channel, WebSocketEvent event) {
+  void simulateEvent(String channel, BroadcastEvent event) {
     callbacks[channel]?.call(event);
   }
 }
@@ -73,10 +73,9 @@ class _FakeWebSocketService implements ConversationChatWebSocket {
 // WebSocket event fixtures
 // ---------------------------------------------------------------------------
 
-WebSocketEvent _toolUseEvent() => WebSocketEvent(
-  id: 'ws:tool:1',
+BroadcastEvent _toolUseEvent() => BroadcastEvent(
   channel: 'private-conversation.conv-uuid-001',
-  eventName: '.conversation.message',
+  event: '.conversation.message',
   data: {
     'conversation_id': 'conv-uuid-001',
     'type': 'tool_use',
@@ -103,10 +102,9 @@ WebSocketEvent _toolUseEvent() => WebSocketEvent(
   receivedAt: DateTime.utc(2026, 3, 27, 10, 3),
 );
 
-WebSocketEvent _questionEvent() => WebSocketEvent(
-  id: 'ws:question:1',
+BroadcastEvent _questionEvent() => BroadcastEvent(
   channel: 'private-conversation.conv-uuid-001',
-  eventName: '.conversation.message',
+  event: '.conversation.message',
   data: {
     'conversation_id': 'conv-uuid-001',
     'type': 'question',
@@ -121,10 +119,9 @@ WebSocketEvent _questionEvent() => WebSocketEvent(
   receivedAt: DateTime.utc(2026, 3, 27, 10, 3, 1),
 );
 
-WebSocketEvent _permissionEvent() => WebSocketEvent(
-  id: 'ws:permission:1',
+BroadcastEvent _permissionEvent() => BroadcastEvent(
   channel: 'private-conversation.conv-uuid-001',
-  eventName: '.conversation.message',
+  event: '.conversation.message',
   data: {
     'conversation_id': 'conv-uuid-001',
     'type': 'permission',
@@ -139,10 +136,9 @@ WebSocketEvent _permissionEvent() => WebSocketEvent(
   receivedAt: DateTime.utc(2026, 3, 27, 10, 4),
 );
 
-WebSocketEvent _nonAskToolUseEvent() => WebSocketEvent(
-  id: 'ws:tool:2',
+BroadcastEvent _nonAskToolUseEvent() => BroadcastEvent(
   channel: 'private-conversation.conv-uuid-001',
-  eventName: '.conversation.message',
+  event: '.conversation.message',
   data: {
     'conversation_id': 'conv-uuid-001',
     'type': 'tool_use',
@@ -406,10 +402,9 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('paused status from status event updates conversation', () {
-      final statusEvent = WebSocketEvent(
-        id: 'ws:status:paused',
+      final statusEvent = BroadcastEvent(
         channel: 'private-conversation.conv-uuid-001',
-        eventName: '.conversation.status',
+        event: '.conversation.status',
         data: {
           'conversation_id': 'conv-uuid-001',
           'status': 'paused',

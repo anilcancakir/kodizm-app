@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
 import 'package:magic/testing.dart';
 
-import 'package:app/app/events/websocket_event.dart';
+
 import 'package:app/app/state/session_state.dart';
 import 'package:app/resources/views/session/session_detail_view.dart';
 import 'package:app/resources/widgets/molecules/model_cost_breakdown.dart';
@@ -128,7 +128,7 @@ class _FakeSessionWebSocket implements SessionWebSocket {
   final List<String> unsubscribedChannels = [];
 
   @override
-  void subscribe(String channel, void Function(WebSocketEvent) onEvent) {
+  void subscribe(String channel, void Function(BroadcastEvent) onEvent) {
     subscribedChannels.add(channel);
   }
 
@@ -413,7 +413,7 @@ void main() {
   testWidgets('subscribes to session WebSocket channel', (tester) async {
     await _pumpView(tester);
 
-    expect(ws.subscribedChannels, contains('private-session.$kSessionId'));
+    expect(ws.subscribedChannels, contains('session.$kSessionId'));
   });
 
   // -------------------------------------------------------------------------

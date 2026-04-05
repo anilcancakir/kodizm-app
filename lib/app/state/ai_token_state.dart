@@ -50,19 +50,7 @@ class AiTokenState extends MagicController with MagicStateMixin<List<AiToken>> {
   /// transitions to success with the parsed [List<AiToken>] or to error
   /// with the API message on failure.
   Future<void> loadTokens(String teamId) async {
-    setLoading();
-
-    final response = await Http.get('/teams/$teamId/ai-tokens');
-
-    if (response.successful) {
-      final raw = response.data as Map<String, dynamic>;
-      final list = (raw['data'] as List<dynamic>)
-          .map((item) => AiToken.fromMap(item as Map<String, dynamic>))
-          .toList();
-      list.isEmpty ? setEmpty() : setSuccess(list);
-    } else {
-      setError(response.errorMessage ?? 'Failed to load AI tokens');
-    }
+    await fetchList<AiToken>('/teams/$teamId/ai-tokens', AiToken.fromMap);
   }
 
   // ---------------------------------------------------------------------------

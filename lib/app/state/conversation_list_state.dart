@@ -46,22 +46,10 @@ class ConversationListState extends MagicController
   /// Sets loading, then populates `rxState` with the parsed list on success,
   /// or transitions to error on failure. An empty list triggers [setEmpty].
   Future<void> loadConversations(String teamId, String projectId) async {
-    setLoading();
-
-    final response = await Http.get(
+    await fetchList<Conversation>(
       '/teams/$teamId/projects/$projectId/conversations',
+      Conversation.fromMap,
     );
-
-    if (response.successful) {
-      final List<dynamic> items =
-          (response.data as Map<String, dynamic>)['data'] as List<dynamic>;
-      final conversations = items
-          .map((item) => Conversation.fromMap(item as Map<String, dynamic>))
-          .toList();
-      conversations.isEmpty ? setEmpty() : setSuccess(conversations);
-    } else {
-      setError(response.errorMessage ?? 'Failed to fetch conversations');
-    }
   }
 
   // ---------------------------------------------------------------------------

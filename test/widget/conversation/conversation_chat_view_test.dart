@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
 import 'package:magic/testing.dart';
 
-import 'package:app/app/events/websocket_event.dart';
+
 import 'package:app/app/state/conversation_chat_state.dart';
 import 'package:app/resources/views/conversation/conversation_chat_view.dart';
 import 'package:app/resources/widgets/atoms/streaming_indicator.dart';
@@ -22,10 +22,10 @@ class _FakeWebSocket implements ConversationChatWebSocket {
   final List<String> subscribedChannels = [];
   final List<String> unsubscribedChannels = [];
 
-  void Function(WebSocketEvent)? lastCallback;
+  void Function(BroadcastEvent)? lastCallback;
 
   @override
-  void subscribe(String channel, void Function(WebSocketEvent) onEvent) {
+  void subscribe(String channel, void Function(BroadcastEvent) onEvent) {
     subscribedChannels.add(channel);
     lastCallback = onEvent;
   }
@@ -352,10 +352,9 @@ void main() {
 
     // Simulate a WS event.
     state.addEvent(
-      WebSocketEvent(
-        id: 'ws-evt-1',
+      BroadcastEvent(
         channel: 'private-conversation.$kConversationId',
-        eventName: '.conversation.message',
+        event: '.conversation.message',
         data: {
           'conversation_id': kConversationId,
           'type': 'assistant',
@@ -382,10 +381,9 @@ void main() {
 
     // Add an event so count is 1.
     state.addEvent(
-      WebSocketEvent(
-        id: 'ws-evt-2',
+      BroadcastEvent(
         channel: 'private-conversation.$kConversationId',
-        eventName: '.conversation.status',
+        event: '.conversation.status',
         data: {
           'conversation_id': kConversationId,
           'status': 'active',
@@ -602,10 +600,9 @@ void main() {
 
       // First WS message event clears awaitingResponse.
       state.addEvent(
-        WebSocketEvent(
-          id: 'ws-await-1',
+        BroadcastEvent(
           channel: 'private-conversation.$kConversationId',
-          eventName: '.conversation.message',
+          event: '.conversation.message',
           data: {
             'conversation_id': kConversationId,
             'type': 'assistant',
@@ -654,10 +651,9 @@ void main() {
 
       // First WS message event clears awaitingResponse.
       state.addEvent(
-        WebSocketEvent(
-          id: 'ws-await-unit-1',
+        BroadcastEvent(
           channel: 'private-conversation.$kConversationId',
-          eventName: '.conversation.message',
+          event: '.conversation.message',
           data: {
             'conversation_id': kConversationId,
             'type': 'assistant',
@@ -745,10 +741,9 @@ void main() {
 
       // 1. Send a user message (creates ChatMessageItem).
       state.addEvent(
-        WebSocketEvent(
-          id: 'ws-mixed-1',
+        BroadcastEvent(
           channel: 'private-conversation.$kConversationId',
-          eventName: '.conversation.message',
+          event: '.conversation.message',
           data: {
             'conversation_id': kConversationId,
             'type': 'text',
@@ -762,10 +757,9 @@ void main() {
 
       // 2. Add a tool_use event (creates ChatToolUseItem).
       state.addEvent(
-        WebSocketEvent(
-          id: 'ws-mixed-2',
+        BroadcastEvent(
           channel: 'private-conversation.$kConversationId',
-          eventName: '.conversation.message',
+          event: '.conversation.message',
           data: {
             'conversation_id': kConversationId,
             'type': 'tool_use',
@@ -784,10 +778,9 @@ void main() {
 
       // 3. Add a thinking event (creates ChatThinkingItem).
       state.addEvent(
-        WebSocketEvent(
-          id: 'ws-mixed-3',
+        BroadcastEvent(
           channel: 'private-conversation.$kConversationId',
-          eventName: '.conversation.message',
+          event: '.conversation.message',
           data: {
             'conversation_id': kConversationId,
             'type': 'thinking',

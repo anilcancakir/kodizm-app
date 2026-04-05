@@ -1,39 +1,46 @@
+import 'dart:async';
+
 import 'package:magic/magic.dart';
 
-import '../events/websocket_event.dart';
 import '../models/session.dart';
 import '../models/session_usage_record.dart';
 import '../models/stream_event.dart';
 
 // ---------------------------------------------------------------------------
-// WebSocket abstraction for testability
+// Broadcast abstraction for testability
 // ---------------------------------------------------------------------------
 
-/// Thin interface over WebSocket subscribe/unsubscribe for testability.
+/// Thin interface over broadcast subscribe/unsubscribe for testability.
 ///
-/// In production the default [_MagicSessionWebSocket] resolves the real
-/// [WebSocketService] singleton. Tests inject a fake.
+/// In production the default [_EchoSessionBroadcast] delegates to the [Echo]
+/// facade. Tests inject a fake.
 abstract class SessionWebSocket {
-  /// Subscribe to [channel] with an event callback.
-  void subscribe(String channel, void Function(WebSocketEvent) onEvent);
+  /// Subscribe to a private [channel] with an event callback.
+  ///
+  /// [channel] is the bare channel name without the `private-` prefix
+  /// (e.g. `session.abc`).
+  void subscribe(String channel, void Function(BroadcastEvent) onEvent);
 
-  /// Unsubscribe from [channel].
+  /// Unsubscribe from [channel] (bare name, no `private-` prefix).
   void unsubscribe(String channel);
 }
 
-/// Default production [SessionWebSocket] backed by the [WebSocketService]
-/// singleton registered in the Magic IoC container.
-class _MagicSessionWebSocket implements SessionWebSocket {
-  const _MagicSessionWebSocket();
+/// Default production [SessionWebSocket] backed by the [Echo] facade.
+class _EchoSessionBroadcast implements SessionWebSocket {
+  /// Active stream subscriptions keyed by channel name.
+  final Map<String, StreamSubscription<BroadcastEvent>> _subscriptions = {};
 
   @override
-  void subscribe(String channel, void Function(WebSocketEvent) onEvent) {
-    Magic.make('websocket').subscribe(channel, onEvent);
+  void subscribe(String channel, void Function(BroadcastEvent) onEvent) {
+    _subscriptions[channel]?.cancel();
+    _subscriptions[channel] = Echo.private(channel).events.listen(onEvent);
   }
 
   @override
   void unsubscribe(String channel) {
-    Magic.make('websocket').unsubscribe(channel);
+    _subscriptions[channel]?.cancel();
+    _subscriptions.remove(channel);
+    Echo.leave(channel);
   }
 }
 
@@ -45,7 +52,7 @@ class _MagicSessionWebSocket implements SessionWebSocket {
 ///
 /// Manages the list of sessions, the currently active session detail,
 /// streaming events, and real-time WebSocket subscriptions for a single
-/// `private-session.{sessionId}` Pusher channel.
+/// `session.{sessionId}` broadcast channel.
 ///
 /// The primary state (`rxState`) is unused — all fields are secondary state
 /// managed with manual [refreshUI] calls.
@@ -71,10 +78,10 @@ class _MagicSessionWebSocket implements SessionWebSocket {
 class SessionState extends MagicController with MagicStateMixin<void> {
   /// Creates a [SessionState] with optional injectable dependencies for testing.
   ///
-  /// When [webSocket] is `null`, [_MagicSessionWebSocket] resolves the
-  /// registered WebSocketService.
+  /// When [webSocket] is `null`, [_EchoSessionBroadcast] delegates to the
+  /// [Echo] facade.
   SessionState({SessionWebSocket? webSocket})
-    : _ws = webSocket ?? const _MagicSessionWebSocket();
+    : _ws = webSocket ?? _EchoSessionBroadcast();
 
   /// Lazy singleton accessor.
   ///
@@ -298,12 +305,12 @@ class SessionState extends MagicController with MagicStateMixin<void> {
   // subscribeToSession
   // ---------------------------------------------------------------------------
 
-  /// Subscribe to the `private-session.{sessionId}` Pusher channel.
+  /// Subscribe to the `session.{sessionId}` broadcast channel.
   ///
   /// Registers [handleWebSocketEvent] as the listener on the channel.
   /// Stores the channel name in [activeChannel] for later cleanup.
   void subscribeToSession(String sessionId) {
-    final channel = 'private-session.$sessionId';
+    final channel = 'session.$sessionId';
     _activeChannel = channel;
 
     _ws.subscribe(channel, handleWebSocketEvent);
@@ -317,7 +324,7 @@ class SessionState extends MagicController with MagicStateMixin<void> {
 
   /// Unsubscribe from the currently active session channel.
   ///
-  /// Sends a `pusher:unsubscribe` frame and clears [activeChannel].
+  /// Leaves the broadcast channel and clears [activeChannel].
   /// No-op when [activeChannel] is `null`.
   void unsubscribeFromSession() {
     if (_activeChannel == null) return;
@@ -332,17 +339,17 @@ class SessionState extends MagicController with MagicStateMixin<void> {
   // handleWebSocketEvent
   // ---------------------------------------------------------------------------
 
-  /// Process a live [WebSocketEvent] from the active session channel.
+  /// Process a live [BroadcastEvent] from the active session channel.
   ///
-  /// Dispatches to the appropriate handler based on [WebSocketEvent.eventName]:
+  /// Dispatches to the appropriate handler based on [BroadcastEvent.event]:
   /// - `.session.status` → update [currentSession] phase via copyWith
   /// - `.session.cost` → update cost fields + append usage record
   /// - `.session.stream` → append [StreamEvent] to [events]
   /// - `.session.question` → store pending question in [pendingQuestion]
   ///
   /// Unknown event names are silently ignored.
-  void handleWebSocketEvent(WebSocketEvent wsEvent) {
-    switch (wsEvent.eventName) {
+  void handleWebSocketEvent(BroadcastEvent wsEvent) {
+    switch (wsEvent.event) {
       case '.session.status':
         _handleStatusEvent(wsEvent);
       case '.session.cost':
@@ -391,7 +398,7 @@ class SessionState extends MagicController with MagicStateMixin<void> {
   // ---------------------------------------------------------------------------
 
   /// Handle `.session.status` — update [_currentSession] phase via copyWith.
-  void _handleStatusEvent(WebSocketEvent wsEvent) {
+  void _handleStatusEvent(BroadcastEvent wsEvent) {
     if (_currentSession == null) return;
 
     final phase = wsEvent.data['phase'] as String?;
@@ -402,7 +409,7 @@ class SessionState extends MagicController with MagicStateMixin<void> {
 
   /// Handle `.session.cost` — update cost totals and append usage record
   /// if present in the payload.
-  void _handleCostEvent(WebSocketEvent wsEvent) {
+  void _handleCostEvent(BroadcastEvent wsEvent) {
     if (_currentSession == null) return;
 
     final totalCostUsdRaw = wsEvent.data['total_cost_usd'] as String?;
@@ -437,14 +444,14 @@ class SessionState extends MagicController with MagicStateMixin<void> {
 
   /// Handle `.session.stream` — parse full [StreamEvent] from payload and
   /// append to [_events].
-  void _handleStreamEvent(WebSocketEvent wsEvent) {
+  void _handleStreamEvent(BroadcastEvent wsEvent) {
     final event = StreamEvent.fromMap(wsEvent.data);
     _events = [..._events, event];
   }
 
   /// Handle `.session.question` — store the raw data payload as
   /// [_pendingQuestion] so the view can prompt the user.
-  void _handleQuestionEvent(WebSocketEvent wsEvent) {
+  void _handleQuestionEvent(BroadcastEvent wsEvent) {
     _pendingQuestion = Map<String, dynamic>.from(wsEvent.data);
   }
 }

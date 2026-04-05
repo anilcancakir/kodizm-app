@@ -1,37 +1,44 @@
+import 'dart:async';
+
 import 'package:magic/magic.dart';
 
-import '../events/websocket_event.dart';
 import '../models/project_repository.dart';
 
 // ---------------------------------------------------------------------------
-// WebSocket abstraction for testability
+// Broadcast abstraction for testability
 // ---------------------------------------------------------------------------
 
-/// Thin interface over WebSocket subscribe/unsubscribe for testability.
+/// Thin interface over broadcast subscribe/unsubscribe for testability.
 ///
-/// In production the default [_MagicRepoWebSocket] resolves the real
-/// [WebSocketService] singleton. Tests inject a fake.
+/// In production the default [_EchoRepoBroadcast] delegates to the [Echo]
+/// facade. Tests inject a fake.
 abstract class RepoWebSocket {
-  /// Subscribe to [channel] with an event callback.
-  void subscribe(String channel, void Function(WebSocketEvent) onEvent);
+  /// Subscribe to a private [channel] with an event callback.
+  ///
+  /// [channel] is the bare channel name without the `private-` prefix
+  /// (e.g. `team.abc`).
+  void subscribe(String channel, void Function(BroadcastEvent) onEvent);
 
-  /// Unsubscribe from [channel].
+  /// Unsubscribe from [channel] (bare name, no `private-` prefix).
   void unsubscribe(String channel);
 }
 
-/// Default production [RepoWebSocket] backed by the [WebSocketService]
-/// singleton registered in the Magic IoC container.
-class _MagicRepoWebSocket implements RepoWebSocket {
-  const _MagicRepoWebSocket();
+/// Default production [RepoWebSocket] backed by the [Echo] facade.
+class _EchoRepoBroadcast implements RepoWebSocket {
+  /// Active stream subscriptions keyed by channel name.
+  final Map<String, StreamSubscription<BroadcastEvent>> _subscriptions = {};
 
   @override
-  void subscribe(String channel, void Function(WebSocketEvent) onEvent) {
-    Magic.make('websocket').subscribe(channel, onEvent);
+  void subscribe(String channel, void Function(BroadcastEvent) onEvent) {
+    _subscriptions[channel]?.cancel();
+    _subscriptions[channel] = Echo.private(channel).events.listen(onEvent);
   }
 
   @override
   void unsubscribe(String channel) {
-    Magic.make('websocket').unsubscribe(channel);
+    _subscriptions[channel]?.cancel();
+    _subscriptions.remove(channel);
+    Echo.leave(channel);
   }
 }
 
@@ -66,10 +73,10 @@ class ProjectRepositoryState extends MagicController
     with MagicStateMixin<List<ProjectRepository>> {
   /// Creates a [ProjectRepositoryState] with optional [ws] for testing.
   ///
-  /// When [ws] is `null` (production), [_MagicRepoWebSocket] resolves the
-  /// registered WebSocketService.
+  /// When [ws] is `null` (production), [_EchoRepoBroadcast] delegates to the
+  /// [Echo] facade.
   ProjectRepositoryState({RepoWebSocket? ws})
-    : _ws = ws ?? const _MagicRepoWebSocket();
+    : _ws = ws ?? _EchoRepoBroadcast();
 
   /// Lazy singleton accessor.
   ///
@@ -113,24 +120,10 @@ class ProjectRepositoryState extends MagicController
   /// Sets loading, then populates `rxState` with the parsed repository list on
   /// success, or transitions to error on failure.
   Future<void> fetchRepositories(String teamId, String projectId) async {
-    setLoading();
-
-    final response = await Http.get(
+    await fetchList<ProjectRepository>(
       '/teams/$teamId/projects/$projectId/repositories',
+      ProjectRepository.fromMap,
     );
-
-    if (response.successful) {
-      final List<dynamic> items =
-          (response.data as Map<String, dynamic>)['data'] as List<dynamic>;
-      final repos = items
-          .map(
-            (item) => ProjectRepository.fromMap(item as Map<String, dynamic>),
-          )
-          .toList();
-      repos.isEmpty ? setEmpty() : setSuccess(repos);
-    } else {
-      setError(response.errorMessage ?? 'Failed to fetch repositories');
-    }
   }
 
   // ---------------------------------------------------------------------------
@@ -273,7 +266,7 @@ class ProjectRepositoryState extends MagicController
   void subscribeToTeam(String teamId, String projectId) {
     if (_activeChannel != null) unsubscribeFromTeam();
 
-    final channel = 'private-team.$teamId';
+    final channel = 'team.$teamId';
     _activeChannel = channel;
     _activeProjectId = projectId;
     _activeTeamId = teamId;
@@ -304,8 +297,8 @@ class ProjectRepositoryState extends MagicController
   }
 
   /// Handle a WebSocket event from the team channel.
-  void _handleWebSocketEvent(WebSocketEvent wsEvent) {
-    if (wsEvent.eventName != '.repo.status') return;
+  void _handleWebSocketEvent(BroadcastEvent wsEvent) {
+    if (wsEvent.event != '.repo.status') return;
 
     final data = wsEvent.data;
 

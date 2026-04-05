@@ -2,7 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
 import 'package:magic/testing.dart';
 
-import 'package:app/app/events/websocket_event.dart';
 import 'package:app/app/models/agent_role.dart';
 import 'package:app/app/models/chat_item.dart';
 import 'package:app/app/state/conversation_chat_state.dart';
@@ -87,13 +86,13 @@ const Map<String, dynamic> kMessagesResponse = {
 class _FakeWebSocketService implements ConversationChatWebSocket {
   final List<String> subscribedChannels = [];
   final List<String> unsubscribedChannels = [];
-  final Map<String, void Function(WebSocketEvent)> callbacks = {};
+  final Map<String, void Function(BroadcastEvent)> callbacks = {};
 
   @override
   Stream<void> get onReconnect => const Stream.empty();
 
   @override
-  void subscribe(String channel, void Function(WebSocketEvent) onEvent) {
+  void subscribe(String channel, void Function(BroadcastEvent) onEvent) {
     subscribedChannels.add(channel);
     callbacks[channel] = onEvent;
   }
@@ -105,7 +104,7 @@ class _FakeWebSocketService implements ConversationChatWebSocket {
   }
 
   /// Simulate an incoming event on a channel.
-  void simulateEvent(String channel, WebSocketEvent event) {
+  void simulateEvent(String channel, BroadcastEvent event) {
     callbacks[channel]?.call(event);
   }
 }
@@ -184,7 +183,7 @@ void main() {
         // Verify WS subscription.
         expect(
           ws.subscribedChannels,
-          contains('private-conversation.conv-uuid-001'),
+          contains('conversation.conv-uuid-001'),
         );
       },
     );
@@ -316,10 +315,9 @@ void main() {
         agentRoleId: 'role-uuid-001',
       );
 
-      final wsEvent = WebSocketEvent(
-        id: 'ws:msg:1',
+      final wsEvent = BroadcastEvent(
         channel: 'private-conversation.conv-uuid-001',
-        eventName: '.conversation.message',
+        event: '.conversation.message',
         data: {
           'conversation_id': 'conv-uuid-001',
           'type': 'assistant',
@@ -343,10 +341,9 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('addEvent with null content does not append message', () {
-      final wsEvent = WebSocketEvent(
-        id: 'ws:msg:null',
+      final wsEvent = BroadcastEvent(
         channel: 'private-conversation.conv-uuid-001',
-        eventName: '.conversation.message',
+        event: '.conversation.message',
         data: {
           'conversation_id': 'conv-uuid-001',
           'type': 'assistant',
@@ -383,10 +380,9 @@ void main() {
         );
         expect(state.conversation!.status, equals('active'));
 
-        final wsEvent = WebSocketEvent(
-          id: 'ws:status:1',
+        final wsEvent = BroadcastEvent(
           channel: 'private-conversation.conv-uuid-001',
-          eventName: '.conversation.status',
+          event: '.conversation.status',
           data: {
             'conversation_id': 'conv-uuid-001',
             'status': 'processing',
@@ -408,10 +404,9 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('addEvent with unknown type appends to raw events only', () {
-      final wsEvent = WebSocketEvent(
-        id: 'ws:unknown:1',
+      final wsEvent = BroadcastEvent(
         channel: 'private-conversation.conv-uuid-001',
-        eventName: '.conversation.something_else',
+        event: '.conversation.something_else',
         data: {'foo': 'bar'},
         receivedAt: DateTime.now(),
       );
@@ -421,7 +416,7 @@ void main() {
       expect(state.messages, isEmpty);
       expect(state.rawEvents.length, equals(1));
       expect(
-        state.rawEvents.first.eventName,
+        state.rawEvents.first.event,
         equals('.conversation.something_else'),
       );
     });
@@ -528,7 +523,7 @@ void main() {
       expect(state.warmUntil, isNull);
       expect(
         ws.unsubscribedChannels,
-        contains('private-conversation.conv-uuid-001'),
+        contains('conversation.conv-uuid-001'),
       );
     });
 
@@ -552,10 +547,9 @@ void main() {
       // Simulate WS event via the fake service.
       ws.simulateEvent(
         'private-conversation.conv-uuid-001',
-        WebSocketEvent(
-          id: 'ws:sim:1',
+        BroadcastEvent(
           channel: 'private-conversation.conv-uuid-001',
-          eventName: '.conversation.message',
+          event: '.conversation.message',
           data: {
             'conversation_id': 'conv-uuid-001',
             'type': 'assistant',
@@ -600,10 +594,9 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('addEvent with .conversation.status without conversation is safe', () {
-      final wsEvent = WebSocketEvent(
-        id: 'ws:status:orphan',
+      final wsEvent = BroadcastEvent(
         channel: 'private-conversation.conv-uuid-001',
-        eventName: '.conversation.status',
+        event: '.conversation.status',
         data: {
           'conversation_id': 'conv-uuid-001',
           'status': 'processing',
@@ -665,7 +658,7 @@ void main() {
         // WS subscription to conversation channel.
         expect(
           ws.subscribedChannels,
-          contains('private-conversation.conv-uuid-001'),
+          contains('conversation.conv-uuid-001'),
         );
       },
     );
@@ -711,10 +704,9 @@ void main() {
 
         expect(state.sessionId, isNull);
 
-        final wsEvent = WebSocketEvent(
-          id: 'ws:status:with-session',
+        final wsEvent = BroadcastEvent(
           channel: 'private-conversation.conv-uuid-001',
-          eventName: '.conversation.status',
+          event: '.conversation.status',
           data: {
             'conversation_id': 'conv-uuid-001',
             'status': 'processing',
@@ -731,7 +723,7 @@ void main() {
         // Session WS channel subscribed.
         expect(
           ws.subscribedChannels,
-          contains('private-session.sess-uuid-001'),
+          contains('session.sess-uuid-001'),
         );
       },
     );
@@ -755,10 +747,9 @@ void main() {
 
       // Trigger session subscription via status event.
       state.addEvent(
-        WebSocketEvent(
-          id: 'ws:status:sess',
+        BroadcastEvent(
           channel: 'private-conversation.conv-uuid-001',
-          eventName: '.conversation.status',
+          event: '.conversation.status',
           data: {
             'conversation_id': 'conv-uuid-001',
             'status': 'processing',
@@ -773,11 +764,10 @@ void main() {
 
       // Simulate .session.cost event.
       ws.simulateEvent(
-        'private-session.sess-uuid-001',
-        WebSocketEvent(
-          id: 'ws:session:cost:1',
-          channel: 'private-session.sess-uuid-001',
-          eventName: '.session.cost',
+        'session.sess-uuid-001',
+        BroadcastEvent(
+          channel: 'session.sess-uuid-001',
+          event: '.session.cost',
           data: {'running_total_usd': '0.0042'},
           receivedAt: DateTime.now(),
         ),
@@ -787,11 +777,10 @@ void main() {
 
       // Simulate .session.status event.
       ws.simulateEvent(
-        'private-session.sess-uuid-001',
-        WebSocketEvent(
-          id: 'ws:session:status:1',
-          channel: 'private-session.sess-uuid-001',
-          eventName: '.session.status',
+        'session.sess-uuid-001',
+        BroadcastEvent(
+          channel: 'session.sess-uuid-001',
+          event: '.session.status',
           data: {'phase': 'executing'},
           receivedAt: DateTime.now(),
         ),
@@ -820,10 +809,9 @@ void main() {
         );
 
         state.addEvent(
-          WebSocketEvent(
-            id: 'ws:status:sess:reset',
+          BroadcastEvent(
             channel: 'private-conversation.conv-uuid-001',
-            eventName: '.conversation.status',
+            event: '.conversation.status',
             data: {
               'conversation_id': 'conv-uuid-001',
               'status': 'processing',
@@ -843,7 +831,7 @@ void main() {
         expect(state.sessionPhase, isNull);
         expect(
           ws.unsubscribedChannels,
-          contains('private-session.sess-uuid-001'),
+          contains('session.sess-uuid-001'),
         );
       },
     );
@@ -866,10 +854,9 @@ void main() {
 
       ws.simulateEvent(
         'private-conversation.conv-uuid-001',
-        WebSocketEvent(
-          id: 'ws:tool:1',
+        BroadcastEvent(
           channel: 'private-conversation.conv-uuid-001',
-          eventName: '.conversation.message',
+          event: '.conversation.message',
           data: {
             'type': 'tool_use',
             'content': null,
@@ -908,10 +895,9 @@ void main() {
 
       ws.simulateEvent(
         'private-conversation.conv-uuid-001',
-        WebSocketEvent(
-          id: 'ws:think:1',
+        BroadcastEvent(
           channel: 'private-conversation.conv-uuid-001',
-          eventName: '.conversation.message',
+          event: '.conversation.message',
           data: {
             'type': 'thinking',
             'content': 'Analyzing the code...',
@@ -950,10 +936,9 @@ void main() {
         // Start
         ws.simulateEvent(
           'private-conversation.conv-uuid-001',
-          WebSocketEvent(
-            id: 'ws:sub:start',
+          BroadcastEvent(
             channel: 'private-conversation.conv-uuid-001',
-            eventName: '.conversation.message',
+            event: '.conversation.message',
             data: {
               'type': 'subagent_start',
               'content': null,
@@ -972,10 +957,9 @@ void main() {
         // Stop
         ws.simulateEvent(
           'private-conversation.conv-uuid-001',
-          WebSocketEvent(
-            id: 'ws:sub:stop',
+          BroadcastEvent(
             channel: 'private-conversation.conv-uuid-001',
-            eventName: '.conversation.message',
+            event: '.conversation.message',
             data: {
               'type': 'subagent_stop',
               'content': null,
@@ -1015,10 +999,9 @@ void main() {
 
       ws.simulateEvent(
         'private-conversation.conv-uuid-001',
-        WebSocketEvent(
-          id: 'ws:file:1',
+        BroadcastEvent(
           channel: 'private-conversation.conv-uuid-001',
-          eventName: '.conversation.message',
+          event: '.conversation.message',
           data: {
             'type': 'file_change',
             'content': null,
@@ -1061,10 +1044,9 @@ void main() {
 
       ws.simulateEvent(
         'private-conversation.conv-uuid-001',
-        WebSocketEvent(
-          id: 'ws:err:1',
+        BroadcastEvent(
           channel: 'private-conversation.conv-uuid-001',
-          eventName: '.conversation.message',
+          event: '.conversation.message',
           data: {
             'type': 'error',
             'content': 'Rate limit exceeded',
@@ -1100,10 +1082,9 @@ void main() {
 
       ws.simulateEvent(
         'private-conversation.conv-uuid-001',
-        WebSocketEvent(
-          id: 'ws:result:1',
+        BroadcastEvent(
           channel: 'private-conversation.conv-uuid-001',
-          eventName: '.conversation.message',
+          event: '.conversation.message',
           data: {
             'type': 'result',
             'content': 'Task completed',
@@ -1223,10 +1204,9 @@ void main() {
 
       ws.simulateEvent(
         'private-conversation.conv-uuid-001',
-        WebSocketEvent(
-          id: 'ws:think:reset',
+        BroadcastEvent(
           channel: 'private-conversation.conv-uuid-001',
-          eventName: '.conversation.message',
+          event: '.conversation.message',
           data: {
             'type': 'thinking',
             'content': 'Some thought',
@@ -1401,10 +1381,9 @@ void main() {
 
       ws.simulateEvent(
         'private-conversation.conv-uuid-001',
-        WebSocketEvent(
-          id: 'ws:tool:38',
+        BroadcastEvent(
           channel: 'private-conversation.conv-uuid-001',
-          eventName: '.conversation.message',
+          event: '.conversation.message',
           data: {
             'type': 'tool_use',
             'content': null,
@@ -1446,10 +1425,9 @@ void main() {
         // First: emit the tool_use that creates the card.
         ws.simulateEvent(
           'private-conversation.conv-uuid-001',
-          WebSocketEvent(
-            id: 'ws:tool:39a',
+          BroadcastEvent(
             channel: 'private-conversation.conv-uuid-001',
-            eventName: '.conversation.message',
+            event: '.conversation.message',
             data: {
               'type': 'tool_use',
               'content': null,
@@ -1472,10 +1450,9 @@ void main() {
         // Then: emit the tool_result that should populate the card.
         ws.simulateEvent(
           'private-conversation.conv-uuid-001',
-          WebSocketEvent(
-            id: 'ws:tool:39b',
+          BroadcastEvent(
             channel: 'private-conversation.conv-uuid-001',
-            eventName: '.conversation.message',
+            event: '.conversation.message',
             data: {
               'type': 'tool_result',
               'content': 'file contents here',
@@ -1515,10 +1492,9 @@ void main() {
 
         ws.simulateEvent(
           'private-conversation.conv-uuid-001',
-          WebSocketEvent(
-            id: 'ws:tool:40',
+          BroadcastEvent(
             channel: 'private-conversation.conv-uuid-001',
-            eventName: '.conversation.message',
+            event: '.conversation.message',
             data: {
               'type': 'tool_result',
               'content': 'orphan result',

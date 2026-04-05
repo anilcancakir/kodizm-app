@@ -2,7 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
 import 'package:magic/testing.dart';
 
-import 'package:app/app/events/websocket_event.dart';
 import 'package:app/app/state/session_state.dart';
 
 // ---------------------------------------------------------------------------
@@ -98,10 +97,10 @@ const Map<String, dynamic> kStreamEventFixture = {
 class _FakeSessionWebSocket implements SessionWebSocket {
   final List<String> subscribed = [];
   final List<String> unsubscribed = [];
-  void Function(WebSocketEvent)? lastHandler;
+  void Function(BroadcastEvent)? lastHandler;
 
   @override
-  void subscribe(String channel, void Function(WebSocketEvent) onEvent) {
+  void subscribe(String channel, void Function(BroadcastEvent) onEvent) {
     subscribed.add(channel);
     lastHandler = onEvent;
   }
@@ -448,10 +447,9 @@ void main() {
         () {
           expect(state.currentSession!.phase, equals('executing'));
 
-          final wsEvent = WebSocketEvent(
-            id: 'ws:status:1',
-            channel: 'private-session.session-uuid-001',
-            eventName: '.session.status',
+          final wsEvent = BroadcastEvent(
+            channel: 'session.session-uuid-001',
+            event: '.session.status',
             data: {'phase': 'warm'},
             receivedAt: DateTime.now(),
           );
@@ -469,10 +467,9 @@ void main() {
       test('.session.status without phase field leaves phase unchanged', () {
         final originalPhase = state.currentSession!.phase;
 
-        final wsEvent = WebSocketEvent(
-          id: 'ws:status:2',
-          channel: 'private-session.session-uuid-001',
-          eventName: '.session.status',
+        final wsEvent = BroadcastEvent(
+          channel: 'session.session-uuid-001',
+          event: '.session.status',
           data: {'other_field': 'value'},
           receivedAt: DateTime.now(),
         );
@@ -490,10 +487,9 @@ void main() {
         expect(state.currentSession!.totalCostUsd, closeTo(0.0126, 0.0001));
         expect(state.currentSession!.usageRecords, isEmpty);
 
-        final wsEvent = WebSocketEvent(
-          id: 'ws:cost:1',
-          channel: 'private-session.session-uuid-001',
-          eventName: '.session.cost',
+        final wsEvent = BroadcastEvent(
+          channel: 'session.session-uuid-001',
+          event: '.session.cost',
           data: {
             'total_cost_usd': '0.025000',
             'total_input_tokens': 8400,
@@ -522,10 +518,9 @@ void main() {
       // ---------------------------------------------------------------------
 
       test('.session.cost without usage_record only updates cost totals', () {
-        final wsEvent = WebSocketEvent(
-          id: 'ws:cost:2',
-          channel: 'private-session.session-uuid-001',
-          eventName: '.session.cost',
+        final wsEvent = BroadcastEvent(
+          channel: 'session.session-uuid-001',
+          event: '.session.cost',
           data: {
             'total_cost_usd': '0.030000',
             'total_input_tokens': 10000,
@@ -549,10 +544,9 @@ void main() {
       test('.session.stream appends StreamEvent to events list', () {
         expect(state.events, isEmpty);
 
-        final wsEvent = WebSocketEvent(
-          id: 'ws:stream:1',
-          channel: 'private-session.session-uuid-001',
-          eventName: '.session.stream',
+        final wsEvent = BroadcastEvent(
+          channel: 'session.session-uuid-001',
+          event: '.session.stream',
           data: {
             'id': 'evt-ws-001',
             'type': 'assistant_delta',
@@ -586,10 +580,9 @@ void main() {
       test('.session.question stores pending question', () {
         expect(state.pendingQuestion, isNull);
 
-        final wsEvent = WebSocketEvent(
-          id: 'ws:question:1',
-          channel: 'private-session.session-uuid-001',
-          eventName: '.session.question',
+        final wsEvent = BroadcastEvent(
+          channel: 'session.session-uuid-001',
+          event: '.session.question',
           data: {
             'question_id': 'question-uuid-ws-001',
             'question_text': 'Should I proceed with the refactor?',
@@ -615,17 +608,15 @@ void main() {
       // ---------------------------------------------------------------------
 
       test('.session.question overwrites previous pending question', () {
-        final wsEvent1 = WebSocketEvent(
-          id: 'ws:question:overwrite:1',
-          channel: 'private-session.session-uuid-001',
-          eventName: '.session.question',
+        final wsEvent1 = BroadcastEvent(
+          channel: 'session.session-uuid-001',
+          event: '.session.question',
           data: {'question_id': 'q-001', 'question_text': 'First question?'},
           receivedAt: DateTime.now(),
         );
-        final wsEvent2 = WebSocketEvent(
-          id: 'ws:question:overwrite:2',
-          channel: 'private-session.session-uuid-001',
-          eventName: '.session.question',
+        final wsEvent2 = BroadcastEvent(
+          channel: 'session.session-uuid-001',
+          event: '.session.question',
           data: {'question_id': 'q-002', 'question_text': 'Second question?'},
           receivedAt: DateTime.now(),
         );
@@ -643,10 +634,9 @@ void main() {
       test('unknown event name is ignored without throwing', () {
         expect(
           () => state.handleWebSocketEvent(
-            WebSocketEvent(
-              id: 'ws:unknown:1',
-              channel: 'private-session.session-uuid-001',
-              eventName: '.session.unknown',
+            BroadcastEvent(
+              channel: 'session.session-uuid-001',
+              event: '.session.unknown',
               data: {},
               receivedAt: DateTime.now(),
             ),
@@ -666,7 +656,7 @@ void main() {
     test('subscribeToSession registers correct channel name', () {
       state.subscribeToSession('session-uuid-001');
 
-      expect(state.activeChannel, equals('private-session.session-uuid-001'));
+      expect(state.activeChannel, equals('session.session-uuid-001'));
     });
 
     // -----------------------------------------------------------------------
@@ -692,10 +682,9 @@ void main() {
 
       state.subscribeToSession('session-uuid-001');
       state.handleWebSocketEvent(
-        WebSocketEvent(
-          id: 'ws:q:reset',
-          channel: 'private-session.session-uuid-001',
-          eventName: '.session.question',
+        BroadcastEvent(
+          channel: 'session.session-uuid-001',
+          event: '.session.question',
           data: {'question_id': 'q-reset', 'question_text': 'Reset?'},
           receivedAt: DateTime.now(),
         ),

@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
 import 'package:magic/testing.dart';
 
-import 'package:app/app/events/websocket_event.dart';
+
 import 'package:app/app/models/chat_item.dart';
 import 'package:app/app/state/conversation_chat_state.dart';
 
@@ -15,7 +15,7 @@ import 'package:app/app/state/conversation_chat_state.dart';
 class _FakeWebSocket implements ConversationChatWebSocket {
   final List<String> subscribedChannels = [];
   final List<String> unsubscribedChannels = [];
-  final Map<String, void Function(WebSocketEvent)> _callbacks = {};
+  final Map<String, void Function(BroadcastEvent)> _callbacks = {};
   final StreamController<void> _reconnectController =
       StreamController<void>.broadcast();
 
@@ -23,7 +23,7 @@ class _FakeWebSocket implements ConversationChatWebSocket {
   Stream<void> get onReconnect => _reconnectController.stream;
 
   @override
-  void subscribe(String channel, void Function(WebSocketEvent) onEvent) {
+  void subscribe(String channel, void Function(BroadcastEvent) onEvent) {
     subscribedChannels.add(channel);
     _callbacks[channel] = onEvent;
   }
@@ -34,7 +34,7 @@ class _FakeWebSocket implements ConversationChatWebSocket {
     _callbacks.remove(channel);
   }
 
-  void emit(String channel, WebSocketEvent event) {
+  void emit(String channel, BroadcastEvent event) {
     _callbacks[channel]?.call(event);
   }
 }
@@ -150,7 +150,7 @@ void main() {
       'message_status WebSocket event updates message status in timeline',
       () async {
         await loadExecutingConversation();
-        final channel = 'private-conversation.$kConversationId';
+        final channel = 'conversation.$kConversationId';
 
         // Stub the POST /messages call to return queued message.
         driver.stub('*/messages', _queuedMessageResponse(messageId: 'msg-1'));
@@ -161,10 +161,9 @@ void main() {
         // Simulate message_status WS event.
         ws.emit(
           channel,
-          WebSocketEvent(
-            id: 'ws-msg-status-1',
+          BroadcastEvent(
             channel: channel,
-            eventName: '.conversation.message',
+            event: '.conversation.message',
             data: {
               'conversation_id': kConversationId,
               'type': 'message_status',

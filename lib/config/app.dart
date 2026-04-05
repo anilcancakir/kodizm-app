@@ -1,7 +1,7 @@
 import 'package:magic/magic.dart';
+import 'package:magic_starter/magic_starter.dart';
 import '../app/providers/app_service_provider.dart';
 import '../app/providers/route_service_provider.dart';
-import 'package:magic_starter/magic_starter.dart';
 
 /// Application Configuration.
 Map<String, dynamic> get appConfig => {
@@ -18,6 +18,7 @@ Map<String, dynamic> get appConfig => {
       (app) => LocalizationServiceProvider(app),
       (app) => NetworkServiceProvider(app),
       (app) => VaultServiceProvider(app),
+      (app) => BroadcastServiceProvider(app),
       (app) => AppServiceProvider(app),
       (app) => AuthServiceProvider(app),
       (app) => MagicStarterServiceProvider(app),

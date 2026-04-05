@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
 import 'package:magic/testing.dart';
 
-import 'package:app/app/events/websocket_event.dart';
 import 'package:app/app/models/chat_item.dart';
 import 'package:app/app/state/conversation_chat_state.dart';
 
@@ -15,7 +14,7 @@ import 'package:app/app/state/conversation_chat_state.dart';
 class _FakeWebSocket implements ConversationChatWebSocket {
   final List<String> subscribedChannels = [];
   final List<String> unsubscribedChannels = [];
-  final Map<String, void Function(WebSocketEvent)> _callbacks = {};
+  final Map<String, void Function(BroadcastEvent)> _callbacks = {};
   final StreamController<void> _reconnectController =
       StreamController<void>.broadcast();
 
@@ -23,7 +22,7 @@ class _FakeWebSocket implements ConversationChatWebSocket {
   Stream<void> get onReconnect => _reconnectController.stream;
 
   @override
-  void subscribe(String channel, void Function(WebSocketEvent) onEvent) {
+  void subscribe(String channel, void Function(BroadcastEvent) onEvent) {
     subscribedChannels.add(channel);
     _callbacks[channel] = onEvent;
   }
@@ -38,7 +37,7 @@ class _FakeWebSocket implements ConversationChatWebSocket {
   bool hasCallback(String channel) => _callbacks.containsKey(channel);
 
   /// Emit a fake event to the registered callback for [channel].
-  void emit(String channel, WebSocketEvent event) {
+  void emit(String channel, BroadcastEvent event) {
     _callbacks[channel]?.call(event);
   }
 
@@ -118,11 +117,10 @@ MagicResponse _loadConversationResponse() {
   );
 }
 
-WebSocketEvent _textEvent({String content = 'Hello!'}) {
-  return WebSocketEvent(
-    id: 'ws-evt-${DateTime.now().microsecondsSinceEpoch}',
+BroadcastEvent _textEvent({String content = 'Hello!'}) {
+  return BroadcastEvent(
     channel: 'private-conversation.$kConversationId',
-    eventName: '.conversation.message',
+    event: '.conversation.message',
     data: {
       'conversation_id': kConversationId,
       'type': 'text',
@@ -134,17 +132,16 @@ WebSocketEvent _textEvent({String content = 'Hello!'}) {
   );
 }
 
-WebSocketEvent _subagentEvent({
+BroadcastEvent _subagentEvent({
   required String type,
   String? subagentId,
   String? toolUseId,
   String? description,
   Map<String, dynamic>? extra,
 }) {
-  return WebSocketEvent(
-    id: 'ws-evt-${DateTime.now().microsecondsSinceEpoch}',
+  return BroadcastEvent(
     channel: 'private-conversation.$kConversationId',
-    eventName: '.conversation.message',
+    event: '.conversation.message',
     data: {
       'conversation_id': kConversationId,
       'type': type,
@@ -162,11 +159,10 @@ WebSocketEvent _subagentEvent({
   );
 }
 
-WebSocketEvent _toolUseEvent({required String toolName, String? toolUseId}) {
-  return WebSocketEvent(
-    id: 'ws-evt-${DateTime.now().microsecondsSinceEpoch}',
+BroadcastEvent _toolUseEvent({required String toolName, String? toolUseId}) {
+  return BroadcastEvent(
     channel: 'private-conversation.$kConversationId',
-    eventName: '.conversation.message',
+    event: '.conversation.message',
     data: {
       'conversation_id': kConversationId,
       'type': 'tool_use',
@@ -225,10 +221,7 @@ void main() {
     test('createConversation subscribes to conversation channel', () async {
       await createConversation();
 
-      expect(
-        ws.subscribedChannels,
-        contains('private-conversation.$kConversationId'),
-      );
+      expect(ws.subscribedChannels, contains('conversation.$kConversationId'));
     });
 
     test('resubscribe re-subscribes to conversation channel', () async {
@@ -237,10 +230,7 @@ void main() {
 
       state.resubscribe();
 
-      expect(
-        ws.subscribedChannels,
-        contains('private-conversation.$kConversationId'),
-      );
+      expect(ws.subscribedChannels, contains('conversation.$kConversationId'));
     });
 
     test('resubscribe is a no-op when conversation is null', () {
@@ -258,7 +248,7 @@ void main() {
 
         expect(
           ws.unsubscribedChannels,
-          contains('private-conversation.$kConversationId'),
+          contains('conversation.$kConversationId'),
         );
       },
     );
@@ -270,7 +260,7 @@ void main() {
 
       expect(
         ws.unsubscribedChannels,
-        contains('private-conversation.$kConversationId'),
+        contains('conversation.$kConversationId'),
       );
       expect(state.conversation, isNull);
       expect(state.chatItems, isEmpty);
@@ -284,10 +274,9 @@ void main() {
 
         // Simulate a status event that sets sessionId.
         state.addEvent(
-          WebSocketEvent(
-            id: 'ws-status-1',
+          BroadcastEvent(
             channel: 'private-conversation.$kConversationId',
-            eventName: '.conversation.status',
+            event: '.conversation.status',
             data: {
               'conversation_id': kConversationId,
               'status': 'active',
@@ -303,8 +292,8 @@ void main() {
         expect(
           ws.subscribedChannels,
           containsAll([
-            'private-conversation.$kConversationId',
-            'private-session.session-uuid-001',
+            'conversation.$kConversationId',
+            'session.session-uuid-001',
           ]),
         );
       },
@@ -326,7 +315,7 @@ void main() {
       state.unsubscribeChannels();
 
       // The WS callback should be gone because unsubscribe ran after.
-      expect(ws.hasCallback('private-conversation.$kConversationId'), isFalse);
+      expect(ws.hasCallback('conversation.$kConversationId'), isFalse);
     });
 
     test(
@@ -339,11 +328,11 @@ void main() {
         state.resubscribe();
 
         // The WS callback should still be active.
-        expect(ws.hasCallback('private-conversation.$kConversationId'), isTrue);
+        expect(ws.hasCallback('conversation.$kConversationId'), isTrue);
 
         // Events should still be processed.
         ws.emit(
-          'private-conversation.$kConversationId',
+          'conversation.$kConversationId',
           _textEvent(content: 'After route change'),
         );
 
@@ -370,10 +359,9 @@ void main() {
       await createConversation();
 
       state.addEvent(
-        WebSocketEvent(
-          id: 'ws-null',
+        BroadcastEvent(
           channel: 'private-conversation.$kConversationId',
-          eventName: '.conversation.message',
+          event: '.conversation.message',
           data: {
             'conversation_id': kConversationId,
             'type': 'text',
@@ -394,10 +382,9 @@ void main() {
       await createConversation();
 
       state.addEvent(
-        WebSocketEvent(
-          id: 'ws-status',
+        BroadcastEvent(
           channel: 'private-conversation.$kConversationId',
-          eventName: '.conversation.status',
+          event: '.conversation.status',
           data: {
             'conversation_id': kConversationId,
             'status': 'warm',
@@ -414,10 +401,9 @@ void main() {
       await createConversation();
 
       state.addEvent(
-        WebSocketEvent(
-          id: 'ws-think',
+        BroadcastEvent(
           channel: 'private-conversation.$kConversationId',
-          eventName: '.conversation.message',
+          event: '.conversation.message',
           data: {
             'conversation_id': kConversationId,
             'type': 'thinking',
@@ -437,10 +423,9 @@ void main() {
       state.setAwaitingResponseForTest(value: true);
 
       state.addEvent(
-        WebSocketEvent(
-          id: 'ws-result',
+        BroadcastEvent(
           channel: 'private-conversation.$kConversationId',
-          eventName: '.conversation.message',
+          event: '.conversation.message',
           data: {
             'conversation_id': kConversationId,
             'type': 'result',
@@ -462,10 +447,9 @@ void main() {
       state.setAwaitingResponseForTest(value: true);
 
       state.addEvent(
-        WebSocketEvent(
-          id: 'ws-system',
+        BroadcastEvent(
           channel: 'private-conversation.$kConversationId',
-          eventName: '.conversation.message',
+          event: '.conversation.message',
           data: {
             'conversation_id': kConversationId,
             'type': 'system',
@@ -491,10 +475,9 @@ void main() {
 
       // Add tool_use event.
       state.addEvent(
-        WebSocketEvent(
-          id: 'ws-tu',
+        BroadcastEvent(
           channel: 'private-conversation.$kConversationId',
-          eventName: '.conversation.message',
+          event: '.conversation.message',
           data: {
             'conversation_id': kConversationId,
             'type': 'tool_use',
@@ -516,10 +499,9 @@ void main() {
 
       // Add tool_result event with matching toolUseId.
       state.addEvent(
-        WebSocketEvent(
-          id: 'ws-tr',
+        BroadcastEvent(
           channel: 'private-conversation.$kConversationId',
-          eventName: '.conversation.message',
+          event: '.conversation.message',
           data: {
             'conversation_id': kConversationId,
             'type': 'tool_result',
@@ -551,10 +533,7 @@ void main() {
 
       expect(state.conversation, isNotNull);
       expect(state.conversation?.id, kConversationId);
-      expect(
-        ws.subscribedChannels,
-        contains('private-conversation.$kConversationId'),
-      );
+      expect(ws.subscribedChannels, contains('conversation.$kConversationId'));
     });
   });
 
@@ -593,15 +572,14 @@ void main() {
 
     test('guards against sending while question is pending', () async {
       await createConversation();
-      final channel = 'private-conversation.$kConversationId';
+      final channel = 'conversation.$kConversationId';
 
       // Simulate a question event arriving via WS.
       ws.emit(
         channel,
-        WebSocketEvent(
-          id: 'ws-question-1',
+        BroadcastEvent(
           channel: channel,
-          eventName: '.conversation.message',
+          event: '.conversation.message',
           data: {
             'conversation_id': kConversationId,
             'type': 'question',
@@ -652,7 +630,7 @@ void main() {
   group('parallel subagent nesting', () {
     test('interleaved events nest under correct subagent', () async {
       await createConversation();
-      final channel = 'private-conversation.$kConversationId';
+      final channel = 'conversation.$kConversationId';
 
       // Parent spawns Agent(Explore) tool_use — forced top-level.
       ws.emit(
@@ -756,7 +734,7 @@ void main() {
 
     test('subagent_stop switches current to remaining active', () async {
       await createConversation();
-      final channel = 'private-conversation.$kConversationId';
+      final channel = 'conversation.$kConversationId';
 
       // Start two subagents.
       ws.emit(
@@ -899,15 +877,14 @@ void main() {
       ]);
 
       // The WS event with the same stream_event_id should be skipped.
-      final channel = 'private-conversation.$kConversationId';
+      final channel = 'conversation.$kConversationId';
       final beforeCount = state.chatItems.length;
 
       ws.emit(
         channel,
-        WebSocketEvent(
-          id: 'ws-dup',
+        BroadcastEvent(
           channel: channel,
-          eventName: '.conversation.message',
+          event: '.conversation.message',
           data: {
             'conversation_id': kConversationId,
             'type': 'thinking',
@@ -935,14 +912,13 @@ void main() {
   group('Event ID dedup', () {
     test('WS event with new stream_event_id is processed', () async {
       await createConversation();
-      final channel = 'private-conversation.$kConversationId';
+      final channel = 'conversation.$kConversationId';
 
       ws.emit(
         channel,
-        WebSocketEvent(
-          id: 'ws-new',
+        BroadcastEvent(
           channel: channel,
-          eventName: '.conversation.message',
+          event: '.conversation.message',
           data: {
             'conversation_id': kConversationId,
             'type': 'tool_use',
@@ -964,12 +940,11 @@ void main() {
 
     test('duplicate stream_event_id is silently skipped', () async {
       await createConversation();
-      final channel = 'private-conversation.$kConversationId';
+      final channel = 'conversation.$kConversationId';
 
-      final event = WebSocketEvent(
-        id: 'ws-dup-1',
+      final event = BroadcastEvent(
         channel: channel,
-        eventName: '.conversation.message',
+        event: '.conversation.message',
         data: {
           'conversation_id': kConversationId,
           'type': 'tool_use',
@@ -994,7 +969,7 @@ void main() {
 
     test('events without stream_event_id are always processed', () async {
       await createConversation();
-      final channel = 'private-conversation.$kConversationId';
+      final channel = 'conversation.$kConversationId';
 
       // Two events with null stream_event_id — both should be processed.
       ws.emit(channel, _textEvent(content: 'First'));
@@ -1007,14 +982,13 @@ void main() {
 
     test('seenEventIds cleared on reset', () async {
       await createConversation();
-      final channel = 'private-conversation.$kConversationId';
+      final channel = 'conversation.$kConversationId';
 
       ws.emit(
         channel,
-        WebSocketEvent(
-          id: 'ws-1',
+        BroadcastEvent(
           channel: channel,
-          eventName: '.conversation.message',
+          event: '.conversation.message',
           data: {
             'conversation_id': kConversationId,
             'type': 'tool_use',
@@ -1037,10 +1011,9 @@ void main() {
       // After reset, the same stream_event_id should be processed again.
       ws.emit(
         'private-conversation.$kConversationId',
-        WebSocketEvent(
-          id: 'ws-2',
+        BroadcastEvent(
           channel: 'private-conversation.$kConversationId',
-          eventName: '.conversation.message',
+          event: '.conversation.message',
           data: {
             'conversation_id': kConversationId,
             'type': 'tool_use',

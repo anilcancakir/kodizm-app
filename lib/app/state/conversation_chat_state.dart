@@ -6,7 +6,6 @@ import 'dart:isolate';
 import 'package:flutter/foundation.dart';
 import 'package:magic/magic.dart';
 
-import '../events/websocket_event.dart';
 import '../models/agent_role.dart';
 import '../models/chat_item.dart';
 import '../models/conversation.dart';
@@ -14,22 +13,47 @@ import '../models/conversation_message.dart';
 import '../models/message_attachment.dart';
 
 // ---------------------------------------------------------------------------
-// WebSocket abstraction for testability
+// Broadcast abstraction for testability
 // ---------------------------------------------------------------------------
 
-/// Thin interface over WebSocket subscribe/unsubscribe for testing.
+/// Thin interface over broadcast subscribe/unsubscribe for testing.
 ///
-/// In production callers pass the real [WebSocketService] instance (which
-/// implements this interface implicitly). Tests inject a fake.
+/// In production the default [EchoChatBroadcast] delegates to the [Echo]
+/// facade. Tests inject a fake.
 abstract class ConversationChatWebSocket {
-  /// Subscribe to [channel] with an event callback.
-  void subscribe(String channel, void Function(WebSocketEvent) onEvent);
+  /// Subscribe to a private [channel] with an event callback.
+  ///
+  /// [channel] is the bare channel name without the `private-` prefix
+  /// (e.g. `conversation.abc`). The implementation adds the prefix as needed.
+  void subscribe(String channel, void Function(BroadcastEvent) onEvent);
 
-  /// Unsubscribe from [channel].
+  /// Unsubscribe from [channel] (bare name, no `private-` prefix).
   void unsubscribe(String channel);
 
-  /// Stream that emits after each successful WS reconnection.
+  /// Stream that emits after each successful reconnection.
   Stream<void> get onReconnect;
+}
+
+/// Default production [ConversationChatWebSocket] backed by the [Echo] facade.
+class EchoChatBroadcast implements ConversationChatWebSocket {
+  /// Active stream subscriptions keyed by channel name.
+  final Map<String, StreamSubscription<BroadcastEvent>> _subscriptions = {};
+
+  @override
+  void subscribe(String channel, void Function(BroadcastEvent) onEvent) {
+    _subscriptions[channel]?.cancel();
+    _subscriptions[channel] = Echo.private(channel).events.listen(onEvent);
+  }
+
+  @override
+  void unsubscribe(String channel) {
+    _subscriptions[channel]?.cancel();
+    _subscriptions.remove(channel);
+    Echo.leave(channel);
+  }
+
+  @override
+  Stream<void> get onReconnect => Echo.onReconnect;
 }
 
 // ---------------------------------------------------------------------------
@@ -77,10 +101,10 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   /// Creates a [ConversationChatState] with optional injectable
   /// dependencies for testing.
   ///
-  /// When [webSocket] is `null`, no WS operations are performed
-  /// (the view layer must wire the real [WebSocketService]).
+  /// When [webSocket] is `null`, the default [EchoChatBroadcast] is used
+  /// which delegates to the [Echo] facade.
   ConversationChatState({ConversationChatWebSocket? webSocket})
-    : _ws = webSocket;
+    : _ws = webSocket ?? EchoChatBroadcast();
 
   /// Lazy singleton accessor.
   ///
@@ -89,7 +113,7 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   static ConversationChatState get instance =>
       Magic.findOrPut(ConversationChatState.new);
 
-  final ConversationChatWebSocket? _ws;
+  final ConversationChatWebSocket _ws;
 
   // ---------------------------------------------------------------------------
   // State fields
@@ -107,7 +131,7 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   /// Maps Agent tool_use_id → agent name (subagent_type or name) for badge
   /// display. Populated when tool_use events with toolName == 'Agent' arrive.
   final Map<String, String> _agentToolNames = {};
-  List<WebSocketEvent> _rawEvents = [];
+  List<BroadcastEvent> _rawEvents = [];
   bool _isSending = false;
   Future<void>? _activeSendFuture;
   bool _awaitingResponse = false;
@@ -178,7 +202,7 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
       .toList();
 
   /// All raw WebSocket events received, for debug display.
-  List<WebSocketEvent> get rawEvents => List.unmodifiable(_rawEvents);
+  List<BroadcastEvent> get rawEvents => List.unmodifiable(_rawEvents);
 
   /// Whether a message send is currently in progress.
   bool get isSending => _isSending;
@@ -395,9 +419,9 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
     _conversation = Conversation.fromMap(data);
 
     // -- Subscribe to WS channel --
-    final channel = 'private-conversation.${_conversation!.id}';
+    final channel = 'conversation.${_conversation!.id}';
     _subscribedChannel = channel;
-    _ws?.subscribe(channel, addEvent);
+    _ws.subscribe(channel, addEvent);
 
     refreshUI();
   }
@@ -474,13 +498,13 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
     }
 
     // -- Subscribe to conversation WS channel --
-    final channel = 'private-conversation.${_conversation!.id}';
+    final channel = 'conversation.${_conversation!.id}';
     _subscribedChannel = channel;
-    _ws?.subscribe(channel, addEvent);
+    _ws.subscribe(channel, addEvent);
 
     // -- Listen for WS reconnects to catch up on missed events --
     _reconnectSubscription?.cancel();
-    _reconnectSubscription = _ws?.onReconnect.listen((_) {
+    _reconnectSubscription = _ws.onReconnect.listen((_) {
       _catchUpAfterReconnect();
     });
 
@@ -720,16 +744,16 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   // addEvent
   // ---------------------------------------------------------------------------
 
-  /// Process a raw [WebSocketEvent] from the conversation channel.
+  /// Process a raw [BroadcastEvent] from the conversation channel.
   ///
   /// Always appends to [rawEvents] for debug display. Routes known event
   /// types (`.conversation.message`, `.conversation.status`) to their
   /// respective handlers. Unknown event types are silently ignored (already
   /// captured in raw events).
-  void addEvent(WebSocketEvent wsEvent) {
+  void addEvent(BroadcastEvent wsEvent) {
     _rawEvents = [..._rawEvents, wsEvent];
 
-    switch (wsEvent.eventName) {
+    switch (wsEvent.event) {
       case '.conversation.message':
         _handleMessageEvent(wsEvent);
       case '.conversation.status':
@@ -1031,12 +1055,12 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   /// when navigating to a *different* conversation.
   void unsubscribeChannels() {
     if (_subscribedChannel != null) {
-      _ws?.unsubscribe(_subscribedChannel!);
+      _ws.unsubscribe(_subscribedChannel!);
       _subscribedChannel = null;
     }
 
     if (_subscribedSessionChannel != null) {
-      _ws?.unsubscribe(_subscribedSessionChannel!);
+      _ws.unsubscribe(_subscribedSessionChannel!);
       _subscribedSessionChannel = null;
     }
   }
@@ -1048,14 +1072,14 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   void resubscribe() {
     if (_conversation == null) return;
 
-    final channel = 'private-conversation.${_conversation!.id}';
+    final channel = 'conversation.${_conversation!.id}';
     _subscribedChannel = channel;
-    _ws?.subscribe(channel, addEvent);
+    _ws.subscribe(channel, addEvent);
 
     if (_sessionId != null) {
-      final sessionChannel = 'private-session.$_sessionId';
+      final sessionChannel = 'session.$_sessionId';
       _subscribedSessionChannel = sessionChannel;
-      _ws?.subscribe(sessionChannel, _handleSessionEvent);
+      _ws.subscribe(sessionChannel, _handleSessionEvent);
     }
   }
 
@@ -1128,7 +1152,7 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   /// Detects `tool_use` (AskUserQuestion options), `question` (answerable),
   /// and `permission` events. All other recognized types are appended as
   /// typed [ChatItem] subclasses to [_chatItems].
-  void _handleMessageEvent(WebSocketEvent wsEvent) {
+  void _handleMessageEvent(BroadcastEvent wsEvent) {
     final eventType = wsEvent.data['type'] as String?;
     final metadata = wsEvent.data['metadata'] as Map<String, dynamic>?;
 
@@ -1509,7 +1533,7 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   /// Handle `.conversation.status` — update conversation status,
   /// extract `warm_until`, and wire up the session WS channel when
   /// `session_id` becomes known for the first time.
-  void _handleStatusEvent(WebSocketEvent wsEvent) {
+  void _handleStatusEvent(BroadcastEvent wsEvent) {
     final status = wsEvent.data['status'] as String?;
 
     if (status != null && _conversation != null) {
@@ -1535,15 +1559,15 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
     final incomingSessionId = wsEvent.data['session_id'] as String?;
     if (incomingSessionId != null && _sessionId != incomingSessionId) {
       _sessionId = incomingSessionId;
-      final sessionChannel = 'private-session.$_sessionId';
+      final sessionChannel = 'session.$_sessionId';
       _subscribedSessionChannel = sessionChannel;
-      _ws?.subscribe(sessionChannel, _handleSessionEvent);
+      _ws.subscribe(sessionChannel, _handleSessionEvent);
     }
   }
 
   /// Handle `.conversation.title` — update the conversation title in real-time
   /// when the CC CLI generates an AI title.
-  void _handleTitleEvent(WebSocketEvent wsEvent) {
+  void _handleTitleEvent(BroadcastEvent wsEvent) {
     final title = wsEvent.data['title'] as String?;
 
     if (title != null && _conversation != null) {
@@ -1551,12 +1575,12 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
     }
   }
 
-  /// Handle events arriving on the `private-session.{sessionId}` channel.
+  /// Handle events arriving on the `session.{sessionId}` broadcast channel.
   ///
   /// Routes `.session.cost` to update [_runningCostUsd] and
   /// `.session.status` to update [_sessionPhase].
-  void _handleSessionEvent(WebSocketEvent wsEvent) {
-    switch (wsEvent.eventName) {
+  void _handleSessionEvent(BroadcastEvent wsEvent) {
+    switch (wsEvent.event) {
       case '.session.cost':
         _runningCostUsd = wsEvent.data['running_total_usd'] as String?;
       case '.session.status':

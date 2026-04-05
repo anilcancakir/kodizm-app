@@ -74,27 +74,11 @@ class DocumentState extends MagicController
     String projectId, {
     String? category,
   }) async {
-    setLoading();
-
-    final Map<String, dynamic>? query = category != null
-        ? {'category': category}
-        : null;
-
-    final response = await Http.get(
+    await fetchList<ProjectDocument>(
       '/teams/$teamId/projects/$projectId/documents',
-      query: query,
+      ProjectDocument.fromMap,
+      query: category != null ? {'category': category} : null,
     );
-
-    if (response.successful) {
-      final List<dynamic> items =
-          (response.data as Map<String, dynamic>)['data'] as List<dynamic>;
-      final docs = items
-          .map((item) => ProjectDocument.fromMap(item as Map<String, dynamic>))
-          .toList();
-      docs.isEmpty ? setEmpty() : setSuccess(docs);
-    } else {
-      setError(response.errorMessage ?? 'Failed to fetch documents');
-    }
   }
 
   /// Fetch a single document and store it as [selectedDocument].

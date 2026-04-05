@@ -3,13 +3,12 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:magic/magic.dart';
+import 'package:magic_starter/magic_starter.dart';
 
-import '../../../app/events/websocket_event.dart';
 import '../../../app/models/agent_role.dart';
 import '../../../app/models/chat_item.dart';
 import '../../../app/models/conversation.dart';
 import '../../../app/models/user.dart';
-import '../../../app/services/websocket_service.dart';
 import '../../../app/state/conversation_chat_state.dart';
 import '../../widgets/organisms/agent_role_picker_modal.dart';
 import '../../widgets/organisms/chat_header.dart';
@@ -17,32 +16,6 @@ import '../../widgets/organisms/chat_input_bar.dart';
 import '../../widgets/organisms/chat_question_card.dart';
 import '../../widgets/organisms/chat_permission_card.dart';
 import '../../widgets/organisms/chat_stream_event_renderer.dart';
-import 'package:magic_starter/magic_starter.dart';
-
-// ---------------------------------------------------------------------------
-// WebSocket adapter — bridges WebSocketService to ConversationChatWebSocket
-// ---------------------------------------------------------------------------
-
-/// Adapts the real [WebSocketService] to the [ConversationChatWebSocket]
-/// interface expected by [ConversationChatState].
-class _WebSocketAdapter implements ConversationChatWebSocket {
-  _WebSocketAdapter(this._service);
-
-  final WebSocketService _service;
-
-  @override
-  void subscribe(String channel, void Function(WebSocketEvent) onEvent) {
-    _service.subscribe(channel, onEvent);
-  }
-
-  @override
-  void unsubscribe(String channel) {
-    _service.unsubscribe(channel);
-  }
-
-  @override
-  Stream<void> get onReconnect => _service.onReconnect;
-}
 
 // ---------------------------------------------------------------------------
 // ConversationChatView
@@ -91,17 +64,7 @@ class _ConversationChatViewState extends State<ConversationChatView> {
   void initState() {
     super.initState();
 
-    ConversationChatWebSocket? wsAdapter;
-    try {
-      final wsService = Magic.make<WebSocketService>('websocket');
-      wsAdapter = _WebSocketAdapter(wsService);
-    } catch (_) {
-      // WS may not be connected in tests.
-    }
-
-    _state = Magic.findOrPut<ConversationChatState>(
-      () => ConversationChatState(webSocket: wsAdapter),
-    );
+    _state = Magic.findOrPut<ConversationChatState>(ConversationChatState.new);
     _state.attachView();
     _teamId = Auth.user<User>()?.currentTeam?.id ?? '';
 
@@ -273,22 +236,24 @@ class _ConversationChatViewState extends State<ConversationChatView> {
 
   @override
   Widget build(BuildContext context) {
-    // The chat view runs inside _FullscreenLayout (bare Scaffold + SafeArea)
-    // so we have bounded height — Column + Expanded works naturally.
-    return ListenableBuilder(
-      listenable: _state,
-      builder: (context, _) {
-        if (_state.conversation == null) {
-          if (_isLoadingExisting) {
-            return WDiv(
-              className: 'flex flex-col items-center justify-center w-full',
-              child: const CircularProgressIndicator(),
-            );
+    // MagicStarterHideBottomNav signals the AppLayout to suppress the mobile
+    // bottom navigation bar — chat is a fullscreen immersive view.
+    return MagicStarterHideBottomNav(
+      child: ListenableBuilder(
+        listenable: _state,
+        builder: (context, _) {
+          if (_state.conversation == null) {
+            if (_isLoadingExisting) {
+              return WDiv(
+                className: 'flex flex-col items-center justify-center w-full',
+                child: const CircularProgressIndicator(),
+              );
+            }
+            return _buildWelcome();
           }
-          return _buildWelcome();
-        }
-        return _buildChat();
-      },
+          return _buildChat();
+        },
+      ),
     );
   }
 
@@ -767,7 +732,7 @@ class _ConversationChatViewState extends State<ConversationChatView> {
                     WDiv(
                       className: 'px-1.5 py-0.5 rounded bg-slate-700',
                       child: WText(
-                        event.eventName,
+                        event.event,
                         className: 'text-[10px] font-mono text-slate-300',
                       ),
                     ),

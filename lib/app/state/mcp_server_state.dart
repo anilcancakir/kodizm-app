@@ -56,22 +56,10 @@ class McpServerState extends MagicController
   /// Sets loading, then populates `rxState` with the parsed server list on
   /// success, or transitions to error on failure.
   Future<void> fetchServers(String teamId, String projectId) async {
-    setLoading();
-
-    final response = await Http.get(
+    await fetchList<McpServer>(
       '/teams/$teamId/projects/$projectId/mcp-servers',
+      McpServer.fromMap,
     );
-
-    if (response.successful) {
-      final List<dynamic> items =
-          (response.data as Map<String, dynamic>)['data'] as List<dynamic>;
-      final list = items
-          .map((e) => McpServer.fromMap(e as Map<String, dynamic>))
-          .toList();
-      list.isEmpty ? setEmpty() : setSuccess(list);
-    } else {
-      setError(response.errorMessage ?? 'Failed to fetch MCP servers');
-    }
   }
 
   // ---------------------------------------------------------------------------

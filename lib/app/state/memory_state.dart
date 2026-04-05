@@ -88,23 +88,12 @@ class MemoryState extends MagicController
     String? type,
   }) async {
     _filterType = type;
-    setLoading();
 
-    final response = await Http.get(
+    await fetchList<ProjectMemory>(
       '/teams/$teamId/projects/$projectId/memories',
+      ProjectMemory.fromMap,
       query: type != null ? {'type': type} : null,
     );
-
-    if (response.successful) {
-      final List<dynamic> items =
-          (response.data as Map<String, dynamic>)['data'] as List<dynamic>;
-      final list = items
-          .map((e) => ProjectMemory.fromMap(e as Map<String, dynamic>))
-          .toList();
-      list.isEmpty ? setEmpty() : setSuccess(list);
-    } else {
-      setError(response.errorMessage ?? 'Failed to load memories');
-    }
   }
 
   // ---------------------------------------------------------------------------

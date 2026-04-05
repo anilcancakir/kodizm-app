@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
 import 'package:magic/testing.dart';
 
-import 'package:app/app/events/websocket_event.dart';
+
 import 'package:app/app/state/conversation_chat_state.dart';
 import 'package:app/resources/views/conversation/conversation_chat_view.dart';
 
@@ -18,10 +18,10 @@ class _FakeWebSocket implements ConversationChatWebSocket {
   final List<String> subscribedChannels = [];
   final List<String> unsubscribedChannels = [];
 
-  void Function(WebSocketEvent)? lastCallback;
+  void Function(BroadcastEvent)? lastCallback;
 
   @override
-  void subscribe(String channel, void Function(WebSocketEvent) onEvent) {
+  void subscribe(String channel, void Function(BroadcastEvent) onEvent) {
     subscribedChannels.add(channel);
     lastCallback = onEvent;
   }
@@ -192,10 +192,9 @@ void main() {
   void injectQuestionEvent() {
     // First inject tool_use with AskUserQuestion options
     state.addEvent(
-      WebSocketEvent(
-        id: 'ws-evt-tooluse',
+      BroadcastEvent(
         channel: 'private-conversation.$kConversationId',
-        eventName: '.conversation.message',
+        event: '.conversation.message',
         data: {
           'conversation_id': kConversationId,
           'type': 'tool_use',
@@ -226,10 +225,9 @@ void main() {
 
     // Then inject the question event
     state.addEvent(
-      WebSocketEvent(
-        id: 'ws-evt-question',
+      BroadcastEvent(
         channel: 'private-conversation.$kConversationId',
-        eventName: '.conversation.message',
+        event: '.conversation.message',
         data: {
           'conversation_id': kConversationId,
           'type': 'question',
@@ -247,10 +245,9 @@ void main() {
   /// Injects a permission event via WebSocket.
   void injectPermissionEvent() {
     state.addEvent(
-      WebSocketEvent(
-        id: 'ws-evt-permission',
+      BroadcastEvent(
         channel: 'private-conversation.$kConversationId',
-        eventName: '.conversation.message',
+        event: '.conversation.message',
         data: {
           'conversation_id': kConversationId,
           'type': 'permission',

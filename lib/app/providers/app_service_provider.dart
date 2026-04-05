@@ -7,7 +7,6 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 import '../interceptors/debug_interceptor.dart';
 import '../interceptors/sentry_tracing_interceptor.dart';
 import '../models/user.dart';
-import '../services/websocket_service.dart';
 
 /// Application Service Provider.
 ///
@@ -18,8 +17,8 @@ class AppServiceProvider extends ServiceProvider {
 
   @override
   void register() {
-    // WebSocket: Pusher-compatible client for Laravel Reverb real-time events.
-    app.singleton('websocket', () => WebSocketService());
+    // Broadcasting is handled by BroadcastServiceProvider (registered before
+    // AppServiceProvider). No manual WebSocket singleton needed.
   }
 
   @override
@@ -103,6 +102,7 @@ class AppServiceProvider extends ServiceProvider {
     // Magic Starter: Logout callback.
     MagicStarter.useLogout(() async {
       await Sentry.configureScope((scope) => scope.setUser(null));
+      await Echo.disconnect();
       await Auth.logout();
       MagicRoute.to(MagicStarterConfig.loginRoute());
     });
@@ -127,17 +127,25 @@ class AppServiceProvider extends ServiceProvider {
       'network',
     ).addInterceptor(SentryTracingInterceptor());
 
+    // Sentry Dio hook — preparation point for sentry_dio SDK integration.
+    //
+    // SentryTracingInterceptor already handles header injection and breadcrumbs.
+    // configureDriver() is the escape hatch for raw Dio access if sentry_dio
+    // is added in the future (e.g., `dio.addSentry()`).
+    final driver = Magic.make<NetworkDriver>('network');
+    if (driver is DioNetworkDriver) {
+      driver.configureDriver((dio) {
+        // Hook point: add sentry_dio integration here when needed.
+      });
+    }
+
     // Debug interceptor — logs all HTTP requests/responses in dev mode.
     if (kDebugMode) {
       Magic.make<NetworkDriver>('network').addInterceptor(DebugInterceptor());
     }
 
-    // Connect WebSocket on boot so it's ready before any view subscribes.
-    try {
-      await Magic.make<WebSocketService>('websocket').connect();
-    } catch (e) {
-      Log.error('WebSocket: initial connect failed — $e');
-    }
+    // BroadcastServiceProvider.boot() already calls Echo.connect() — no
+    // manual WebSocket connect needed.
 
     // Magic Starter: Supported locale options for profile settings.
     MagicStarter.useLocaleOptions({'en': 'English'});

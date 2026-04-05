@@ -81,20 +81,7 @@ class SkillState extends MagicController with MagicStateMixin<List<Skill>> {
   /// Sets loading, then populates `rxState` with the parsed skill list on
   /// success, or transitions to error on failure.
   Future<void> fetchSkills() async {
-    setLoading();
-
-    final response = await Http.get('/skills');
-
-    if (response.successful) {
-      final List<dynamic> items =
-          (response.data as Map<String, dynamic>)['data'] as List<dynamic>;
-      final skills = items
-          .map((item) => Skill.fromMap(item as Map<String, dynamic>))
-          .toList();
-      skills.isEmpty ? setEmpty() : setSuccess(skills);
-    } else {
-      setError(response.errorMessage ?? 'Failed to fetch skills');
-    }
+    await fetchList<Skill>('/skills', Skill.fromMap);
   }
 
   /// Find a skill by [id], returning from the in-memory list when possible.

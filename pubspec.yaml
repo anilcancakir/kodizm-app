@@ -34,16 +34,17 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
-  magic: ^1.0.0-alpha.6
-  magic_starter: ^0.0.1-alpha.6
-  magic_notifications: ^0.0.1-alpha.1
-  web_socket_channel: ^3.0.3
-  flutter_markdown_plus: ^1.0.7
-  flutter_highlighter: ^0.1.1
-  url_launcher: ^6.3.1
-  markdown: ^7.3.1
   file_picker: ^10.3.10
+  flutter_highlighter: ^0.1.1
+  flutter_markdown_plus: ^1.0.7
+  magic: ^1.0.0-alpha.6
+  magic_notifications: ^0.0.1-alpha.1
+  magic_starter: ^0.0.1-alpha.6
+  markdown: ^7.3.1
   package_info_plus: ^8.3.0
+  sentry_flutter: ^9.16.0
+  url_launcher: ^6.3.1
+  web_socket_channel: ^3.0.3
 
 dev_dependencies:
   flutter_test:
@@ -55,6 +56,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  sentry_dart_plugin: ^2.0.0
 
 dependency_overrides:
   magic:
@@ -108,3 +110,10 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+sentry:
+  upload_debug_symbols: true
+  upload_source_maps: true
+  upload_sources: true
+  project: kodizm-ai-app
+  org: kodizmai

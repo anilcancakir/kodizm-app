@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:magic/magic.dart';
 import 'package:magic_starter/magic_starter.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../../app/models/dashboard_data.dart';
 import '../../app/models/user.dart';
@@ -642,6 +643,34 @@ class _QuickActionsSection extends StatelessWidget {
 
   // -------
 
+  /// Fires a test exception + message to Sentry for verification.
+  Future<void> _testSentry(BuildContext context) async {
+    // 1. Breadcrumb
+    Sentry.addBreadcrumb(
+      Breadcrumb(
+        message: 'User tapped Test Sentry button',
+        category: 'ui.tap',
+        level: SentryLevel.info,
+      ),
+    );
+
+    // 2. Capture a message
+    await Sentry.captureMessage(
+      'Sentry test from Flutter dashboard',
+      level: SentryLevel.info,
+    );
+
+    // 3. Capture an exception with stack trace — triggers beforeSend
+    //    which auto-shows SentryFeedbackWidget dialog
+    try {
+      throw StateError('Sentry integration test — this is not a real error');
+    } catch (e, st) {
+      await Sentry.captureException(e, stackTrace: st);
+    }
+  }
+
+  // -------
+
   /// Shows a project picker dialog, then navigates to task create.
   Future<void> _onCreateTask(BuildContext context) async {
     final projects = ProjectState.instance.rxState;
@@ -712,6 +741,25 @@ class _QuickActionsSection extends StatelessWidget {
             icon: Icons.chat_outlined,
             tooltip: trans('dashboard.coming_in_wave', {'wave': '5'}),
           ),
+          // TODO: Remove after Sentry testing
+          if (Config.get<String>('sentry.dsn', '')?.isNotEmpty == true)
+            WAnchor(
+              onTap: () => _testSentry(context),
+              child: WDiv(
+                className: '''
+                  flex flex-row items-center gap-2
+                  px-4 py-2 rounded-lg
+                  bg-red-500
+                ''',
+                children: [
+                  WIcon(Icons.bug_report, className: 'text-base text-white'),
+                  WText(
+                    'Test Sentry',
+                    className: 'text-sm font-semibold text-white',
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );

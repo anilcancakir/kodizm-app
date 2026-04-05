@@ -2,8 +2,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:magic/magic.dart';
 import 'package:magic_starter/magic_starter.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../interceptors/debug_interceptor.dart';
+import '../interceptors/sentry_tracing_interceptor.dart';
 import '../models/user.dart';
 import '../services/websocket_service.dart';
 
@@ -100,9 +102,30 @@ class AppServiceProvider extends ServiceProvider {
 
     // Magic Starter: Logout callback.
     MagicStarter.useLogout(() async {
+      await Sentry.configureScope((scope) => scope.setUser(null));
       await Auth.logout();
       MagicRoute.to(MagicStarterConfig.loginRoute());
     });
+
+    // Sentry: Set user context after auth session restoration.
+    if (Auth.check()) {
+      final user = Auth.user<User>();
+      await Sentry.configureScope((scope) {
+        scope.setUser(
+          SentryUser(
+            id: Auth.id(),
+            email: user?.email,
+            username: user?.name,
+            data: {'team_id': user?.currentTeam?.id ?? ''},
+          ),
+        );
+      });
+    }
+
+    // Sentry tracing interceptor — distributed tracing headers + breadcrumbs.
+    Magic.make<NetworkDriver>(
+      'network',
+    ).addInterceptor(SentryTracingInterceptor());
 
     // Debug interceptor — logs all HTTP requests/responses in dev mode.
     if (kDebugMode) {

@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:magic/magic.dart';
 import 'package:magic_starter/magic_starter.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'config/app.dart';
 import 'config/auth.dart';
-import 'config/database.dart';
-import 'config/network.dart';
 import 'config/cache.dart';
+import 'config/database.dart';
 import 'config/logging.dart';
 import 'config/magic_starter.dart';
+import 'config/network.dart';
+import 'config/sentry.dart';
 import 'config/websocket.dart';
 
 void main() async {
@@ -23,6 +25,7 @@ void main() async {
       () => loggingConfig,
       () => magicStarterConfig,
       () => websocketConfig,
+      () => sentryConfig,
     ],
   );
 
@@ -93,5 +96,85 @@ void main() async {
     },
   );
 
-  runApp(MagicApplication(title: 'App', windTheme: windTheme));
+  // -- Sentry Initialization --
+  final sentryDsn = Config.get<String>('sentry.dsn', '') ?? '';
+
+  if (sentryDsn.isNotEmpty) {
+    await SentryFlutter.init((options) {
+      options.dsn = sentryDsn;
+      options.environment = Config.get<String>('sentry.environment', 'local');
+
+      // -- Error Tracking --
+      options.sampleRate = Config.get<double>('sentry.sample_rate', 1.0);
+
+      // -- Performance Tracing --
+      options.tracesSampleRate = Config.get<double>(
+        'sentry.traces_sample_rate',
+        1.0,
+      );
+      options.enableAutoPerformanceTracing = true;
+
+      // -- Profiling (iOS/macOS only) --
+      options.profilesSampleRate = Config.get<double>(
+        'sentry.profiles_sample_rate',
+        1.0,
+      );
+
+      // -- Session Replay --
+      options.replay.sessionSampleRate = Config.get<double>(
+        'sentry.replay_session_sample_rate',
+        0.1,
+      );
+      options.replay.onErrorSampleRate = Config.get<double>(
+        'sentry.replay_error_sample_rate',
+        1.0,
+      );
+      options.replay.quality = SentryReplayQuality.medium;
+
+      // -- Screenshots & View Hierarchy --
+      options.attachScreenshot = true;
+      options.screenshotQuality = SentryScreenshotQuality.medium;
+      options.attachViewHierarchy = true;
+
+      // -- Native Crash Handling --
+      options.enableNativeCrashHandling = true;
+      options.anrEnabled = true;
+      options.enableAppHangTracking = true;
+      options.appHangTimeoutInterval = Duration(seconds: 2);
+
+      // -- Frame Tracking --
+      options.enableFramesTracking = true;
+
+      // -- Breadcrumbs --
+      options.enableAutoNativeBreadcrumbs = true;
+      options.enableUserInteractionBreadcrumbs = true;
+      options.maxBreadcrumbs = 100;
+
+      // -- Sessions --
+      options.enableAutoSessionTracking = true;
+
+      // -- Privacy --
+      options.privacy.maskAllText = true;
+      options.privacy.maskAllImages = true;
+      options.sendDefaultPii = false;
+
+      // -- Distributed Tracing --
+      options.tracePropagationTargets.add(
+        Config.get<String>('network.drivers.api.base_url', 'localhost') ??
+            'localhost',
+      );
+
+      // -- Debug (only in non-production) --
+      options.debug =
+          Config.get<String>('sentry.environment', 'local') != 'production';
+    });
+  }
+
+  runApp(
+    sentryDsn.isNotEmpty
+        ? SentryWidget(
+            child: MagicApplication(title: 'App', windTheme: windTheme),
+          )
+        : MagicApplication(title: 'App', windTheme: windTheme),
+  );
 }

@@ -108,7 +108,6 @@ jobs:
 
       - name: Upload source maps to Sentry
         uses: getsentry/action-release@v3
-        continue-on-error: true
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         with:

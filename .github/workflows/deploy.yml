@@ -1,7 +1,9 @@
 name: Deploy Flutter App
 
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [master]
   workflow_dispatch:
     inputs:
@@ -31,6 +33,7 @@ jobs:
     name: Web
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     environment: ${{ inputs.environment || 'development' }}
     steps:
       - uses: actions/checkout@v4
@@ -81,113 +84,6 @@ jobs:
             -e "ssh -p ${{ secrets.SSH_PORT }}" \
             build/web/ \
             ${{ secrets.SSH_USER_APP }}@${{ secrets.SSH_HOST }}:/home/kodizm-ai/htdocs/ai.kodizm.com/
-
-  # --------------------------------------------------------------------------
-  # iOS Build & Deploy (disabled until App Store setup)
-  # --------------------------------------------------------------------------
-  ios:
-    if: false
-    name: iOS
-    runs-on: macos-latest
-    timeout-minutes: 30
-    environment: ${{ inputs.environment || 'development' }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: stable
-          cache: true
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Install CocoaPods
-        run: cd ios && pod install
-
-      - name: Build iOS (release)
-        run: |
-          flutter build ipa --release \
-            --export-options-plist=ios/ExportOptions.plist
-        env:
-          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
-
-      - name: Upload dSYM to Sentry
-        uses: getsentry/action-release@v3
-        env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-        with:
-          environment: ${{ inputs.environment || 'development' }}
-          version: ${{ github.sha }}
-
-      - name: Upload dSYM files via sentry-cli
-        run: |
-          curl -sL https://sentry.io/get-cli/ | bash
-          sentry-cli debug-files upload \
-            --org ${{ env.SENTRY_ORG }} \
-            --project ${{ env.SENTRY_PROJECT }} \
-            build/ios/archive/Runner.xcarchive/dSYMs/
-        env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-
-      # TODO: Replace with TestFlight / App Store Connect upload
-      - name: Deploy to TestFlight
-        run: echo "Upload build/ios/ipa/*.ipa to TestFlight"
-
-  # --------------------------------------------------------------------------
-  # Android Build & Deploy (disabled until Play Store setup)
-  # --------------------------------------------------------------------------
-  android:
-    if: false
-    name: Android
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    environment: ${{ inputs.environment || 'development' }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: stable
-          cache: true
-
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Build Android (release)
-        run: |
-          flutter build appbundle --release
-        env:
-          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
-
-      - name: Upload ProGuard mappings to Sentry
-        run: |
-          curl -sL https://sentry.io/get-cli/ | bash
-          sentry-cli debug-files upload \
-            --org ${{ env.SENTRY_ORG }} \
-            --project ${{ env.SENTRY_PROJECT }} \
-            build/app/intermediates/merged_native_libs/release/out/lib/
-        env:
-          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-
-      - name: Upload Dart debug symbols
-        if: ${{ success() }}
-        run: |
-          sentry-cli debug-files upload \
-            --org ${{ env.SENTRY_ORG }} \
-            --project ${{ env.SENTRY_PROJECT }} \
-            build/app/outputs/mapping/release/
-
-      # TODO: Replace with Play Store upload
-      - name: Deploy to Play Store
-        run: echo "Upload build/app/outputs/bundle/release/*.aab to Play Store"
 
   # --------------------------------------------------------------------------
   # Sentry Release Finalization

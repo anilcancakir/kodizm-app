@@ -2,16 +2,16 @@ name: Deploy Flutter App
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   workflow_dispatch:
     inputs:
       environment:
         description: 'Target environment'
         required: true
-        default: 'staging'
+        default: 'development'
         type: choice
         options:
-          - staging
+          - development
           - production
 
 env:
@@ -26,7 +26,7 @@ jobs:
   web:
     name: Web
     runs-on: ubuntu-latest
-    environment: ${{ inputs.environment || 'staging' }}
+    environment: ${{ inputs.environment || 'development' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -39,10 +39,23 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Add known hosts
+        run: echo "${{ secrets.SSH_KNOWN_HOSTS }}" >> ~/.ssh/known_hosts
+
+      - name: Download .env from server
+        run: |
+          scp -P ${{ secrets.SSH_PORT }} \
+            ${{ secrets.SSH_USER_APP }}@${{ secrets.SSH_HOST }}:/home/kodizm-ai/htdocs/ai.kodizm.com/.env \
+            .env
+
       - name: Build web (release)
         run: |
           flutter build web --release \
-            --dart-define=APP_ENV=${{ inputs.environment || 'staging' }} \
+            --base-href=/ \
             --source-maps
         env:
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
@@ -52,14 +65,17 @@ jobs:
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         with:
-          environment: ${{ inputs.environment || 'staging' }}
+          environment: ${{ inputs.environment || 'development' }}
           version: ${{ github.sha }}
           sourcemaps: build/web
           url_prefix: '~/'
 
-      # TODO: Replace with actual deployment (e.g., Firebase Hosting, S3, Cloudflare Pages)
-      - name: Deploy to hosting
-        run: echo "Deploy build/web/ to ${{ inputs.environment || 'staging' }} hosting"
+      - name: Deploy to server
+        run: |
+          rsync -avz --delete \
+            -e "ssh -p ${{ secrets.SSH_PORT }}" \
+            build/web/ \
+            ${{ secrets.SSH_USER_APP }}@${{ secrets.SSH_HOST }}:/home/kodizm-ai/htdocs/ai.kodizm.com/
 
   # --------------------------------------------------------------------------
   # iOS Build & Deploy (disabled until App Store setup)
@@ -68,7 +84,7 @@ jobs:
     if: false
     name: iOS
     runs-on: macos-latest
-    environment: ${{ inputs.environment || 'staging' }}
+    environment: ${{ inputs.environment || 'development' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -87,7 +103,6 @@ jobs:
       - name: Build iOS (release)
         run: |
           flutter build ipa --release \
-            --dart-define=APP_ENV=${{ inputs.environment || 'staging' }} \
             --export-options-plist=ios/ExportOptions.plist
         env:
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
@@ -97,7 +112,7 @@ jobs:
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         with:
-          environment: ${{ inputs.environment || 'staging' }}
+          environment: ${{ inputs.environment || 'development' }}
           version: ${{ github.sha }}
 
       - name: Upload dSYM files via sentry-cli
@@ -121,7 +136,7 @@ jobs:
     if: false
     name: Android
     runs-on: ubuntu-latest
-    environment: ${{ inputs.environment || 'staging' }}
+    environment: ${{ inputs.environment || 'development' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -141,8 +156,7 @@ jobs:
 
       - name: Build Android (release)
         run: |
-          flutter build appbundle --release \
-            --dart-define=APP_ENV=${{ inputs.environment || 'staging' }}
+          flutter build appbundle --release
         env:
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
 
@@ -187,6 +201,6 @@ jobs:
           SENTRY_ORG: ${{ env.SENTRY_ORG }}
           SENTRY_PROJECT: ${{ env.SENTRY_PROJECT }}
         with:
-          environment: ${{ inputs.environment || 'staging' }}
+          environment: ${{ inputs.environment || 'development' }}
           version: ${{ github.sha }}
           set_commits: auto

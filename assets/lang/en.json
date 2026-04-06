@@ -680,6 +680,30 @@
       "status_stopped": "Stopped",
       "status_failed": "Failed",
       "error_label": "Error"
+    },
+    "pipeline": {
+      "title": "Auto-pipeline Configuration",
+      "subtitle": "Configure automatic pipeline stage progression for this project",
+      "enabled": "pipeline enabled",
+      "disabled": "pipeline disabled",
+      "auto_pipeline": "Auto-pipeline",
+      "auto_pipeline_description": "Automatically advance pipeline tasks through SDLC stages",
+      "stage_analysis": "Analysis",
+      "stage_planning": "Planning",
+      "stage_implement": "Implementation",
+      "stage_review": "Review",
+      "role_product_manager": "Product Manager",
+      "role_lead_developer": "Lead Developer",
+      "role_developer": "Developer",
+      "role_code_reviewer": "Code Reviewer",
+      "auto_advance": "Auto-advance",
+      "pause_for_approval": "Pause for approval",
+      "max_retries": "Max Retries",
+      "max_retries_description": "Maximum retry attempts per pipeline stage on failure",
+      "save": "Save pipeline",
+      "saved": "pipeline configuration saved.",
+      "save_failed": "Failed to save pipeline configuration.",
+      "role_label": "Role"
     }
   },
   "teams": {
@@ -987,6 +1011,15 @@
     "type_sse": "SSE",
     "save_success": "MCP server saved successfully",
     "delete_success": "MCP server deleted"
+  },
+  "pipeline_progress": {
+    "title": "Pipeline Progress",
+    "stage_analysis": "Analysis",
+    "stage_planning": "Planning",
+    "stage_in_progress": "In Progress",
+    "stage_review": "Review",
+    "stage_done": "Done",
+    "continue_action": "Continue"
   },
   "validation": {
     "accepted": "The :attribute must be accepted.",

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:magic/magic.dart';
 
 import '../models/agent_role.dart';
@@ -79,6 +81,12 @@ class TaskState extends MagicController with MagicStateMixin<List<Task>> {
   List<Conversation> _conversations = [];
   List<AgentRole> _agentRoles = [];
   bool _startingRun = false;
+
+  // Pipeline subscription state
+  StreamSubscription<BroadcastEvent>? _projectPipelineSubscription;
+  StreamSubscription<BroadcastEvent>? _taskStatusSubscription;
+  String? _pipelineProjectId;
+  String? _pipelineTaskId;
 
   /// The currently selected task (set by [fetchTask]).
   Task? get selectedTask => _selectedTask;
@@ -372,6 +380,91 @@ class TaskState extends MagicController with MagicStateMixin<List<Task>> {
     }
 
     refreshUI();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Pipeline event subscriptions
+  // ---------------------------------------------------------------------------
+
+  /// Subscribe to real-time pipeline events for [taskId] in [projectId].
+  ///
+  /// Subscribes to two private Echo channels:
+  /// - `project.$projectId` — listens for `.pipeline.stage.waiting` to refresh
+  ///   task detail when a pipeline stage needs user action.
+  /// - `task.$taskId` — listens for `.task.status.changed` to refresh task
+  ///   detail and conversations when the task status transitions.
+  ///
+  /// Any prior subscription for the same task is cancelled before re-subscribing.
+  /// Call [unsubscribePipelineEvents] when leaving the task detail screen.
+  void subscribeToPipelineEvents(
+    String teamId,
+    String projectId,
+    String taskId,
+  ) {
+    unsubscribePipelineEvents();
+
+    _pipelineProjectId = projectId;
+    _pipelineTaskId = taskId;
+
+    _projectPipelineSubscription = Echo.private('project.$projectId').events
+        .listen((BroadcastEvent event) {
+          if (event.event == '.pipeline.stage.waiting') {
+            Log.debug('Pipeline stage waiting — refreshing task $taskId');
+            fetchTask(teamId, projectId, taskId);
+          }
+        });
+
+    _taskStatusSubscription = Echo.private('task.$taskId').events.listen((
+      BroadcastEvent event,
+    ) {
+      if (event.event == '.task.status.changed') {
+        Log.debug('Task status changed — refreshing task $taskId');
+        fetchTask(teamId, projectId, taskId);
+        fetchConversations(teamId, projectId, taskId);
+      }
+    });
+  }
+
+  /// Cancel all active pipeline subscriptions and leave the Echo channels.
+  ///
+  /// Should be called from `dispose()` of the task detail screen or when
+  /// navigating away from a task.
+  void unsubscribePipelineEvents() {
+    _projectPipelineSubscription?.cancel();
+    _projectPipelineSubscription = null;
+
+    _taskStatusSubscription?.cancel();
+    _taskStatusSubscription = null;
+
+    if (_pipelineProjectId != null) {
+      Echo.leave('project.$_pipelineProjectId');
+    }
+    if (_pipelineTaskId != null) {
+      Echo.leave('task.$_pipelineTaskId');
+    }
+
+    _pipelineProjectId = null;
+    _pipelineTaskId = null;
+  }
+
+  /// Resume a paused pipeline stage for the given task.
+  ///
+  /// POSTs to `/teams/$teamId/projects/$projectId/tasks/$taskId/continue-pipeline`
+  /// and refreshes [selectedTask] on success. Logs errors on failure.
+  Future<void> continuePipeline(
+    String teamId,
+    String projectId,
+    String taskId,
+  ) async {
+    final response = await Http.post(
+      '/teams/$teamId/projects/$projectId/tasks/$taskId/continue-pipeline',
+    );
+
+    if (response.successful) {
+      await fetchTask(teamId, projectId, taskId);
+    } else {
+      Log.error('continuePipeline failed for task $taskId');
+    }
   }
 
   // ---------------------------------------------------------------------------

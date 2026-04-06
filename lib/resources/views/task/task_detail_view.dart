@@ -11,7 +11,9 @@ import '../../../app/state/task_state.dart';
 import '../../widgets/atoms/priority_badge.dart';
 import '../../widgets/atoms/status_badge.dart';
 import '../../widgets/atoms/task_type_icon.dart';
+import '../../../app/state/project_state.dart';
 import '../../widgets/organisms/markdown_viewer.dart';
+import '../../widgets/organisms/pipeline_progress.dart';
 
 /// Task detail view — displays full task info, status transitions, sections,
 /// run history, and a start-run modal.
@@ -81,7 +83,14 @@ class _TaskDetailViewState extends State<TaskDetailView> {
     _fetchAll();
   }
 
-  /// Fetches task, sections, and runs in parallel.
+  @override
+  void dispose() {
+    TaskState.instance.unsubscribePipelineEvents();
+    super.dispose();
+  }
+
+  /// Fetches task, sections, and runs in parallel, then subscribes to
+  /// real-time pipeline events if the project has pipeline enabled.
   Future<void> _fetchAll() async {
     final teamId = Auth.user<User>()?.currentTeam?.id;
     if (teamId == null) return;
@@ -95,6 +104,15 @@ class _TaskDetailViewState extends State<TaskDetailView> {
         widget.taskId,
       ),
     ]);
+
+    // Subscribe to real-time pipeline events after data is loaded.
+    if (ProjectState.instance.selectedProject?.isPipelineEnabled ?? false) {
+      TaskState.instance.subscribeToPipelineEvents(
+        teamId,
+        widget.projectId,
+        widget.taskId,
+      );
+    }
   }
 
   // -----------------------------------------------------------------------
@@ -227,6 +245,25 @@ class _TaskDetailViewState extends State<TaskDetailView> {
                 TaskTypeIcon(type: task.type ?? 'task'),
               ],
             ),
+
+            // -----------------------------------------------------------
+            // Pipeline Progress
+            // -----------------------------------------------------------
+            if (ProjectState.instance.selectedProject?.isPipelineEnabled ??
+                false)
+              PipelineProgress(
+                task: task,
+                conversations: runs,
+                onContinue: () {
+                  final teamId = Auth.user<User>()?.currentTeam?.id;
+                  if (teamId == null) return;
+                  TaskState.instance.continuePipeline(
+                    teamId,
+                    widget.projectId,
+                    widget.taskId,
+                  );
+                },
+              ),
 
             // -----------------------------------------------------------
             // Status Actions

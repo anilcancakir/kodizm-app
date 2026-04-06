@@ -11,6 +11,7 @@ import '../../../app/state/project_state.dart';
 import '../../widgets/atoms/container_status_badge.dart';
 import '../../widgets/organisms/environment_config_section.dart';
 import '../../widgets/organisms/mcp_server_section.dart';
+import '../../widgets/organisms/pipeline_config_section.dart';
 
 /// Project detail view — displays a single project's full information.
 ///
@@ -536,6 +537,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
             _buildSshKeySection(project),
             if (_canManageProject) _buildContainerSection(project),
             if (_hasRuntimeData) _buildEnvironmentSection(project),
+            if (_canManageProject) _buildPipelineSection(project),
             _buildMcpServersSection(),
             if (_canManageProject) _buildSettingsSection(project),
           ],
@@ -1287,6 +1289,23 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
         if (result == null) throw Exception('Save failed');
 
         // Refresh project data so UI reflects the saved state.
+        await ProjectState.instance.fetchProject(teamId, widget.projectId);
+      },
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Pipeline Section
+  // ---------------------------------------------------------------------------
+
+  /// Builds the pipeline configuration section (admin only).
+  Widget _buildPipelineSection(Project project) {
+    final teamId = _teamId;
+
+    return PipelineConfigSection(
+      project: project,
+      onSave: () async {
+        if (teamId == null) return;
         await ProjectState.instance.fetchProject(teamId, widget.projectId);
       },
     );

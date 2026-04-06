@@ -211,6 +211,33 @@ class ProjectState extends MagicController with MagicStateMixin<List<Project>> {
   }
 
   // ---------------------------------------------------------------------------
+  // Pipeline configuration
+  // ---------------------------------------------------------------------------
+
+  /// Update the pipeline configuration for a project.
+  ///
+  /// Sends a `PUT` to `/teams/[teamId]/projects/[projectId]` with the
+  /// `pipeline_config` payload. Returns `true` on success, `false` on failure.
+  /// On success, refreshes the selected project to reflect the updated config.
+  Future<bool> updatePipelineConfig(
+    String teamId,
+    String projectId,
+    Map<String, dynamic> config,
+  ) async {
+    final response = await Http.put(
+      '/teams/$teamId/projects/$projectId',
+      data: {'pipeline_config': config},
+    );
+
+    if (response.successful) {
+      await fetchProject(teamId, projectId);
+      return true;
+    }
+
+    return false;
+  }
+
+  // ---------------------------------------------------------------------------
   // Sorting
   // ---------------------------------------------------------------------------
 

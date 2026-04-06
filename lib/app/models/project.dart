@@ -128,6 +128,24 @@ class Project extends Model with HasTimestamps, InteractsWithPersistence {
   /// Falls back to `false` when not set on the model.
   bool get hasSshKey => getAttribute('has_ssh_key') as bool? ?? false;
 
+  // -- Pipeline --
+
+  /// Get the project-level pipeline configuration map.
+  ///
+  /// Contains the auto-pipeline settings including enabled state, stage
+  /// configurations, and retry limits. Returns `null` when not set.
+  Map<String, dynamic>? get pipelineConfig =>
+      getAttribute('pipeline_config') as Map<String, dynamic>?;
+
+  /// Set the project-level pipeline configuration map.
+  set pipelineConfig(Map<String, dynamic>? value) =>
+      setAttribute('pipeline_config', value);
+
+  /// Whether the auto-pipeline is enabled for this project.
+  ///
+  /// Reads from [pipelineConfig] and defaults to `false` when not set.
+  bool get isPipelineEnabled => (pipelineConfig?['enabled'] as bool?) ?? false;
+
   // -- Environment --
 
   /// Get the project-level environment configuration map.

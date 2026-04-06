@@ -899,7 +899,10 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
                     evtMeta?['toolName'] as String? ?? 'Unknown';
                 // Cache agent name for subagent badge resolution.
                 if (toolNameVal == 'Agent' && toolUseIdVal != null) {
-                  final inp = evtMeta?['input'] as Map<String, dynamic>?;
+                  final rawInput = evtMeta?['input'];
+                  final inp = rawInput is Map
+                      ? Map<String, dynamic>.from(rawInput)
+                      : null;
                   final aName =
                       inp?['subagent_type'] as String? ??
                       inp?['name'] as String?;
@@ -1259,7 +1262,10 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
       case 'tool_use':
         final toolName = metadata?['toolName'] as String?;
         if (toolName == 'AskUserQuestion') {
-          final input = metadata?['input'] as Map<String, dynamic>?;
+          final rawInput = metadata?['input'];
+          final input = rawInput is Map
+              ? Map<String, dynamic>.from(rawInput)
+              : null;
           final questions = input?['questions'] as List<dynamic>?;
           if (questions != null && questions.isNotEmpty) {
             final first = questions.first as Map<String, dynamic>;
@@ -1275,7 +1281,10 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
         // because streaming content_block_start has empty input, but the full
         // assistant event carries the real input with subagent_type.
         if (toolName == 'Agent' && incomingToolUseId != null) {
-          final input = metadata?['input'] as Map<String, dynamic>?;
+          final rawAgentInput = metadata?['input'];
+          final input = rawAgentInput is Map
+              ? Map<String, dynamic>.from(rawAgentInput)
+              : null;
           final agentName =
               input?['subagent_type'] as String? ?? input?['name'] as String?;
           if (agentName != null &&
@@ -1824,7 +1833,10 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
           final toolNameVal = meta?['toolName'] as String? ?? 'Unknown';
           // Cache agent name for subagent badge resolution.
           if (toolNameVal == 'Agent' && toolUseIdVal != null) {
-            final inp = meta?['input'] as Map<String, dynamic>?;
+            final rawInput = meta?['input'];
+            final inp = rawInput is Map
+                ? Map<String, dynamic>.from(rawInput)
+                : null;
             final aName =
                 inp?['subagent_type'] as String? ?? inp?['name'] as String?;
             if (aName != null) {

@@ -14,6 +14,10 @@ on:
           - development
           - production
 
+concurrency:
+  group: deploy-app-${{ inputs.environment || 'development' }}
+  cancel-in-progress: false
+
 env:
   FLUTTER_VERSION: '3.41.6'
   SENTRY_ORG: kodizmai
@@ -26,6 +30,7 @@ jobs:
   web:
     name: Web
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     environment: ${{ inputs.environment || 'development' }}
     steps:
       - uses: actions/checkout@v4
@@ -39,18 +44,8 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: Add known hosts
-        run: echo "${{ secrets.SSH_KNOWN_HOSTS }}" >> ~/.ssh/known_hosts
-
-      - name: Download .env from server
-        run: |
-          scp -P ${{ secrets.SSH_PORT }} \
-            ${{ secrets.SSH_USER_APP }}@${{ secrets.SSH_HOST }}:/home/kodizm-ai/htdocs/ai.kodizm.com/.env \
-            .env
+      - name: Write .env
+        run: echo "${{ secrets.APP_ENV_FILE }}" > .env
 
       - name: Build web (release)
         run: |
@@ -70,6 +65,16 @@ jobs:
           sourcemaps: build/web
           url_prefix: '~/'
 
+      - uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Add known hosts
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KNOWN_HOSTS }}" >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
       - name: Deploy to server
         run: |
           rsync -avz --delete \
@@ -84,6 +89,7 @@ jobs:
     if: false
     name: iOS
     runs-on: macos-latest
+    timeout-minutes: 30
     environment: ${{ inputs.environment || 'development' }}
     steps:
       - uses: actions/checkout@v4
@@ -136,6 +142,7 @@ jobs:
     if: false
     name: Android
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     environment: ${{ inputs.environment || 'development' }}
     steps:
       - uses: actions/checkout@v4
@@ -170,7 +177,6 @@ jobs:
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
 
-      # Upload Dart debug symbols (obfuscation mapping)
       - name: Upload Dart debug symbols
         if: ${{ success() }}
         run: |
@@ -189,6 +195,7 @@ jobs:
   finalize:
     name: Finalize Sentry Release
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs: [web]
     if: needs.web.result == 'success'
     steps:

@@ -3,6 +3,16 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'development'
+        type: choice
+        options:
+          - development
+          - production
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -10,6 +20,8 @@ concurrency:
 
 env:
   FLUTTER_VERSION: '3.41.6'
+  SENTRY_ORG: kodizmai
+  SENTRY_PROJECT: kodizm-ai-app
 
 jobs:
   analyze:
@@ -55,3 +67,71 @@ jobs:
 
       - name: Run tests
         run: flutter test
+
+  # --------------------------------------------------------------------------
+  # Deploy (master only, after analyze + test pass)
+  # --------------------------------------------------------------------------
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [analyze, test]
+    if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
+    environment: ${{ inputs.environment || 'development' }}
+    concurrency:
+      group: deploy-app-${{ inputs.environment || 'development' }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Write .env
+        run: echo "${{ secrets.APP_ENV_FILE }}" > .env
+
+      - name: Build web (release)
+        run: |
+          flutter build web --release \
+            --base-href=/ \
+            --source-maps
+        env:
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+
+      - name: Upload source maps to Sentry
+        uses: getsentry/action-release@v3
+        continue-on-error: true
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        with:
+          environment: ${{ inputs.environment || 'development' }}
+          version: ${{ github.sha }}
+          sourcemaps: build/web
+          url_prefix: '~/'
+          set_commits: auto
+          ignore_missing: true
+
+      - uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Add known hosts
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KNOWN_HOSTS }}" >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Deploy to server
+        run: |
+          rsync -avz --delete \
+            -e "ssh -p ${{ secrets.SSH_PORT }}" \
+            build/web/ \
+            ${{ secrets.SSH_USER_APP }}@${{ secrets.SSH_HOST }}:/home/kodizm-ai/htdocs/ai.kodizm.com/

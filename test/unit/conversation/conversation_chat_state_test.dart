@@ -181,10 +181,7 @@ void main() {
         );
 
         // Verify WS subscription.
-        expect(
-          ws.subscribedChannels,
-          contains('conversation.conv-uuid-001'),
-        );
+        expect(ws.subscribedChannels, contains('conversation.conv-uuid-001'));
       },
     );
 
@@ -292,9 +289,8 @@ void main() {
       await Future.wait([first, second]);
 
       // Both POSTs are serialized (second awaits first, then executes).
-      final postCalls = driver.recorded
-          .where((r) => r.$1.method == 'POST')
-          .toList();
+      final postCalls =
+          driver.recorded.where((r) => r.$1.method == 'POST').toList();
       expect(postCalls.length, equals(2));
     });
 
@@ -316,7 +312,7 @@ void main() {
       );
 
       final wsEvent = BroadcastEvent(
-        channel: 'private-conversation.conv-uuid-001',
+        channel: 'conversation.conv-uuid-001',
         event: '.conversation.message',
         data: {
           'conversation_id': 'conv-uuid-001',
@@ -342,7 +338,7 @@ void main() {
 
     test('addEvent with null content does not append message', () {
       final wsEvent = BroadcastEvent(
-        channel: 'private-conversation.conv-uuid-001',
+        channel: 'conversation.conv-uuid-001',
         event: '.conversation.message',
         data: {
           'conversation_id': 'conv-uuid-001',
@@ -381,7 +377,7 @@ void main() {
         expect(state.conversation!.status, equals('active'));
 
         final wsEvent = BroadcastEvent(
-          channel: 'private-conversation.conv-uuid-001',
+          channel: 'conversation.conv-uuid-001',
           event: '.conversation.status',
           data: {
             'conversation_id': 'conv-uuid-001',
@@ -405,7 +401,7 @@ void main() {
 
     test('addEvent with unknown type appends to raw events only', () {
       final wsEvent = BroadcastEvent(
-        channel: 'private-conversation.conv-uuid-001',
+        channel: 'conversation.conv-uuid-001',
         event: '.conversation.something_else',
         data: {'foo': 'bar'},
         receivedAt: DateTime.now(),
@@ -521,10 +517,7 @@ void main() {
       expect(state.isSending, isFalse);
       expect(state.error, isNull);
       expect(state.warmUntil, isNull);
-      expect(
-        ws.unsubscribedChannels,
-        contains('conversation.conv-uuid-001'),
-      );
+      expect(ws.unsubscribedChannels, contains('conversation.conv-uuid-001'));
     });
 
     // -----------------------------------------------------------------------
@@ -546,9 +539,9 @@ void main() {
 
       // Simulate WS event via the fake service.
       ws.simulateEvent(
-        'private-conversation.conv-uuid-001',
+        'conversation.conv-uuid-001',
         BroadcastEvent(
-          channel: 'private-conversation.conv-uuid-001',
+          channel: 'conversation.conv-uuid-001',
           event: '.conversation.message',
           data: {
             'conversation_id': 'conv-uuid-001',
@@ -595,7 +588,7 @@ void main() {
 
     test('addEvent with .conversation.status without conversation is safe', () {
       final wsEvent = BroadcastEvent(
-        channel: 'private-conversation.conv-uuid-001',
+        channel: 'conversation.conv-uuid-001',
         event: '.conversation.status',
         data: {
           'conversation_id': 'conv-uuid-001',
@@ -638,9 +631,8 @@ void main() {
         expect(state.messages.length, equals(2));
 
         // HTTP calls: GET conversation, GET messages.
-        final getCalls = driver.recorded
-            .where((r) => r.$1.method == 'GET')
-            .toList();
+        final getCalls =
+            driver.recorded.where((r) => r.$1.method == 'GET').toList();
         expect(getCalls.length, equals(2));
         expect(
           getCalls[0].$1.url,
@@ -656,10 +648,7 @@ void main() {
         );
 
         // WS subscription to conversation channel.
-        expect(
-          ws.subscribedChannels,
-          contains('conversation.conv-uuid-001'),
-        );
+        expect(ws.subscribedChannels, contains('conversation.conv-uuid-001'));
       },
     );
 
@@ -705,7 +694,7 @@ void main() {
         expect(state.sessionId, isNull);
 
         final wsEvent = BroadcastEvent(
-          channel: 'private-conversation.conv-uuid-001',
+          channel: 'conversation.conv-uuid-001',
           event: '.conversation.status',
           data: {
             'conversation_id': 'conv-uuid-001',
@@ -721,10 +710,7 @@ void main() {
         expect(state.sessionId, equals('sess-uuid-001'));
 
         // Session WS channel subscribed.
-        expect(
-          ws.subscribedChannels,
-          contains('session.sess-uuid-001'),
-        );
+        expect(ws.subscribedChannels, contains('session.sess-uuid-001'));
       },
     );
 
@@ -748,7 +734,7 @@ void main() {
       // Trigger session subscription via status event.
       state.addEvent(
         BroadcastEvent(
-          channel: 'private-conversation.conv-uuid-001',
+          channel: 'conversation.conv-uuid-001',
           event: '.conversation.status',
           data: {
             'conversation_id': 'conv-uuid-001',
@@ -810,7 +796,7 @@ void main() {
 
         state.addEvent(
           BroadcastEvent(
-            channel: 'private-conversation.conv-uuid-001',
+            channel: 'conversation.conv-uuid-001',
             event: '.conversation.status',
             data: {
               'conversation_id': 'conv-uuid-001',
@@ -829,10 +815,7 @@ void main() {
         expect(state.sessionId, isNull);
         expect(state.runningCostUsd, isNull);
         expect(state.sessionPhase, isNull);
-        expect(
-          ws.unsubscribedChannels,
-          contains('session.sess-uuid-001'),
-        );
+        expect(ws.unsubscribedChannels, contains('session.sess-uuid-001'));
       },
     );
 
@@ -853,9 +836,9 @@ void main() {
       );
 
       ws.simulateEvent(
-        'private-conversation.conv-uuid-001',
+        'conversation.conv-uuid-001',
         BroadcastEvent(
-          channel: 'private-conversation.conv-uuid-001',
+          channel: 'conversation.conv-uuid-001',
           event: '.conversation.message',
           data: {
             'type': 'tool_use',
@@ -894,9 +877,9 @@ void main() {
       );
 
       ws.simulateEvent(
-        'private-conversation.conv-uuid-001',
+        'conversation.conv-uuid-001',
         BroadcastEvent(
-          channel: 'private-conversation.conv-uuid-001',
+          channel: 'conversation.conv-uuid-001',
           event: '.conversation.message',
           data: {
             'type': 'thinking',
@@ -935,9 +918,9 @@ void main() {
 
         // Start
         ws.simulateEvent(
-          'private-conversation.conv-uuid-001',
+          'conversation.conv-uuid-001',
           BroadcastEvent(
-            channel: 'private-conversation.conv-uuid-001',
+            channel: 'conversation.conv-uuid-001',
             event: '.conversation.message',
             data: {
               'type': 'subagent_start',
@@ -956,9 +939,9 @@ void main() {
 
         // Stop
         ws.simulateEvent(
-          'private-conversation.conv-uuid-001',
+          'conversation.conv-uuid-001',
           BroadcastEvent(
-            channel: 'private-conversation.conv-uuid-001',
+            channel: 'conversation.conv-uuid-001',
             event: '.conversation.message',
             data: {
               'type': 'subagent_stop',
@@ -998,9 +981,9 @@ void main() {
       );
 
       ws.simulateEvent(
-        'private-conversation.conv-uuid-001',
+        'conversation.conv-uuid-001',
         BroadcastEvent(
-          channel: 'private-conversation.conv-uuid-001',
+          channel: 'conversation.conv-uuid-001',
           event: '.conversation.message',
           data: {
             'type': 'file_change',
@@ -1043,9 +1026,9 @@ void main() {
       );
 
       ws.simulateEvent(
-        'private-conversation.conv-uuid-001',
+        'conversation.conv-uuid-001',
         BroadcastEvent(
-          channel: 'private-conversation.conv-uuid-001',
+          channel: 'conversation.conv-uuid-001',
           event: '.conversation.message',
           data: {
             'type': 'error',
@@ -1081,9 +1064,9 @@ void main() {
       );
 
       ws.simulateEvent(
-        'private-conversation.conv-uuid-001',
+        'conversation.conv-uuid-001',
         BroadcastEvent(
-          channel: 'private-conversation.conv-uuid-001',
+          channel: 'conversation.conv-uuid-001',
           event: '.conversation.message',
           data: {
             'type': 'result',
@@ -1203,9 +1186,9 @@ void main() {
       );
 
       ws.simulateEvent(
-        'private-conversation.conv-uuid-001',
+        'conversation.conv-uuid-001',
         BroadcastEvent(
-          channel: 'private-conversation.conv-uuid-001',
+          channel: 'conversation.conv-uuid-001',
           event: '.conversation.message',
           data: {
             'type': 'thinking',
@@ -1380,9 +1363,9 @@ void main() {
       );
 
       ws.simulateEvent(
-        'private-conversation.conv-uuid-001',
+        'conversation.conv-uuid-001',
         BroadcastEvent(
-          channel: 'private-conversation.conv-uuid-001',
+          channel: 'conversation.conv-uuid-001',
           event: '.conversation.message',
           data: {
             'type': 'tool_use',
@@ -1424,9 +1407,9 @@ void main() {
 
         // First: emit the tool_use that creates the card.
         ws.simulateEvent(
-          'private-conversation.conv-uuid-001',
+          'conversation.conv-uuid-001',
           BroadcastEvent(
-            channel: 'private-conversation.conv-uuid-001',
+            channel: 'conversation.conv-uuid-001',
             event: '.conversation.message',
             data: {
               'type': 'tool_use',
@@ -1449,9 +1432,9 @@ void main() {
 
         // Then: emit the tool_result that should populate the card.
         ws.simulateEvent(
-          'private-conversation.conv-uuid-001',
+          'conversation.conv-uuid-001',
           BroadcastEvent(
-            channel: 'private-conversation.conv-uuid-001',
+            channel: 'conversation.conv-uuid-001',
             event: '.conversation.message',
             data: {
               'type': 'tool_result',
@@ -1491,9 +1474,9 @@ void main() {
         final lengthBefore = state.chatItems.length;
 
         ws.simulateEvent(
-          'private-conversation.conv-uuid-001',
+          'conversation.conv-uuid-001',
           BroadcastEvent(
-            channel: 'private-conversation.conv-uuid-001',
+            channel: 'conversation.conv-uuid-001',
             event: '.conversation.message',
             data: {
               'type': 'tool_result',

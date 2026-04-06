@@ -49,7 +49,6 @@ app.*.map.json
 .env
 
 # Binary assets
-web/sqlite3.wasm
 
 # Claude Code workspace
 .ac/

@@ -382,6 +382,18 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
     refreshUI();
   }
 
+  /// Expose [_parsePendingEvents] for unit testing.
+  ///
+  /// Parses a list of StreamEvent-format maps into [ChatItem]s.
+  /// Resets internal dedup/nesting state before parsing so each call
+  /// is independent.
+  @visibleForTesting
+  List<ChatItem> parsePendingEventsForTest(List<dynamic> events) {
+    _seenEventIds.clear();
+    _agentToolNames.clear();
+    return _parsePendingEvents(events);
+  }
+
   // ---------------------------------------------------------------------------
   // createConversation
   // ---------------------------------------------------------------------------
@@ -461,9 +473,12 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
     // -- Load existing messages --
     await loadMessages();
 
+    // Seed session phase from API — needed for isAgentRunning on refresh.
+    _sessionPhase = _conversation!.activeSessionPhase;
+
     // If the conversation has an actively executing session, show the stop
     // button immediately — handles page refresh / re-open while agent runs.
-    if (_conversation!.isExecuting) {
+    if (_sessionPhase == 'executing') {
       _awaitingResponse = true;
     }
 
@@ -1772,6 +1787,10 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   /// are deduplicated automatically.
   List<ChatItem> _parsePendingEvents(List<dynamic> events) {
     final items = <ChatItem>[];
+    // subagentId → index in [items]; tracks running subagents.
+    final activeSubagents = <String, int>{};
+    // Last subagent_progress task_id — determines nesting target.
+    String? currentSubagentId;
 
     for (final raw in events) {
       final e = raw as Map<String, dynamic>;
@@ -1800,18 +1819,50 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
             ),
           );
         case 'tool_use':
-          final meta = evtMeta ?? evtData?['metadata'] as Map<String, dynamic>?;
-          items.add(
-            ChatToolUseItem(
-              id: id,
-              occurredAt: evtOccurred,
-              toolName: meta?['toolName'] as String? ?? 'Unknown',
-              input: meta?['input'],
-              toolUseId: meta?['toolUseId'] as String?,
-            ),
+          final meta = evtMeta ?? evtData;
+          final toolUseIdVal = meta?['toolUseId'] as String?;
+          final toolNameVal = meta?['toolName'] as String? ?? 'Unknown';
+          // Cache agent name for subagent badge resolution.
+          if (toolNameVal == 'Agent' && toolUseIdVal != null) {
+            final inp = meta?['input'] as Map<String, dynamic>?;
+            final aName =
+                inp?['subagent_type'] as String? ?? inp?['name'] as String?;
+            if (aName != null) {
+              _agentToolNames[toolUseIdVal] = aName;
+            }
+          }
+          final toolItem = ChatToolUseItem(
+            id: id,
+            occurredAt: evtOccurred,
+            toolName: toolNameVal,
+            input: meta?['input'],
+            toolUseId: toolUseIdVal,
           );
+          // Nest under active subagent (Agent calls stay top-level).
+          final nestTarget =
+              (toolNameVal != 'Agent' && currentSubagentId != null)
+              ? activeSubagents[currentSubagentId]
+              : null;
+          if (nestTarget != null &&
+              nestTarget < items.length &&
+              items[nestTarget] is ChatSubagentItem) {
+            final sub = items[nestTarget] as ChatSubagentItem;
+            items[nestTarget] = ChatSubagentItem(
+              id: sub.id,
+              occurredAt: sub.occurredAt,
+              subagentId: sub.subagentId,
+              agentName: sub.agentName,
+              parentToolUseId: sub.parentToolUseId,
+              description: sub.description,
+              isComplete: sub.isComplete,
+              durationMs: sub.durationMs,
+              children: [...sub.children, toolItem],
+            );
+          } else {
+            items.add(toolItem);
+          }
         case 'tool_result':
-          final meta = evtMeta ?? evtData?['metadata'] as Map<String, dynamic>?;
+          final meta = evtMeta ?? evtData;
           final toolUseId = meta?['toolUseId'] as String?;
           if (toolUseId != null) {
             _correlatePersistedToolResult(
@@ -1836,10 +1887,11 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
           // Permission events are handled via pending_question — skip here.
           break;
         case 'subagent_start':
-          final meta = evtMeta ?? evtData?['metadata'] as Map<String, dynamic>?;
+          final meta = evtMeta ?? evtData;
           final subagentId =
               meta?['agentId'] as String? ?? meta?['task_id'] as String? ?? '';
           final toolUseId = meta?['tool_use_id'] as String?;
+          final idx = items.length;
           items.add(
             ChatSubagentItem(
               id: id,
@@ -1854,15 +1906,28 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
               isComplete: false,
             ),
           );
+          activeSubagents[subagentId] = idx;
+          currentSubagentId = subagentId;
+        case 'subagent_progress':
+          final meta = evtMeta ?? evtData;
+          // Track which subagent is currently active for nesting.
+          currentSubagentId =
+              meta?['task_id'] as String? ?? meta?['agentId'] as String?;
         case 'subagent_stop':
-          final meta = evtMeta ?? evtData?['metadata'] as Map<String, dynamic>?;
+          final meta = evtMeta ?? evtData;
           final subagentId =
               meta?['agentId'] as String? ?? meta?['task_id'] as String? ?? '';
+          final idx = activeSubagents.remove(subagentId);
+          if (currentSubagentId == subagentId) {
+            // Switch to another active subagent if any.
+            currentSubagentId = activeSubagents.isNotEmpty
+                ? activeSubagents.keys.last
+                : null;
+          }
           // Mark the subagent as complete.
-          final idx = items.lastIndexWhere(
-            (i) => i is ChatSubagentItem && i.subagentId == subagentId,
-          );
-          if (idx != -1) {
+          if (idx != null &&
+              idx < items.length &&
+              items[idx] is ChatSubagentItem) {
             final existing = items[idx] as ChatSubagentItem;
             items[idx] = ChatSubagentItem(
               id: existing.id,

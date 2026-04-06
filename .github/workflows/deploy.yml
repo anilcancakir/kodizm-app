@@ -37,6 +37,8 @@ jobs:
     environment: ${{ inputs.environment || 'development' }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: subosito/flutter-action@v2
         with:
@@ -67,6 +69,8 @@ jobs:
           version: ${{ github.sha }}
           sourcemaps: build/web
           url_prefix: '~/'
+          set_commits: skip
+          ignore_missing: true
 
       - uses: webfactory/ssh-agent@v0.9.0
         with:

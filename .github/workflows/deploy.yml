@@ -15,7 +15,7 @@ on:
           - production
 
 env:
-  FLUTTER_VERSION: '3.32.0'
+  FLUTTER_VERSION: '3.41.6'
   SENTRY_ORG: kodizmai
   SENTRY_PROJECT: kodizm-ai-app
 

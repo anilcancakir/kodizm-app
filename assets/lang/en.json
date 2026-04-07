@@ -949,6 +949,7 @@
     "total_cost": "Total Cost",
     "created_by": "Created By",
     "source_label": "Source",
+    "task_id_label": "ID",
     "version_label": "v:version",
     "section_type_analysis": "Analysis",
     "section_type_plan": "Plan",

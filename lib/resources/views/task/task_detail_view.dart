@@ -270,6 +270,13 @@ class _TaskDetailViewState extends State<TaskDetailView> {
           ),
         ),
 
+        if (task.taskId != null)
+          WText(
+            task.taskId!,
+            className:
+                'text-sm font-mono font-semibold text-slate-500 dark:text-slate-400',
+          ),
+
         // Title — truncated, fills remaining space
         WDiv(
           className: 'flex-1 min-w-0',

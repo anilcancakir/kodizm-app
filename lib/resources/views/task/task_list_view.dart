@@ -628,6 +628,12 @@ class _TaskCard extends StatelessWidget {
             className: 'flex flex-row items-center gap-2',
             children: [
               TaskTypeIcon(type: task.type ?? 'task'),
+              if (task.taskId != null)
+                WText(
+                  task.taskId!,
+                  className:
+                      'text-xs font-mono font-medium text-slate-500 dark:text-slate-400',
+                ),
               WDiv(
                 className: 'flex-1',
                 child: WText(

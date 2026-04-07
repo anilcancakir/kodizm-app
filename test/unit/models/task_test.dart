@@ -222,6 +222,28 @@ void main() {
     });
 
     // ---------------------------------------------------------------------------
+    // Task ID display accessors
+    // ---------------------------------------------------------------------------
+
+    test('taskId accessor returns api value', () {
+      final task = Task.fromMap({'id': 'task-uuid-001', 'task_id': 'KDZ-1'});
+
+      expect(task.taskId, equals('KDZ-1'));
+    });
+
+    test('taskNumber accessor returns api value', () {
+      final task = Task.fromMap({'id': 'task-uuid-001', 'task_number': 42});
+
+      expect(task.taskNumber, equals(42));
+    });
+
+    test('taskId is null when absent from map', () {
+      final task = Task.fromMap({'id': 'task-uuid-001'});
+
+      expect(task.taskId, isNull);
+    });
+
+    // ---------------------------------------------------------------------------
     // ORM configuration
     // ---------------------------------------------------------------------------
 

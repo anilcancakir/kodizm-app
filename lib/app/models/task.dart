@@ -57,6 +57,8 @@ class Task extends Model with HasTimestamps, InteractsWithPersistence {
     'design_needed',
     'retry_count',
     'branch_name',
+    'task_number',
+    'task_id',
     'total_cost_usd',
     'description',
     'acceptance_criteria',
@@ -157,6 +159,12 @@ class Task extends Model with HasTimestamps, InteractsWithPersistence {
 
   /// Set the branch name.
   set branchName(String? value) => setAttribute('branch_name', value);
+
+  /// Get the project-scoped task number (e.g. 1, 2, 3).
+  int? get taskNumber => getAttribute('task_number') as int?;
+
+  /// Get the formatted task identifier (e.g. "KDZ-1").
+  String? get taskId => getAttribute('task_id') as String?;
 
   /// Get the optional total cost in USD accumulated by agent runs for this task.
   String? get totalCostUsd => getAttribute('total_cost_usd') as String?;

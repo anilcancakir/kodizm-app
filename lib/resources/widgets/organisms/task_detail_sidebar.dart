@@ -117,6 +117,12 @@ class TaskDetailSidebar extends StatelessWidget {
           child: WDiv(
             className: 'flex flex-col gap-3 pt-3',
             children: [
+              // Task ID
+              _SidebarInfoRow(
+                label: trans('tasks.task_id_label'),
+                value: task.taskId ?? '--',
+              ),
+
               // Type
               _SidebarInfoRow(
                 label: trans('tasks.detail_type'),

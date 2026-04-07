@@ -257,23 +257,37 @@ class _TaskDetailViewState extends State<TaskDetailView> {
     final status = task.status ?? 'draft';
     final hasTransitions = (_allowedTransitions[status] ?? []).isNotEmpty;
 
-    return MagicStarterPageHeader(
-      title: task.title ?? '',
-      leading: WAnchor(
-        onTap: () => MagicRoute.to('/projects/${widget.projectId}/tasks'),
-        child: WIcon(
-          Icons.arrow_back,
-          className: 'text-base text-slate-500 dark:text-slate-400',
+    return WDiv(
+      className:
+          'w-full flex flex-row items-center gap-3 p-2 lg:p-4 border-b border-gray-200 dark:border-gray-700',
+      children: [
+        // Back button
+        WAnchor(
+          onTap: () => MagicRoute.to('/projects/${widget.projectId}/tasks'),
+          child: WIcon(
+            Icons.arrow_back,
+            className: 'text-base text-slate-500 dark:text-slate-400',
+          ),
         ),
-      ),
-      actions: [
+
+        // Title — truncated, fills remaining space
+        WDiv(
+          className: 'flex-1 min-w-0',
+          child: WText(
+            task.title ?? '',
+            className:
+                'text-2xl font-bold text-gray-900 dark:text-white truncate',
+          ),
+        ),
+
+        // Status badge — always inline with title
         WAnchor(
           onTap: hasTransitions
               ? () => _showStatusTransitionModal(context, status)
               : null,
           child: WDiv(
             className:
-                'flex flex-row items-center gap-1 px-3 py-1.5 rounded-lg ${statusBadgeClassName(status)}',
+                'flex flex-row items-center gap-1 px-3 py-1.5 rounded-lg flex-shrink-0 ${statusBadgeClassName(status)}',
             children: [
               WText(statusLabel(status), className: 'text-sm font-semibold'),
               if (hasTransitions)

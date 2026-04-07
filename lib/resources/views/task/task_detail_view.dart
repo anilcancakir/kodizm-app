@@ -257,52 +257,31 @@ class _TaskDetailViewState extends State<TaskDetailView> {
     final status = task.status ?? 'draft';
     final hasTransitions = (_allowedTransitions[status] ?? []).isNotEmpty;
 
-    return WDiv(
-      className:
-          'w-full flex flex-row items-center gap-3 pb-4 border-b border-gray-200 dark:border-gray-700',
-      children: [
-        // Back button
-        WAnchor(
-          onTap: () => MagicRoute.to('/projects/${widget.projectId}/tasks'),
-          child: WIcon(
-            Icons.arrow_back,
-            className: 'text-base text-slate-500 dark:text-slate-400',
-          ),
+    return MagicStarterPageHeader(
+      title: task.title ?? '',
+      subtitle: task.taskId,
+      inlineActions: true,
+      leading: WAnchor(
+        onTap: () => MagicRoute.to('/projects/${widget.projectId}/tasks'),
+        child: WIcon(
+          Icons.arrow_back,
+          className: 'text-base text-slate-500 dark:text-slate-400',
         ),
-
-        if (task.taskId != null)
-          WText(
-            task.taskId!,
-            className:
-                'text-sm font-mono font-semibold text-slate-500 dark:text-slate-400',
-          ),
-
-        // Title — truncated, fills remaining space
-        WDiv(
-          className: 'flex-1 min-w-0',
-          child: WText(
-            task.title ?? '',
-            className:
-                'text-xl font-bold text-gray-900 dark:text-white truncate',
-          ),
+      ),
+      titleSuffix: WAnchor(
+        onTap: hasTransitions
+            ? () => _showStatusTransitionModal(context, status)
+            : null,
+        child: WDiv(
+          className:
+              'flex flex-row items-center gap-1 px-3 py-1.5 rounded-lg ${statusBadgeClassName(status)}',
+          children: [
+            WText(statusLabel(status), className: 'text-sm font-semibold'),
+            if (hasTransitions)
+              WIcon(Icons.arrow_drop_down, className: 'text-base'),
+          ],
         ),
-
-        // Status badge — always inline with title
-        WAnchor(
-          onTap: hasTransitions
-              ? () => _showStatusTransitionModal(context, status)
-              : null,
-          child: WDiv(
-            className:
-                'flex flex-row items-center gap-1 px-3 py-1.5 rounded-lg flex-shrink-0 ${statusBadgeClassName(status)}',
-            children: [
-              WText(statusLabel(status), className: 'text-sm font-semibold'),
-              if (hasTransitions)
-                WIcon(Icons.arrow_drop_down, className: 'text-base'),
-            ],
-          ),
-        ),
-      ],
+      ),
     );
   }
 

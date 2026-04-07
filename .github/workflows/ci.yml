@@ -136,7 +136,14 @@ jobs:
 
       - name: Deploy to server
         run: |
-          rsync -avz --delete \
-            -e "ssh -p ${{ secrets.SSH_PORT }}" \
-            build/web/ \
-            ${{ secrets.SSH_USER_APP }}@${{ secrets.SSH_HOST }}:/home/kodizm-ai/htdocs/ai.kodizm.com/
+          for attempt in 1 2 3; do
+            echo "Attempt $attempt/3..."
+            rsync -avz --delete \
+              -e "ssh -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -p ${{ secrets.SSH_PORT }}" \
+              build/web/ \
+              ${{ secrets.SSH_USER_APP }}@${{ secrets.SSH_HOST }}:/home/kodizm-ai/htdocs/ai.kodizm.com/ && exit 0
+            echo "Attempt $attempt failed (exit $?), retrying in $((attempt * 15))s..."
+            sleep $((attempt * 15))
+          done
+          echo "All 3 attempts failed"
+          exit 1

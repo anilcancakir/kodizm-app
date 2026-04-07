@@ -511,21 +511,21 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
 
   @override
   Widget build(BuildContext context) {
-    return MagicTitle(
-      title: ProjectState.instance.selectedProject?.name ?? '',
-      child: ListenableBuilder(
-        listenable: ProjectState.instance,
-        builder: (context, _) {
-          final project = ProjectState.instance.selectedProject;
+    return ListenableBuilder(
+      listenable: ProjectState.instance,
+      builder: (context, _) {
+        final project = ProjectState.instance.selectedProject;
 
-          if (project == null) {
-            return const WDiv(
-              className: 'flex items-center justify-center w-full py-16',
-              child: CircularProgressIndicator(),
-            );
-          }
+        if (project == null) {
+          return const WDiv(
+            className: 'flex items-center justify-center w-full py-16',
+            child: CircularProgressIndicator(),
+          );
+        }
 
-          return WDiv(
+        return MagicTitle(
+          title: project.name ?? '',
+          child: WDiv(
             className: 'p-4 lg:p-6 flex flex-col gap-6',
             children: [
               // Page header — standard magic_starter layout.
@@ -543,9 +543,9 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
               _buildMcpServersSection(),
               if (_canManageProject) _buildSettingsSection(project),
             ],
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 

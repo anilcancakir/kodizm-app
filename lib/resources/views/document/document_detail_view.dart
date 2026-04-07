@@ -197,20 +197,20 @@ class _DocumentDetailViewState extends State<DocumentDetailView> {
       );
     }
 
-    return MagicTitle(
-      title: DocumentState.instance.selectedDocument?.title ?? '',
-      child: ListenableBuilder(
-        listenable: DocumentState.instance,
-        builder: (context, _) {
-          final doc = DocumentState.instance.selectedDocument;
+    return ListenableBuilder(
+      listenable: DocumentState.instance,
+      builder: (context, _) {
+        final doc = DocumentState.instance.selectedDocument;
 
-          if (doc == null) {
-            return _buildNotFound();
-          }
+        if (doc == null) {
+          return _buildNotFound();
+        }
 
-          final isEditing = DocumentState.instance.isEditing;
+        final isEditing = DocumentState.instance.isEditing;
 
-          return WDiv(
+        return MagicTitle(
+          title: doc.title,
+          child: WDiv(
             className: 'p-4 lg:p-6 flex flex-col gap-6',
             children: [
               // -------------------------------------------------------------
@@ -287,9 +287,9 @@ class _DocumentDetailViewState extends State<DocumentDetailView> {
               else
                 _ContentCard(content: doc.content),
             ],
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 

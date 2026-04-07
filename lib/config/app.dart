@@ -6,7 +6,7 @@ import '../app/providers/route_service_provider.dart';
 /// Application Configuration.
 Map<String, dynamic> get appConfig => {
   'app': {
-    'name': env('APP_NAME', 'My App'),
+    'name': env('APP_NAME', 'Kodizm'),
     'env': env('APP_ENV', 'production'),
     'debug': env('APP_DEBUG', false),
     'key': env('APP_KEY'),

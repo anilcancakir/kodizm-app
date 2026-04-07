@@ -633,10 +633,10 @@ packages:
     dependency: "direct main"
     description:
       name: magic
-      sha256: e132966c99abd1cc51606dd0410cbf230bb55398497d55a4d3614aadb609b15a
+      sha256: c921268c1caf94b5ed91a0a8c2a0ac2419f743cf7079ddaea7b3a08a96f4df4f
       url: "https://pub.dev"
     source: hosted
-    version: "1.0.0-alpha.8"
+    version: "1.0.0-alpha.9"
   magic_cli:
     dependency: transitive
     description:

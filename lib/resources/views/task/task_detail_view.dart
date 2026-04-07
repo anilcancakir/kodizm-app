@@ -295,38 +295,49 @@ class _TaskDetailViewState extends State<TaskDetailView> {
     List<Conversation> runs,
   ) {
     return WDiv(
-      className: 'flex flex-row gap-6',
+      className: 'flex flex-col gap-6',
       children: [
-        // Main column
+        // Two-column row
         WDiv(
-          className: 'flex-1 flex flex-col gap-6',
+          className: 'flex flex-row gap-6',
           children: [
-            _buildInfoSection(task),
-            _buildStatusActionsSection(task),
-            _buildSectionsCard(sections),
-            TaskActivityFeed(
-              sections: sections,
-              conversations: runs,
-              projectId: widget.projectId,
+            // Main column
+            WDiv(
+              className: 'flex-1 flex flex-col gap-6',
+              children: [
+                _buildInfoSection(task),
+                _buildStatusActionsSection(task),
+                _buildSectionsCard(sections),
+              ],
+            ),
+
+            // Sidebar
+            WDiv(
+              className: 'w-96 flex-shrink-0 flex flex-col gap-4',
+              children: [
+                TaskDetailSidebar(
+                  task: task,
+                  conversations: runs,
+                  onStartRun: () => _showStartRunDialog(context),
+                  hasActiveRun: _hasActiveRun(runs),
+                  isPipelineEnabled:
+                      ProjectState
+                          .instance
+                          .selectedProject
+                          ?.isPipelineEnabled ??
+                      false,
+                  onContinuePipeline: _onContinuePipeline,
+                ),
+              ],
             ),
           ],
         ),
 
-        // Sidebar
-        WDiv(
-          className: 'w-96 flex-shrink-0 flex flex-col gap-4',
-          children: [
-            TaskDetailSidebar(
-              task: task,
-              conversations: runs,
-              onStartRun: () => _showStartRunDialog(context),
-              hasActiveRun: _hasActiveRun(runs),
-              isPipelineEnabled:
-                  ProjectState.instance.selectedProject?.isPipelineEnabled ??
-                  false,
-              onContinuePipeline: _onContinuePipeline,
-            ),
-          ],
+        // Activity feed — full width below two-column row
+        TaskActivityFeed(
+          sections: sections,
+          conversations: runs,
+          projectId: widget.projectId,
         ),
       ],
     );

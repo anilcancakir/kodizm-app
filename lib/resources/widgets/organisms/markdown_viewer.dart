@@ -294,6 +294,16 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
 /// Uses DESIGN.md Terminal card variant (`primary-900` bg) in both modes —
 /// code blocks are always dark-on-dark for consistency and readability.
 /// Horizontal scroll for long lines, language label top-left, copy top-right.
+/// [atomOneDarkTheme] with transparent root background so the outer
+/// `bg-primary-900` container shows through without a visible inner box.
+final Map<String, TextStyle> _codeTheme = {
+  ...atomOneDarkTheme,
+  'root': TextStyle(
+    color: atomOneDarkTheme['root']?.color,
+    backgroundColor: const Color(0x00000000),
+  ),
+};
+
 class _CodeBlock extends StatelessWidget {
   const _CodeBlock({required this.code, required this.language});
 
@@ -336,7 +346,7 @@ class _CodeBlock extends StatelessWidget {
               child: HighlightView(
                 code,
                 language: language,
-                theme: atomOneDarkTheme,
+                theme: _codeTheme,
                 textStyle: const TextStyle(
                   fontFamily: 'JetBrains Mono',
                   fontSize: 13,

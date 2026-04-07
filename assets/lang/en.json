@@ -892,6 +892,8 @@
     "status_cancelled": "Cancelled",
     "status_pending": "Pending",
     "status_completed": "Completed",
+    "status_active": "Active",
+    "status_paused": "Paused",
     "status_timed_out": "Timed Out",
     "priority_p0": "Critical",
     "priority_p1": "High",

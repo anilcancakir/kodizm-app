@@ -291,10 +291,9 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
 
 /// Renders a styled code block with syntax highlighting and a copy button.
 ///
-/// Adapts to dark/light mode per DESIGN.md §4 (Inset card variant):
-/// - Light: `slate-50` bg, inset shadow
-/// - Dark: `primary-950` bg (deeper than surrounding surfaces for contrast)
-/// - Both: 8px radius, horizontal overflow scroll, language label
+/// Uses DESIGN.md Terminal card variant (`primary-900` bg) in both modes —
+/// code blocks are always dark-on-dark for consistency and readability.
+/// Horizontal scroll for long lines, language label top-left, copy top-right.
 class _CodeBlock extends StatelessWidget {
   const _CodeBlock({required this.code, required this.language});
 
@@ -303,37 +302,41 @@ class _CodeBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+    final hasLang = language != 'plaintext';
 
-    // Code block container — HighlightView requires TextStyle + EdgeInsets
-    // internally (third-party widget exception, similar to MarkdownStyleSheet).
     return WDiv(
-      className: isDark
-          ? 'bg-primary-950 rounded-lg border border-primary-800'
-          : 'bg-slate-50 rounded-lg border border-slate-200',
-      child: Stack(
-        children: <Widget>[
-          // Language label.
-          if (language != 'plaintext')
-            Positioned(
-              top: 8,
-              left: 12,
-              child: WText(
-                language,
-                className: isDark
-                    ? 'text-xs font-medium text-slate-500'
-                    : 'text-xs font-medium text-slate-400',
-              ),
+      className: 'bg-primary-900 rounded-lg overflow-hidden',
+      child: WDiv(
+        className: 'flex flex-col',
+        children: [
+          // Header row: language label + copy button.
+          if (hasLang)
+            WDiv(
+              className:
+                  'flex flex-row items-center justify-between px-3 pt-2.5',
+              children: [
+                WText(
+                  language,
+                  className: 'text-xs font-medium text-slate-500',
+                ),
+                _buildCopyButton(),
+              ],
+            ),
+          // Copy button only (no language label).
+          if (!hasLang)
+            WDiv(
+              className: 'flex flex-row justify-end px-3 pt-2.5',
+              child: _buildCopyButton(),
             ),
           // Syntax-highlighted source with horizontal scroll.
           WDiv(
-            className: language != 'plaintext' ? 'pt-7 pb-3 px-3' : 'p-3',
+            className: 'px-3 pb-3 pt-1',
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: HighlightView(
                 code,
                 language: language,
-                theme: isDark ? atomOneDarkTheme : _lightCodeTheme,
+                theme: atomOneDarkTheme,
                 textStyle: const TextStyle(
                   fontFamily: 'JetBrains Mono',
                   fontSize: 13,
@@ -343,74 +346,19 @@ class _CodeBlock extends StatelessWidget {
               ),
             ),
           ),
-          // Copy-to-clipboard button.
-          Positioned(
-            top: 8,
-            right: 8,
-            child: WAnchor(
-              onTap: () => Clipboard.setData(ClipboardData(text: code)),
-              child: WDiv(
-                className: isDark
-                    ? 'p-1.5 rounded bg-primary-800'
-                    : 'p-1.5 rounded bg-slate-200',
-                child: WIcon(
-                  Icons.copy,
-                  className: isDark
-                      ? 'text-sm text-slate-400'
-                      : 'text-sm text-slate-500',
-                ),
-              ),
-            ),
-          ),
         ],
       ),
     );
   }
+
+  /// Copy-to-clipboard button — Wind UI only.
+  Widget _buildCopyButton() {
+    return WAnchor(
+      onTap: () => Clipboard.setData(ClipboardData(text: code)),
+      child: WDiv(
+        className: 'p-1.5 rounded bg-white/5',
+        child: WIcon(Icons.copy, className: 'text-sm text-slate-500'),
+      ),
+    );
+  }
 }
-
-// ---------------------------------------------------------------------------
-// Light-mode syntax theme
-// ---------------------------------------------------------------------------
-
-/// A light syntax highlighting theme derived from atom-one-light palette,
-/// styled for DESIGN.md Inset card (slate-50 background).
-const Map<String, TextStyle> _lightCodeTheme = {
-  'root': TextStyle(
-    color: Color(0xFF383A42),
-    backgroundColor: Colors.transparent,
-  ),
-  'comment': TextStyle(color: Color(0xFFA0A1A7), fontStyle: FontStyle.italic),
-  'quote': TextStyle(color: Color(0xFFA0A1A7), fontStyle: FontStyle.italic),
-  'doctag': TextStyle(color: Color(0xFFA626A4)),
-  'keyword': TextStyle(color: Color(0xFFA626A4)),
-  'formula': TextStyle(color: Color(0xFFA626A4)),
-  'section': TextStyle(color: Color(0xFFE45649)),
-  'name': TextStyle(color: Color(0xFFE45649)),
-  'selector-tag': TextStyle(color: Color(0xFFE45649)),
-  'deletion': TextStyle(color: Color(0xFFE45649)),
-  'subst': TextStyle(color: Color(0xFFE45649)),
-  'literal': TextStyle(color: Color(0xFF0184BB)),
-  'string': TextStyle(color: Color(0xFF50A14F)),
-  'regexp': TextStyle(color: Color(0xFF50A14F)),
-  'addition': TextStyle(color: Color(0xFF50A14F)),
-  'attribute': TextStyle(color: Color(0xFF50A14F)),
-  'meta-string': TextStyle(color: Color(0xFF50A14F)),
-  'built_in': TextStyle(color: Color(0xFFC18401)),
-  'class': TextStyle(color: Color(0xFFC18401)),
-  'attr': TextStyle(color: Color(0xFFC18401)),
-  'variable': TextStyle(color: Color(0xFFC18401)),
-  'template-variable': TextStyle(color: Color(0xFFC18401)),
-  'type': TextStyle(color: Color(0xFFC18401)),
-  'selector-class': TextStyle(color: Color(0xFFC18401)),
-  'selector-attr': TextStyle(color: Color(0xFFC18401)),
-  'selector-pseudo': TextStyle(color: Color(0xFFC18401)),
-  'number': TextStyle(color: Color(0xFF986801)),
-  'symbol': TextStyle(color: Color(0xFF4078F2)),
-  'bullet': TextStyle(color: Color(0xFF4078F2)),
-  'link': TextStyle(color: Color(0xFF4078F2)),
-  'meta': TextStyle(color: Color(0xFF4078F2)),
-  'selector-id': TextStyle(color: Color(0xFF4078F2)),
-  'title': TextStyle(color: Color(0xFF4078F2)),
-  'emphasis': TextStyle(fontStyle: FontStyle.italic),
-  'strong': TextStyle(fontWeight: FontWeight.bold),
-};

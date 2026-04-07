@@ -259,7 +259,7 @@ class _TaskDetailViewState extends State<TaskDetailView> {
 
     return WDiv(
       className:
-          'w-full flex flex-row items-center gap-3 p-2 lg:p-4 border-b border-gray-200 dark:border-gray-700',
+          'w-full flex flex-row items-center gap-3 pb-4 border-b border-gray-200 dark:border-gray-700',
       children: [
         // Back button
         WAnchor(
@@ -276,7 +276,7 @@ class _TaskDetailViewState extends State<TaskDetailView> {
           child: WText(
             task.title ?? '',
             className:
-                'text-2xl font-bold text-gray-900 dark:text-white truncate',
+                'text-xl font-bold text-gray-900 dark:text-white truncate',
           ),
         ),
 
@@ -367,7 +367,7 @@ class _TaskDetailViewState extends State<TaskDetailView> {
     List<Conversation> runs,
   ) {
     return WDiv(
-      className: 'flex flex-col gap-4',
+      className: 'flex flex-col gap-6',
       children: [
         // Details sidebar first on mobile
         TaskDetailSidebar(

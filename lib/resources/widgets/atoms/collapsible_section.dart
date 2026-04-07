@@ -69,12 +69,12 @@ class _CollapsibleSectionState extends State<CollapsibleSection> {
         WAnchor(
           onTap: () => setState(() => _expanded = !_expanded),
           child: WDiv(
-            className: 'flex flex-row items-center gap-2 w-full',
+            className: 'flex flex-row items-center gap-2 w-full py-2',
             children: [
               WText(
                 widget.title,
                 className:
-                    'flex-1 text-sm font-semibold text-slate-700 dark:text-slate-300',
+                    'flex-1 text-base font-semibold text-slate-700 dark:text-slate-300',
               ),
               if (widget.trailing != null) widget.trailing!,
               WIcon(

@@ -239,21 +239,24 @@ class _ConversationChatViewState extends State<ConversationChatView> {
   Widget build(BuildContext context) {
     // MagicStarterHideBottomNav signals the AppLayout to suppress the mobile
     // bottom navigation bar — chat is a fullscreen immersive view.
-    return MagicStarterHideBottomNav(
-      child: ListenableBuilder(
-        listenable: _state,
-        builder: (context, _) {
-          if (_state.conversation == null) {
-            if (_isLoadingExisting) {
-              return WDiv(
-                className: 'flex flex-col items-center justify-center w-full',
-                child: const CircularProgressIndicator(),
-              );
+    return MagicTitle(
+      title: _state.conversation?.title ?? '',
+      child: MagicStarterHideBottomNav(
+        child: ListenableBuilder(
+          listenable: _state,
+          builder: (context, _) {
+            if (_state.conversation == null) {
+              if (_isLoadingExisting) {
+                return WDiv(
+                  className: 'flex flex-col items-center justify-center w-full',
+                  child: const CircularProgressIndicator(),
+                );
+              }
+              return _buildWelcome();
             }
-            return _buildWelcome();
-          }
-          return _buildChat();
-        },
+            return _buildChat();
+          },
+        ),
       ),
     );
   }

@@ -511,38 +511,41 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: ProjectState.instance,
-      builder: (context, _) {
-        final project = ProjectState.instance.selectedProject;
+    return MagicTitle(
+      title: ProjectState.instance.selectedProject?.name ?? '',
+      child: ListenableBuilder(
+        listenable: ProjectState.instance,
+        builder: (context, _) {
+          final project = ProjectState.instance.selectedProject;
 
-        if (project == null) {
-          return const WDiv(
-            className: 'flex items-center justify-center w-full py-16',
-            child: CircularProgressIndicator(),
+          if (project == null) {
+            return const WDiv(
+              className: 'flex items-center justify-center w-full py-16',
+              child: CircularProgressIndicator(),
+            );
+          }
+
+          return WDiv(
+            className: 'p-4 lg:p-6 flex flex-col gap-6',
+            children: [
+              // Page header — standard magic_starter layout.
+              MagicStarterPageHeader(
+                title: project.name ?? trans('projects.unnamed_project'),
+                actions: _buildHeaderBadges(project),
+              ),
+
+              // Section cards.
+              _buildRepositoriesSection(),
+              _buildSshKeySection(project),
+              if (_canManageProject) _buildContainerSection(project),
+              if (_hasRuntimeData) _buildEnvironmentSection(project),
+              if (_canManageProject) _buildPipelineSection(project),
+              _buildMcpServersSection(),
+              if (_canManageProject) _buildSettingsSection(project),
+            ],
           );
-        }
-
-        return WDiv(
-          className: 'p-4 lg:p-6 flex flex-col gap-6',
-          children: [
-            // Page header — standard magic_starter layout.
-            MagicStarterPageHeader(
-              title: project.name ?? trans('projects.unnamed_project'),
-              actions: _buildHeaderBadges(project),
-            ),
-
-            // Section cards.
-            _buildRepositoriesSection(),
-            _buildSshKeySection(project),
-            if (_canManageProject) _buildContainerSection(project),
-            if (_hasRuntimeData) _buildEnvironmentSection(project),
-            if (_canManageProject) _buildPipelineSection(project),
-            _buildMcpServersSection(),
-            if (_canManageProject) _buildSettingsSection(project),
-          ],
-        );
-      },
+        },
+      ),
     );
   }
 

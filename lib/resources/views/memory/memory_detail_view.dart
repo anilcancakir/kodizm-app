@@ -286,7 +286,10 @@ class _MemoryDetailViewState extends State<MemoryDetailView> {
       return _buildNotFound();
     }
 
-    return _editing ? _buildEditMode() : _buildReadMode();
+    return MagicTitle(
+      title: _memory?.name ?? '',
+      child: _editing ? _buildEditMode() : _buildReadMode(),
+    );
   }
 
   // -----------------------------------------------------------------------

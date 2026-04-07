@@ -151,7 +151,7 @@ class AgentProgressState extends MagicController with MagicStateMixin<void> {
   static const int _maxToasts = 3;
 
   /// Duration before a non-blocked toast auto-dismisses.
-  static const Duration _autoDismissDuration = Duration(seconds: 5);
+  static const Duration _autoDismissDuration = Duration(seconds: 10);
 
   // ---------------------------------------------------------------------------
   // State fields

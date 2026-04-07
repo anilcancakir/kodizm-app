@@ -184,12 +184,14 @@ void main() async {
     sentryDsn.isNotEmpty
         ? SentryWidget(
             child: MagicApplication(
-              title: 'Kodizm - AI Dev Platform',
+              title: 'Kodizm.AI',
+              titleSuffix: 'Kodizm.AI',
               windTheme: windTheme,
             ),
           )
         : MagicApplication(
-            title: 'Kodizm - AI Dev Platform',
+            title: 'Kodizm.AI',
+            titleSuffix: 'Kodizm.AI',
             windTheme: windTheme,
           ),
   );

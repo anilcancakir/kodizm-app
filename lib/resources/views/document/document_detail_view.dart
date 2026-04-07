@@ -197,96 +197,99 @@ class _DocumentDetailViewState extends State<DocumentDetailView> {
       );
     }
 
-    return ListenableBuilder(
-      listenable: DocumentState.instance,
-      builder: (context, _) {
-        final doc = DocumentState.instance.selectedDocument;
+    return MagicTitle(
+      title: DocumentState.instance.selectedDocument?.title ?? '',
+      child: ListenableBuilder(
+        listenable: DocumentState.instance,
+        builder: (context, _) {
+          final doc = DocumentState.instance.selectedDocument;
 
-        if (doc == null) {
-          return _buildNotFound();
-        }
+          if (doc == null) {
+            return _buildNotFound();
+          }
 
-        final isEditing = DocumentState.instance.isEditing;
+          final isEditing = DocumentState.instance.isEditing;
 
-        return WDiv(
-          className: 'p-4 lg:p-6 flex flex-col gap-6',
-          children: [
-            // -------------------------------------------------------------
-            // Header
-            // -------------------------------------------------------------
-            MagicStarterPageHeader(
-              title: doc.title,
-              actions: [
-                if (!isEditing) ...[
-                  WAnchor(
-                    onTap: _startEditing,
-                    child: WDiv(
-                      className: '''
+          return WDiv(
+            className: 'p-4 lg:p-6 flex flex-col gap-6',
+            children: [
+              // -------------------------------------------------------------
+              // Header
+              // -------------------------------------------------------------
+              MagicStarterPageHeader(
+                title: doc.title,
+                actions: [
+                  if (!isEditing) ...[
+                    WAnchor(
+                      onTap: _startEditing,
+                      child: WDiv(
+                        className: '''
                           flex flex-row items-center gap-2
                           px-4 py-2 rounded-lg
                           bg-white dark:bg-gray-800
                           border border-slate-200 dark:border-gray-700
                         ''',
-                      children: [
-                        WIcon(
-                          Icons.edit_outlined,
-                          className: 'text-base text-primary-500',
-                        ),
-                        WText(
-                          trans('common.edit'),
-                          className: 'text-sm font-semibold text-primary-500',
-                        ),
-                      ],
+                        children: [
+                          WIcon(
+                            Icons.edit_outlined,
+                            className: 'text-base text-primary-500',
+                          ),
+                          WText(
+                            trans('common.edit'),
+                            className: 'text-sm font-semibold text-primary-500',
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  WAnchor(
-                    onTap: _confirmDelete,
-                    child: WDiv(
-                      className: '''
+                    WAnchor(
+                      onTap: _confirmDelete,
+                      child: WDiv(
+                        className: '''
                           flex flex-row items-center gap-2
                           px-4 py-2 rounded-lg
                           bg-white dark:bg-gray-800
                           border border-red-300 dark:border-red-700
                         ''',
-                      children: [
-                        WIcon(
-                          Icons.delete_outline,
-                          className: 'text-base text-red-500',
-                        ),
-                        WText(
-                          trans('common.delete'),
-                          className: 'text-sm font-semibold text-red-500',
-                        ),
-                      ],
+                        children: [
+                          WIcon(
+                            Icons.delete_outline,
+                            className: 'text-base text-red-500',
+                          ),
+                          WText(
+                            trans('common.delete'),
+                            className: 'text-sm font-semibold text-red-500',
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
+                  ],
                 ],
-              ],
-            ),
+              ),
 
-            // -------------------------------------------------------------
-            // Metadata: category + creator + timestamps
-            // -------------------------------------------------------------
-            _MetadataRow(
-              document: doc,
-              categoryBadgeClassName: _categoryBadgeClassName,
-            ),
+              // -------------------------------------------------------------
+              // Metadata: category + creator + timestamps
+              // -------------------------------------------------------------
+              _MetadataRow(
+                document: doc,
+                categoryBadgeClassName: _categoryBadgeClassName,
+              ),
 
-            // -------------------------------------------------------------
-            // Content card — display or edit mode
-            // -------------------------------------------------------------
-            if (isEditing)
-              _EditForm(
-                titleController: _titleController,
-                contentController: _contentController,
-                onSave: _saveEdits,
-                onCancel: _cancelEditing,
-              )
-            else
-              _ContentCard(content: doc.content),
-          ],
-        );
-      },
+              // -------------------------------------------------------------
+              // Content card — display or edit mode
+              // -------------------------------------------------------------
+              if (isEditing)
+                _EditForm(
+                  titleController: _titleController,
+                  contentController: _contentController,
+                  onSave: _saveEdits,
+                  onCancel: _cancelEditing,
+                )
+              else
+                _ContentCard(content: doc.content),
+            ],
+          );
+        },
+      ),
     );
   }
 

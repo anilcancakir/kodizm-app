@@ -121,134 +121,137 @@ class _SkillDetailViewState extends State<SkillDetailView> {
 
     final skill = _skill!;
 
-    return WDiv(
-      className: 'p-4 lg:p-6 flex flex-col gap-6',
-      children: [
-        // -----------------------------------------------------------------
-        // Header
-        // -----------------------------------------------------------------
-        MagicStarterPageHeader(
-          title: skill.name ?? trans('skills.detail_title'),
-          subtitle: skill.description ?? '',
-          actions: [
-            WDiv(
-              className: skill.isActive
-                  ? 'px-3 py-1 rounded-full bg-emerald-500/15'
-                  : 'px-3 py-1 rounded-full bg-slate-500/15',
-              child: WText(
-                skill.isActive
-                    ? trans('skills.active')
-                    : trans('skills.inactive'),
-                className: skill.isActive
-                    ? 'text-sm font-medium text-emerald-600 dark:text-emerald-400'
-                    : 'text-sm font-medium text-slate-500 dark:text-slate-400',
-              ),
-            ),
-          ],
-        ),
-
-        // -----------------------------------------------------------------
-        // Metadata card
-        // -----------------------------------------------------------------
-        MagicStarterCard(
-          child: WDiv(
-            className: 'flex flex-col gap-4',
-            children: [
-              // Category + scope + source badges row
+    return MagicTitle(
+      title: skill.name ?? '',
+      child: WDiv(
+        className: 'p-4 lg:p-6 flex flex-col gap-6',
+        children: [
+          // -----------------------------------------------------------------
+          // Header
+          // -----------------------------------------------------------------
+          MagicStarterPageHeader(
+            title: skill.name ?? trans('skills.detail_title'),
+            subtitle: skill.description ?? '',
+            actions: [
               WDiv(
-                className: 'flex flex-row items-center gap-2',
-                children: [
-                  if (skill.category != null && skill.category!.isNotEmpty)
+                className: skill.isActive
+                    ? 'px-3 py-1 rounded-full bg-emerald-500/15'
+                    : 'px-3 py-1 rounded-full bg-slate-500/15',
+                child: WText(
+                  skill.isActive
+                      ? trans('skills.active')
+                      : trans('skills.inactive'),
+                  className: skill.isActive
+                      ? 'text-sm font-medium text-emerald-600 dark:text-emerald-400'
+                      : 'text-sm font-medium text-slate-500 dark:text-slate-400',
+                ),
+              ),
+            ],
+          ),
+
+          // -----------------------------------------------------------------
+          // Metadata card
+          // -----------------------------------------------------------------
+          MagicStarterCard(
+            child: WDiv(
+              className: 'flex flex-col gap-4',
+              children: [
+                // Category + scope + source badges row
+                WDiv(
+                  className: 'flex flex-row items-center gap-2',
+                  children: [
+                    if (skill.category != null && skill.category!.isNotEmpty)
+                      WDiv(
+                        className:
+                            'px-2.5 py-0.5 rounded-full ${_categoryBadgeClassName(skill.category)}',
+                        child: WText(
+                          skill.category!,
+                          className: 'text-xs font-medium',
+                        ),
+                      ),
                     WDiv(
                       className:
-                          'px-2.5 py-0.5 rounded-full ${_categoryBadgeClassName(skill.category)}',
+                          'px-2.5 py-0.5 rounded-full ${_scopeBadgeClassName(skill.scope)}',
                       child: WText(
-                        skill.category!,
+                        _scopeLabel(skill.scope),
                         className: 'text-xs font-medium',
                       ),
                     ),
-                  WDiv(
-                    className:
-                        'px-2.5 py-0.5 rounded-full ${_scopeBadgeClassName(skill.scope)}',
-                    child: WText(
-                      _scopeLabel(skill.scope),
-                      className: 'text-xs font-medium',
+                    WDiv(
+                      className:
+                          'px-2.5 py-0.5 rounded-full ${_sourceBadgeClassName(skill.source)}',
+                      child: WText(
+                        _sourceLabel(skill.source),
+                        className: 'text-xs font-medium',
+                      ),
                     ),
+                  ],
+                ),
+
+                // When to use
+                if (skill.whenToUse != null && skill.whenToUse!.isNotEmpty) ...[
+                  WText(
+                    trans('skills.when_to_use'),
+                    className: '''
+                      text-sm font-semibold
+                      text-slate-700 dark:text-slate-300
+                    ''',
+                  ),
+                  WText(
+                    skill.whenToUse!,
+                    className: 'text-sm text-slate-500 dark:text-slate-400',
+                  ),
+                ],
+
+                // Source URL
+                if (skill.sourceUrl != null && skill.sourceUrl!.isNotEmpty)
+                  WDiv(
+                    className: 'flex flex-row items-center gap-2',
+                    children: [
+                      WIcon(Icons.link, className: 'text-sm text-slate-400'),
+                      WText(
+                        skill.sourceUrl!,
+                        className: 'text-sm text-blue-500 dark:text-blue-400',
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+
+          // -----------------------------------------------------------------
+          // Skill body card
+          // -----------------------------------------------------------------
+          if (skill.body != null && skill.body!.isNotEmpty)
+            MagicStarterCard(
+              child: WDiv(
+                className: 'flex flex-col gap-3',
+                children: [
+                  WText(
+                    trans('skills.skill_body'),
+                    className: '''
+                      text-base font-semibold
+                      text-gray-900 dark:text-white
+                    ''',
                   ),
                   WDiv(
-                    className:
-                        'px-2.5 py-0.5 rounded-full ${_sourceBadgeClassName(skill.source)}',
+                    className: '''
+                      p-4 rounded-lg
+                      bg-slate-50 dark:bg-gray-900
+                    ''',
                     child: WText(
-                      _sourceLabel(skill.source),
-                      className: 'text-xs font-medium',
+                      skill.body!,
+                      className: '''
+                        text-sm font-mono
+                        text-slate-700 dark:text-slate-300
+                      ''',
                     ),
                   ),
                 ],
               ),
-
-              // When to use
-              if (skill.whenToUse != null && skill.whenToUse!.isNotEmpty) ...[
-                WText(
-                  trans('skills.when_to_use'),
-                  className: '''
-                      text-sm font-semibold
-                      text-slate-700 dark:text-slate-300
-                    ''',
-                ),
-                WText(
-                  skill.whenToUse!,
-                  className: 'text-sm text-slate-500 dark:text-slate-400',
-                ),
-              ],
-
-              // Source URL
-              if (skill.sourceUrl != null && skill.sourceUrl!.isNotEmpty)
-                WDiv(
-                  className: 'flex flex-row items-center gap-2',
-                  children: [
-                    WIcon(Icons.link, className: 'text-sm text-slate-400'),
-                    WText(
-                      skill.sourceUrl!,
-                      className: 'text-sm text-blue-500 dark:text-blue-400',
-                    ),
-                  ],
-                ),
-            ],
-          ),
-        ),
-
-        // -----------------------------------------------------------------
-        // Skill body card
-        // -----------------------------------------------------------------
-        if (skill.body != null && skill.body!.isNotEmpty)
-          MagicStarterCard(
-            child: WDiv(
-              className: 'flex flex-col gap-3',
-              children: [
-                WText(
-                  trans('skills.skill_body'),
-                  className: '''
-                      text-base font-semibold
-                      text-gray-900 dark:text-white
-                    ''',
-                ),
-                WDiv(
-                  className: '''
-                      p-4 rounded-lg
-                      bg-slate-50 dark:bg-gray-900
-                    ''',
-                  child: WText(
-                    skill.body!,
-                    className: '''
-                        text-sm font-mono
-                        text-slate-700 dark:text-slate-300
-                      ''',
-                  ),
-                ),
-              ],
             ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 

@@ -221,31 +221,34 @@ class _TaskDetailViewState extends State<TaskDetailView> {
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: TaskState.instance,
-      builder: (context, _) {
-        final task = TaskState.instance.selectedTask;
-        final sections = TaskState.instance.sections;
-        final runs = TaskState.instance.conversations;
+    return MagicTitle(
+      title: TaskState.instance.selectedTask?.title ?? '',
+      child: ListenableBuilder(
+        listenable: TaskState.instance,
+        builder: (context, _) {
+          final task = TaskState.instance.selectedTask;
+          final sections = TaskState.instance.sections;
+          final runs = TaskState.instance.conversations;
 
-        if (task == null) {
-          return const WDiv(
-            className: 'w-full flex items-center justify-center py-16',
-            child: CircularProgressIndicator(),
+          if (task == null) {
+            return const WDiv(
+              className: 'w-full flex items-center justify-center py-16',
+              child: CircularProgressIndicator(),
+            );
+          }
+
+          return WDiv(
+            className: 'p-4 lg:p-6 flex flex-col gap-6',
+            children: [
+              _buildHeader(task),
+              if (MediaQuery.sizeOf(context).width >= 1024)
+                _buildDesktopBody(task, sections, runs)
+              else
+                _buildMobileBody(task, sections, runs),
+            ],
           );
-        }
-
-        return WDiv(
-          className: 'p-4 lg:p-6 flex flex-col gap-6',
-          children: [
-            _buildHeader(task),
-            if (MediaQuery.sizeOf(context).width >= 1024)
-              _buildDesktopBody(task, sections, runs)
-            else
-              _buildMobileBody(task, sections, runs),
-          ],
-        );
-      },
+        },
+      ),
     );
   }
 

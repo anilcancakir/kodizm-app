@@ -42,104 +42,131 @@ void registerAppRoutes() {
     middleware: ['auth'],
     layoutId: 'app',
     routes: () {
-      MagicRoute.page('/', () => const DashboardView());
-      MagicRoute.page('/dashboard', () => const DashboardView());
-      MagicRoute.page('/projects', () => const ProjectListView());
+      MagicRoute.page(
+        '/',
+        () => const DashboardView(),
+      ).title(trans('routes.dashboard'));
+      MagicRoute.page(
+        '/dashboard',
+        () => const DashboardView(),
+      ).title(trans('routes.dashboard'));
+      MagicRoute.page(
+        '/projects',
+        () => const ProjectListView(),
+      ).title(trans('routes.projects'));
       MagicRoute.page(
         '/projects/:id',
         (String id) => ProjectDetailView(projectId: id),
-      );
+      ).title(trans('routes.project_detail'));
       MagicRoute.page(
         '/projects/:projectId/tasks',
         (String projectId) => TaskListView(projectId: projectId),
-      );
+      ).title(trans('routes.tasks'));
       MagicRoute.page(
         '/projects/:projectId/tasks/create',
         (String projectId) => TaskCreateView(projectId: projectId),
-      );
+      ).title(trans('routes.task_create'));
       MagicRoute.page(
         '/projects/:projectId/tasks/:taskId',
         (String projectId, String taskId) =>
             TaskDetailView(projectId: projectId, taskId: taskId),
-      );
+      ).title(trans('routes.task_detail'));
       // Top-level nav redirects — check current project and redirect.
       MagicRoute.page(
         '/tasks',
         () => const ProjectScopedNavView(targetPath: 'tasks'),
-      );
+      ).title(trans('routes.tasks'));
       MagicRoute.page(
         '/conversations',
         () => const ProjectScopedNavView(targetPath: 'conversations'),
-      );
+      ).title(trans('routes.conversations'));
 
       // Session routes.
-      MagicRoute.page('/sessions', () => const SessionListView());
+      MagicRoute.page(
+        '/sessions',
+        () => const SessionListView(),
+      ).title(trans('routes.sessions'));
       MagicRoute.page(
         '/sessions/:sessionId',
         (String sessionId) => SessionDetailView(sessionId: sessionId),
-      );
+      ).title(trans('routes.session_detail'));
 
       // Skill routes.
-      MagicRoute.page('/skills', () => const SkillListView());
+      MagicRoute.page(
+        '/skills',
+        () => const SkillListView(),
+      ).title(trans('routes.skills'));
       MagicRoute.page(
         '/skills/marketplace',
         () => const SkillMarketplaceView(),
-      );
+      ).title(trans('routes.skill_marketplace'));
       MagicRoute.page(
         '/skills/:id',
         (String id) => SkillDetailView(skillId: id),
-      );
+      ).title(trans('routes.skill_detail'));
 
       // Billing routes.
-      MagicRoute.page('/billing', () => const BillingView());
-      MagicRoute.page('/usage', () => const UsageHistoryView());
+      MagicRoute.page(
+        '/billing',
+        () => const BillingView(),
+      ).title(trans('routes.billing'));
+      MagicRoute.page(
+        '/usage',
+        () => const UsageHistoryView(),
+      ).title(trans('routes.usage'));
 
       // Settings routes.
-      MagicRoute.page('/settings/ai-tokens', () => const AiTokenListView());
-      MagicRoute.page('/settings/app', () => const AppSettingsView());
+      MagicRoute.page(
+        '/settings/ai-tokens',
+        () => const AiTokenListView(),
+      ).title(trans('routes.ai_tokens'));
+      MagicRoute.page(
+        '/settings/app',
+        () => const AppSettingsView(),
+      ).title(trans('routes.settings'));
 
       // Project-scoped conversation routes.
       MagicRoute.page(
         '/projects/:projectId/conversations',
         (String projectId) => ConversationListView(projectId: projectId),
-      );
+      ).title(trans('routes.conversations'));
 
       // Top-level nav redirects for document and memory sections.
       MagicRoute.page(
         '/documents',
         () => const ProjectScopedNavView(targetPath: 'documents'),
-      );
+      ).title(trans('routes.documents'));
       MagicRoute.page(
         '/memories',
         () => const ProjectScopedNavView(targetPath: 'memories'),
-      );
+      ).title(trans('routes.memories'));
 
       // Project-scoped document routes.
       MagicRoute.page(
         '/projects/:projectId/documents',
         (String projectId) => DocumentListView(projectId: projectId),
-      );
+      ).title(trans('routes.documents'));
       MagicRoute.page(
         '/projects/:projectId/documents/:documentId',
         (String projectId, String documentId) =>
             DocumentDetailView(projectId: projectId, documentId: documentId),
-      );
+      ).title(trans('routes.document_detail'));
 
       // Project-scoped memory routes.
       MagicRoute.page(
         '/projects/:projectId/memories',
         (String projectId) => MemoryListView(projectId: projectId),
-      );
+      ).title(trans('routes.memories'));
       MagicRoute.page(
         '/projects/:projectId/memories/new',
         (String projectId) =>
             MemoryDetailView(projectId: projectId, isCreateMode: true),
-      );
+      ).title(trans('routes.memory_create'));
       MagicRoute.page(
         '/projects/:projectId/memories/:memoryId',
         (String projectId, String memoryId) =>
             MemoryDetailView(projectId: projectId, memoryId: memoryId),
-      );
+      ).title(trans('routes.memory_detail'));
     },
   );
 
@@ -157,11 +184,11 @@ void registerAppRoutes() {
           projectId: projectId,
           conversationId: conversationId,
         ),
-      );
+      ).title(trans('routes.chat'));
       MagicRoute.page(
         '/projects/:projectId/chat',
         (String projectId) => ConversationChatView(projectId: projectId),
-      );
+      ).title(trans('routes.chat'));
     },
   );
 }

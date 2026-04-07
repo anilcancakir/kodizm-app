@@ -37,7 +37,7 @@ dependencies:
   file_picker: ^10.3.10
   flutter_highlighter: ^0.1.1
   flutter_markdown_plus: ^1.0.7
-  magic: ^1.0.0-alpha.7
+  magic: ^1.0.0-alpha.8
   magic_notifications: ^0.0.1-alpha.1
   magic_starter: ^0.0.1-alpha.11
   markdown: ^7.3.1

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:magic/magic.dart';
 import 'package:magic_starter/magic_starter.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
@@ -14,7 +15,8 @@ import 'config/routing.dart';
 import 'config/sentry.dart';
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+  WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
 
   // Register SentryNavigatorObserver BEFORE Magic.init() — router is built
   // during boot(), so observers must be added before that. Unconditional
@@ -177,11 +179,18 @@ void main() async {
     });
   }
 
+  FlutterNativeSplash.remove();
   runApp(
     sentryDsn.isNotEmpty
         ? SentryWidget(
-            child: MagicApplication(title: 'App', windTheme: windTheme),
+            child: MagicApplication(
+              title: 'Kodizm - AI Dev Platform',
+              windTheme: windTheme,
+            ),
           )
-        : MagicApplication(title: 'App', windTheme: windTheme),
+        : MagicApplication(
+            title: 'Kodizm - AI Dev Platform',
+            windTheme: windTheme,
+          ),
   );
 }

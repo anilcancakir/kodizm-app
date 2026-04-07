@@ -42,6 +42,7 @@ dependencies:
   magic_starter: ^0.0.1-alpha.11
   markdown: ^7.3.1
   package_info_plus: ^8.3.0
+  flutter_native_splash: ^2.4.7
   sentry_flutter: ^9.16.0
   url_launcher: ^6.3.1
 
@@ -54,6 +55,7 @@ dev_dependencies:
   # activated in the `analysis_options.yaml` file located at the root of your
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
+  flutter_launcher_icons: ^0.14.3
   flutter_lints: ^6.0.0
   sentry_dart_plugin: ^2.0.0
 
@@ -70,6 +72,8 @@ flutter:
   assets:
     - .env
     - assets/lang/en.json
+    - assets/icon/
+    - assets/splash/
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:
@@ -109,3 +113,29 @@ sentry:
   upload_sources: true
   project: kodizm-ai-app
   org: kodizmai
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/icon.png"
+  min_sdk_android: 21
+  adaptive_icon_background: "#334E68"
+  adaptive_icon_foreground: "assets/icon/icon-foreground.png"
+  web:
+    generate: true
+    image_path: "assets/icon/icon.png"
+    background_color: "#334E68"
+    theme_color: "#334E68"
+
+flutter_native_splash:
+  color: "#1A2332"
+  color_dark: "#0D1626"
+  image: assets/splash/splash.png
+  android_gravity: center
+  ios_content_mode: center
+  web: false
+  android_12:
+    color: "#1A2332"
+    color_dark: "#0D1626"
+    image: assets/splash/splash.png
+    icon_background_color: "#1A2332"

@@ -411,18 +411,18 @@ class ChatInputBarState extends State<ChatInputBar> {
                 style: TextStyle(
                   fontFamily: 'AlbertSans',
                   fontSize: 14,
-                  color: isDark
-                      ? const Color(0xFFF1F5F9) // slate-100
-                      : const Color(0xFF1E293B), // slate-900
+                  color: WindTheme.dataOf(
+                    context,
+                  ).getColor('slate', isDark ? 100 : 800),
                 ),
                 decoration: InputDecoration.collapsed(
                   hintText: widget.disabled
                       ? trans('conversation_chat.input_disabled_hint')
                       : trans('conversation_chat.placeholder'),
-                  hintStyle: const TextStyle(
+                  hintStyle: TextStyle(
                     fontFamily: 'AlbertSans',
                     fontSize: 14,
-                    color: Color(0xFF94A3B8), // slate-400
+                    color: WindTheme.dataOf(context).getColor('slate', 400),
                   ),
                 ),
                 onTapOutside: (_) => FocusScope.of(context).unfocus(),

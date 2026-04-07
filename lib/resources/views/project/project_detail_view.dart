@@ -1375,13 +1375,13 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                     ''',
                     children: [
                       if (_deleting)
-                        const SizedBox(
+                        SizedBox(
                           width: 14,
                           height: 14,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
                             valueColor: AlwaysStoppedAnimation<Color>(
-                              Color(0xFFEF4444),
+                              WindTheme.dataOf(context).getColor('red', 500)!,
                             ),
                           ),
                         ),
@@ -1407,13 +1407,15 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                     ''',
                     children: [
                       if (_saving)
-                        const SizedBox(
+                        SizedBox(
                           width: 14,
                           height: 14,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
                             valueColor: AlwaysStoppedAnimation<Color>(
-                              Color(0xFF334E68),
+                              WindTheme.dataOf(
+                                context,
+                              ).getColor('primary', 500)!,
                             ),
                           ),
                         ),

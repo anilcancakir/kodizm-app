@@ -100,7 +100,7 @@ class _McpServerSectionState extends State<McpServerSection> {
         SnackBar(
           content: WText(trans('mcp_servers.delete_success')),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: const Color(0xFF10B981),
+          backgroundColor: WindTheme.dataOf(context).getColor('emerald', 500),
         ),
       );
     }

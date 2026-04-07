@@ -394,11 +394,11 @@ class _ContentCard extends StatelessWidget {
     return MagicStarterCard(
       child: SelectableText(
         content,
-        style: const TextStyle(
-          fontFamily: 'Albert Sans',
+        style: TextStyle(
+          fontFamily: 'AlbertSans',
           fontSize: 14,
           height: 1.6,
-          color: Color(0xFF475569), // slate-600
+          color: WindTheme.dataOf(context).getColor('slate', 600),
         ),
       ),
     );

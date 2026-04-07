@@ -249,13 +249,17 @@ class _ConversationDetailViewState extends State<ConversationDetailView> {
 
     return SizedBox(
       height: effectiveHeight,
-      child: Column(
+      child: WDiv(
+        className: 'flex flex-col',
         children: [
           // -- Header --
           _buildHeader(displayTitle, conversation),
 
           // -- Messages --
-          Expanded(child: _buildMessageList(messages)),
+          WDiv(
+            className: 'flex-1 overflow-hidden',
+            child: _buildMessageList(messages),
+          ),
 
           // -- Input bar --
           if (showInput) _buildInputBar(),
@@ -273,7 +277,8 @@ class _ConversationDetailViewState extends State<ConversationDetailView> {
       className: '''
         px-4 py-3 border-b border-gray-200 dark:border-gray-700
       ''',
-      child: Row(
+      child: WDiv(
+        className: 'flex flex-row items-center',
         children: [
           // Back button
           WAnchor(
@@ -281,10 +286,11 @@ class _ConversationDetailViewState extends State<ConversationDetailView> {
                 MagicRoute.to('/projects/${widget.projectId}/conversations'),
             child: WIcon(Icons.arrow_back, className: 'text-lg text-slate-400'),
           ),
-          const SizedBox(width: 12),
+          const WSpacer(className: 'w-3'),
 
           // Title + info
-          Expanded(
+          WDiv(
+            className: 'flex-1',
             child: WDiv(
               className: 'flex flex-col gap-0.5',
               children: [
@@ -429,9 +435,11 @@ class _ConversationDetailViewState extends State<ConversationDetailView> {
         px-4 py-3 border-t border-gray-200 dark:border-gray-700
         bg-white dark:bg-gray-900
       ''',
-      child: Row(
+      child: WDiv(
+        className: 'flex flex-row items-center',
         children: [
-          Expanded(
+          WDiv(
+            className: 'flex-1',
             child: WFormInput(
               controller: _messageController,
               focusNode: _focusNode,
@@ -440,7 +448,7 @@ class _ConversationDetailViewState extends State<ConversationDetailView> {
               onSubmitted: (_) => _sendMessage(),
             ),
           ),
-          const SizedBox(width: 8),
+          const WSpacer(className: 'w-2'),
           WAnchor(
             onTap: _state.isSending ? null : _sendMessage,
             child: WDiv(

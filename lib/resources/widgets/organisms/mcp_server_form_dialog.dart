@@ -154,7 +154,7 @@ class _McpServerFormDialogState extends State<McpServerFormDialog> {
         SnackBar(
           content: WText(trans('mcp_servers.save_success')),
           behavior: SnackBarBehavior.floating,
-          backgroundColor: const Color(0xFF10B981),
+          backgroundColor: WindTheme.dataOf(context).getColor('emerald', 500),
         ),
       );
     } else {

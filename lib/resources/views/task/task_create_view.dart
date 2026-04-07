@@ -422,12 +422,14 @@ class _TaskCreateViewState extends State<TaskCreateView> {
         ''',
         children: [
           if (_submitting)
-            const SizedBox(
+            SizedBox(
               width: 14,
               height: 14,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF334E68)),
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  WindTheme.dataOf(context).getColor('primary', 500)!,
+                ),
               ),
             ),
           WText(

@@ -249,8 +249,12 @@ class _NotificationToggle extends StatelessWidget {
           value: value,
           onChanged: onChanged,
           // amber-400 from DESIGN.md — Switch.adaptive requires Color parameters.
-          activeThumbColor: const Color(0xFFFBBF24),
-          activeTrackColor: const Color(0xFFFDE68A),
+          activeThumbColor: WindTheme.dataOf(
+            context,
+          ).getColor('secondary', 400),
+          activeTrackColor: WindTheme.dataOf(
+            context,
+          ).getColor('secondary', 200),
         ),
       ],
     );

@@ -241,13 +241,13 @@ class _ProjectCreateModalState extends State<ProjectCreateModal> {
               ''',
               children: [
                 if (_submitting)
-                  const SizedBox(
+                  SizedBox(
                     width: 14,
                     height: 14,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
                       valueColor: AlwaysStoppedAnimation<Color>(
-                        Color(0xFF334E68),
+                        WindTheme.dataOf(context).getColor('primary', 500)!,
                       ),
                     ),
                   ),

@@ -180,7 +180,7 @@ class _EnvironmentConfigSectionState extends State<EnvironmentConfigSection> {
           SnackBar(
             content: Text(trans('projects.environment.saved')),
             behavior: SnackBarBehavior.floating,
-            backgroundColor: const Color(0xFF10B981),
+            backgroundColor: WindTheme.dataOf(context).getColor('emerald', 500),
           ),
         );
       }
@@ -190,7 +190,7 @@ class _EnvironmentConfigSectionState extends State<EnvironmentConfigSection> {
           SnackBar(
             content: Text(trans('projects.environment.save_failed')),
             behavior: SnackBarBehavior.floating,
-            backgroundColor: const Color(0xFFEF4444),
+            backgroundColor: WindTheme.dataOf(context).getColor('red', 500),
           ),
         );
       }
@@ -436,7 +436,7 @@ class _EnvironmentConfigSectionState extends State<EnvironmentConfigSection> {
         Switch(
           value: currentValue,
           onChanged: widget.enabled ? (value) => _updateKey(key, value) : null,
-          activeThumbColor: const Color(0xFF10B981),
+          activeThumbColor: WindTheme.dataOf(context).getColor('emerald', 500),
         ),
       ],
     );

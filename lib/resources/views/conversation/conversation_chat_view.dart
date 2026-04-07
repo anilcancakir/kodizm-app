@@ -744,10 +744,10 @@ class _ConversationChatViewState extends State<ConversationChatView> {
                 ),
                 SelectableText(
                   const JsonEncoder.withIndent('  ').convert(event.data),
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
                     fontFamily: 'JetBrains Mono',
-                    color: Color(0xFF94A3B8),
+                    color: WindTheme.dataOf(context).getColor('slate', 400),
                   ),
                 ),
               ],

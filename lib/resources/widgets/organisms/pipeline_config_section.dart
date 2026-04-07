@@ -236,7 +236,7 @@ class _PipelineConfigSectionState extends State<PipelineConfigSection> {
           SnackBar(
             content: Text(trans('projects.pipeline.saved')),
             behavior: SnackBarBehavior.floating,
-            backgroundColor: const Color(0xFF10B981),
+            backgroundColor: WindTheme.dataOf(context).getColor('emerald', 500),
           ),
         );
         widget.onSave?.call();
@@ -247,7 +247,7 @@ class _PipelineConfigSectionState extends State<PipelineConfigSection> {
           SnackBar(
             content: Text(trans('projects.pipeline.save_failed')),
             behavior: SnackBarBehavior.floating,
-            backgroundColor: const Color(0xFFEF4444),
+            backgroundColor: WindTheme.dataOf(context).getColor('red', 500),
           ),
         );
       }
@@ -335,7 +335,9 @@ class _PipelineConfigSectionState extends State<PipelineConfigSection> {
                     Switch(
                       value: _enabled,
                       onChanged: (value) => setState(() => _enabled = value),
-                      activeThumbColor: const Color(0xFF10B981),
+                      activeThumbColor: WindTheme.dataOf(
+                        context,
+                      ).getColor('emerald', 500),
                     ),
                   ],
                 ),
@@ -461,7 +463,9 @@ class _PipelineConfigSectionState extends State<PipelineConfigSection> {
                   _stageAuto[stage.name] = value;
                 });
               },
-              activeThumbColor: const Color(0xFF10B981),
+              activeThumbColor: WindTheme.dataOf(
+                context,
+              ).getColor('emerald', 500),
             ),
           ],
         ),

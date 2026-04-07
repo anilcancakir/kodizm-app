@@ -355,6 +355,17 @@ class _TaskDetailViewState extends State<TaskDetailView> {
     return WDiv(
       className: 'flex flex-col gap-4',
       children: [
+        // Details sidebar first on mobile
+        TaskDetailSidebar(
+          task: task,
+          conversations: runs,
+          onStartRun: () => _showStartRunDialog(context),
+          hasActiveRun: _hasActiveRun(runs),
+          isPipelineEnabled:
+              ProjectState.instance.selectedProject?.isPipelineEnabled ?? false,
+          onContinuePipeline: _onContinuePipeline,
+        ),
+
         // Description + AC card
         _buildInfoSection(task),
 
@@ -369,17 +380,6 @@ class _TaskDetailViewState extends State<TaskDetailView> {
           sections: sections,
           conversations: runs,
           projectId: widget.projectId,
-        ),
-
-        // Sidebar below activity feed on mobile
-        TaskDetailSidebar(
-          task: task,
-          conversations: runs,
-          onStartRun: () => _showStartRunDialog(context),
-          hasActiveRun: _hasActiveRun(runs),
-          isPipelineEnabled:
-              ProjectState.instance.selectedProject?.isPipelineEnabled ?? false,
-          onContinuePipeline: _onContinuePipeline,
         ),
       ],
     );

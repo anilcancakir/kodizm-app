@@ -78,7 +78,7 @@ class _TaskActivityFeedState extends State<TaskActivityFeed> {
   Widget _buildTabBar() {
     return WDiv(
       className:
-          'flex flex-row gap-4 border-b border-slate-200 dark:border-slate-700',
+          'flex flex-row border-b border-slate-200 dark:border-slate-700',
       children: [
         _buildTab(0, trans('tasks.detail_tab_all')),
         _buildTab(1, trans('tasks.detail_tab_runs')),
@@ -88,13 +88,23 @@ class _TaskActivityFeedState extends State<TaskActivityFeed> {
 
   Widget _buildTab(int index, String label) {
     final bool isActive = _activeTab == index;
-    final String cn = isActive
-        ? 'pb-2 border-b-2 border-secondary-400 text-primary-700 dark:text-white font-semibold text-sm'
-        : 'pb-2 text-slate-500 dark:text-slate-400 text-sm';
 
-    return WAnchor(
-      onTap: () => setState(() => _activeTab = index),
-      child: WDiv(className: cn, child: WText(label)),
+    return WDiv(
+      className: isActive
+          ? 'flex-1 border-b-2 border-secondary-400'
+          : 'flex-1 border-b-2 border-transparent',
+      child: WAnchor(
+        onTap: () => setState(() => _activeTab = index),
+        child: WDiv(
+          className: 'text-center py-2.5',
+          child: WText(
+            label,
+            className: isActive
+                ? 'text-sm font-semibold text-primary-700 dark:text-white'
+                : 'text-sm font-medium text-slate-400 dark:text-slate-500',
+          ),
+        ),
+      ),
     );
   }
 

@@ -290,6 +290,11 @@ class _CodeBlockBuilder extends MarkdownElementBuilder {
 // ---------------------------------------------------------------------------
 
 /// Renders a styled code block with syntax highlighting and a copy button.
+///
+/// Adapts to dark/light mode per DESIGN.md §4 (Inset card variant):
+/// - Light: `slate-50` bg, inset shadow
+/// - Dark: `primary-950` bg (deeper than surrounding surfaces for contrast)
+/// - Both: 8px radius, horizontal overflow scroll, language label
 class _CodeBlock extends StatelessWidget {
   const _CodeBlock({required this.code, required this.language});
 
@@ -298,24 +303,44 @@ class _CodeBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isDark = Theme.of(context).brightness == Brightness.dark;
+
     // Code block container — HighlightView requires TextStyle + EdgeInsets
     // internally (third-party widget exception, similar to MarkdownStyleSheet).
     return WDiv(
-      className: 'bg-primary-900 rounded-lg',
+      className: isDark
+          ? 'bg-primary-950 rounded-lg border border-primary-800'
+          : 'bg-slate-50 rounded-lg border border-slate-200',
       child: Stack(
         children: <Widget>[
-          // Syntax-highlighted source.
-          WDiv(
-            className: 'p-4',
-            child: HighlightView(
-              code,
-              language: language,
-              theme: atomOneDarkTheme,
-              textStyle: const TextStyle(
-                fontFamily: 'JetBrains Mono',
-                fontSize: 13,
+          // Language label.
+          if (language != 'plaintext')
+            Positioned(
+              top: 8,
+              left: 12,
+              child: WText(
+                language,
+                className: isDark
+                    ? 'text-xs font-medium text-slate-500'
+                    : 'text-xs font-medium text-slate-400',
               ),
-              padding: EdgeInsets.zero,
+            ),
+          // Syntax-highlighted source with horizontal scroll.
+          WDiv(
+            className: language != 'plaintext' ? 'pt-7 pb-3 px-3' : 'p-3',
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: HighlightView(
+                code,
+                language: language,
+                theme: isDark ? atomOneDarkTheme : _lightCodeTheme,
+                textStyle: const TextStyle(
+                  fontFamily: 'JetBrains Mono',
+                  fontSize: 13,
+                  height: 1.6,
+                ),
+                padding: EdgeInsets.zero,
+              ),
             ),
           ),
           // Copy-to-clipboard button.
@@ -325,8 +350,15 @@ class _CodeBlock extends StatelessWidget {
             child: WAnchor(
               onTap: () => Clipboard.setData(ClipboardData(text: code)),
               child: WDiv(
-                className: 'p-1.5 rounded bg-primary-300/10',
-                child: WIcon(Icons.copy, className: 'text-sm text-primary-300'),
+                className: isDark
+                    ? 'p-1.5 rounded bg-primary-800'
+                    : 'p-1.5 rounded bg-slate-200',
+                child: WIcon(
+                  Icons.copy,
+                  className: isDark
+                      ? 'text-sm text-slate-400'
+                      : 'text-sm text-slate-500',
+                ),
               ),
             ),
           ),
@@ -335,3 +367,50 @@ class _CodeBlock extends StatelessWidget {
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// Light-mode syntax theme
+// ---------------------------------------------------------------------------
+
+/// A light syntax highlighting theme derived from atom-one-light palette,
+/// styled for DESIGN.md Inset card (slate-50 background).
+const Map<String, TextStyle> _lightCodeTheme = {
+  'root': TextStyle(
+    color: Color(0xFF383A42),
+    backgroundColor: Colors.transparent,
+  ),
+  'comment': TextStyle(color: Color(0xFFA0A1A7), fontStyle: FontStyle.italic),
+  'quote': TextStyle(color: Color(0xFFA0A1A7), fontStyle: FontStyle.italic),
+  'doctag': TextStyle(color: Color(0xFFA626A4)),
+  'keyword': TextStyle(color: Color(0xFFA626A4)),
+  'formula': TextStyle(color: Color(0xFFA626A4)),
+  'section': TextStyle(color: Color(0xFFE45649)),
+  'name': TextStyle(color: Color(0xFFE45649)),
+  'selector-tag': TextStyle(color: Color(0xFFE45649)),
+  'deletion': TextStyle(color: Color(0xFFE45649)),
+  'subst': TextStyle(color: Color(0xFFE45649)),
+  'literal': TextStyle(color: Color(0xFF0184BB)),
+  'string': TextStyle(color: Color(0xFF50A14F)),
+  'regexp': TextStyle(color: Color(0xFF50A14F)),
+  'addition': TextStyle(color: Color(0xFF50A14F)),
+  'attribute': TextStyle(color: Color(0xFF50A14F)),
+  'meta-string': TextStyle(color: Color(0xFF50A14F)),
+  'built_in': TextStyle(color: Color(0xFFC18401)),
+  'class': TextStyle(color: Color(0xFFC18401)),
+  'attr': TextStyle(color: Color(0xFFC18401)),
+  'variable': TextStyle(color: Color(0xFFC18401)),
+  'template-variable': TextStyle(color: Color(0xFFC18401)),
+  'type': TextStyle(color: Color(0xFFC18401)),
+  'selector-class': TextStyle(color: Color(0xFFC18401)),
+  'selector-attr': TextStyle(color: Color(0xFFC18401)),
+  'selector-pseudo': TextStyle(color: Color(0xFFC18401)),
+  'number': TextStyle(color: Color(0xFF986801)),
+  'symbol': TextStyle(color: Color(0xFF4078F2)),
+  'bullet': TextStyle(color: Color(0xFF4078F2)),
+  'link': TextStyle(color: Color(0xFF4078F2)),
+  'meta': TextStyle(color: Color(0xFF4078F2)),
+  'selector-id': TextStyle(color: Color(0xFF4078F2)),
+  'title': TextStyle(color: Color(0xFF4078F2)),
+  'emphasis': TextStyle(fontStyle: FontStyle.italic),
+  'strong': TextStyle(fontWeight: FontWeight.bold),
+};

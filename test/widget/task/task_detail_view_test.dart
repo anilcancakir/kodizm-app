@@ -266,16 +266,16 @@ void main() {
     // Sections section heading.
     expect(find.text(trans('tasks.sections')), findsOneWidget);
 
-    // Section title from fixture.
-    expect(find.text('Requirements Analysis'), findsOneWidget);
+    // Section title from fixture (may appear in sections card + activity feed).
+    expect(find.text('Requirements Analysis'), findsWidgets);
 
-    // Section type badge label ("Analysis").
-    expect(find.text(trans('tasks.section_type_analysis')), findsOneWidget);
+    // Section type badge label ("Analysis") — may appear in both cards.
+    expect(find.text(trans('tasks.section_type_analysis')), findsWidgets);
 
-    // Version badge.
+    // Version badge — may appear in both sections card and activity feed.
     expect(
       find.text(trans('tasks.version_label', {'version': '2'})),
-      findsOneWidget,
+      findsWidgets,
     );
   });
 
@@ -292,8 +292,8 @@ void main() {
     // Agent role name from fixture.
     expect(find.text('Developer'), findsWidgets);
 
-    // The run row is rendered — confirmed by cost.
-    expect(find.text('\$0.42'), findsOneWidget);
+    // The run row is rendered — cost may appear in sidebar + activity feed.
+    expect(find.text('\$0.42'), findsWidgets);
   });
 
   // -------------------------------------------------------------------------

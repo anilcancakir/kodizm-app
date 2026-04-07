@@ -461,6 +461,7 @@
     "settings": "Settings",
     "system": "System",
     "tasks": "Tasks",
+    "skills": "Skills",
     "select_project": "Select a Project",
     "select_project_subtitle": "Choose a project to view :target",
     "billing": "Billing",
@@ -956,8 +957,19 @@
     "section_type_review": "Review",
     "section_type_test_report": "Test Report",
     "status_actions": "Status Actions",
+    "update_status": "Update Status",
     "created_at_label": "Created",
-    "updated_at_label": "Updated"
+    "updated_at_label": "Updated",
+    "detail_details": "Details",
+    "detail_activity": "Activity",
+    "detail_tab_all": "All",
+    "detail_tab_runs": "Runs",
+    "detail_no_activity": "No activity yet",
+    "detail_status": "Status",
+    "detail_type": "Type",
+    "detail_priority": "Priority",
+    "detail_agent": "Agent",
+    "detail_pipeline": "Pipeline"
   },
   "usage": {
     "title": "Usage History",

@@ -107,6 +107,11 @@ jobs:
         env:
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
 
+      - name: Cache-bust static assets
+        run: |
+          BUILD_TS=$(date +%s)
+          sed -i "s|flutter_bootstrap.js|flutter_bootstrap.js?v=${BUILD_TS}|g" build/web/index.html
+
       - name: Upload source maps to Sentry
         uses: getsentry/action-release@v3
         env:

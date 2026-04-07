@@ -138,6 +138,20 @@
     "turn_label": "Turn :number",
     "cost_breakdown": "Cost Breakdown"
   },
+  "agent_progress": {
+    "status_analyzing": "Analyzing",
+    "status_planning": "Planning",
+    "status_implementing": "Implementing",
+    "status_testing": "Testing",
+    "status_reviewing": "Reviewing",
+    "status_debugging": "Debugging",
+    "status_deploying": "Deploying",
+    "status_blocked": "Blocked",
+    "status_planned": "Planned",
+    "status_unknown": "Working",
+    "toast_navigate": "Click to view",
+    "sticky_idle": "Agent idle"
+  },
   "billing": {
     "title": "Billing",
     "subtitle": "Team balance and usage overview",

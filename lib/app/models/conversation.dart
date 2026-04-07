@@ -40,6 +40,10 @@ class Conversation {
     this.activeSessionId,
     this.activeSessionPhase,
     this.activeSessionWarmUntil,
+    this.lastProgressStatus,
+    this.lastProgressMessage,
+    this.lastProgressPercentage,
+    this.lastProgressAt,
   });
 
   // -------
@@ -130,6 +134,20 @@ class Conversation {
   /// ISO 8601 warm_until timestamp for the active session. From `active_session.warm_until`.
   final String? activeSessionWarmUntil;
 
+  /// The status of the last progress update (e.g. `'running'`, `'completed'`).
+  /// Null if no progress has been reported.
+  final String? lastProgressStatus;
+
+  /// The message of the last progress update (e.g. task description or step).
+  /// Null if no progress has been reported.
+  final String? lastProgressMessage;
+
+  /// The percentage (0-100) of the last progress update. Null if no progress has been reported.
+  final int? lastProgressPercentage;
+
+  /// UTC timestamp of the last progress update. Null if no progress has been reported.
+  final DateTime? lastProgressAt;
+
   /// UTC timestamp of the last update to this conversation record.
   final DateTime updatedAt;
 
@@ -184,6 +202,12 @@ class Conversation {
       activeSessionId: activeSession?['id'] as String?,
       activeSessionPhase: activeSession?['phase'] as String?,
       activeSessionWarmUntil: activeSession?['warm_until'] as String?,
+      lastProgressStatus: map['last_progress_status'] as String?,
+      lastProgressMessage: map['last_progress_message'] as String?,
+      lastProgressPercentage: map['last_progress_percentage'] as int?,
+      lastProgressAt: map['last_progress_at'] != null
+          ? DateTime.parse(map['last_progress_at'] as String)
+          : null,
     );
   }
 
@@ -207,6 +231,10 @@ class Conversation {
     String? activeSessionId,
     String? activeSessionPhase,
     String? activeSessionWarmUntil,
+    String? lastProgressStatus,
+    String? lastProgressMessage,
+    int? lastProgressPercentage,
+    DateTime? lastProgressAt,
   }) {
     return Conversation(
       id: id,
@@ -236,6 +264,11 @@ class Conversation {
       activeSessionPhase: activeSessionPhase ?? this.activeSessionPhase,
       activeSessionWarmUntil:
           activeSessionWarmUntil ?? this.activeSessionWarmUntil,
+      lastProgressStatus: lastProgressStatus ?? this.lastProgressStatus,
+      lastProgressMessage: lastProgressMessage ?? this.lastProgressMessage,
+      lastProgressPercentage:
+          lastProgressPercentage ?? this.lastProgressPercentage,
+      lastProgressAt: lastProgressAt ?? this.lastProgressAt,
     );
   }
 }

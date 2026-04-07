@@ -182,6 +182,12 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   List<MessageAttachment> _uploadedAttachments = [];
   bool _isUploading = false;
 
+  // Sticky progress bar state — updated by `progress` WS events.
+  String? _progressStatus;
+  String? _progressMessage;
+  int? _progressPercentage;
+  DateTime? _progressAt;
+
   // ---------------------------------------------------------------------------
   // Public getters
   // ---------------------------------------------------------------------------
@@ -282,6 +288,24 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
 
   /// Whether attachment uploads are currently in progress.
   bool get isUploading => _isUploading;
+
+  /// The current progress status label (e.g. `'installing_deps'`), or `null`.
+  String? get progressStatus => _progressStatus;
+
+  /// The human-readable progress message, or `null`.
+  String? get progressMessage => _progressMessage;
+
+  /// The progress percentage (0–100), or `null` if indeterminate.
+  int? get progressPercentage => _progressPercentage;
+
+  /// When the last progress event was received, or `null`.
+  DateTime? get progressAt => _progressAt;
+
+  /// Whether a progress bar should be shown — requires active progress and
+  /// an executing conversation.
+  bool get hasActiveProgress =>
+      _progressStatus != null &&
+      (_conversation?.status == 'active' || _conversation?.isExecuting == true);
 
   // ---------------------------------------------------------------------------
   // Attachment staging
@@ -472,6 +496,12 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
 
     // -- Load existing messages --
     await loadMessages();
+
+    // Hydrate progress from persisted conversation snapshot.
+    _progressStatus = _conversation!.lastProgressStatus;
+    _progressMessage = _conversation!.lastProgressMessage;
+    _progressPercentage = _conversation!.lastProgressPercentage;
+    _progressAt = _conversation!.lastProgressAt;
 
     // Seed session phase from API — needed for isAgentRunning on refresh.
     _sessionPhase = _conversation!.activeSessionPhase;
@@ -1134,6 +1164,10 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
     _streamingThinkingId = null;
     _uploadedAttachments = [];
     _isUploading = false;
+    _progressStatus = null;
+    _progressMessage = null;
+    _progressPercentage = null;
+    _progressAt = null;
 
     refreshUI();
   }
@@ -1474,6 +1508,11 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
         _streamingMessageId = null;
         _streamingThinkingBuffer = StringBuffer();
         _streamingThinkingId = null;
+        // Clear progress — session complete.
+        _progressStatus = null;
+        _progressMessage = null;
+        _progressPercentage = null;
+        _progressAt = null;
         _chatItems = [
           ..._chatItems,
           ChatResultItem(
@@ -1548,6 +1587,14 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
           ),
         ];
 
+      case 'progress':
+        _progressStatus = metadata?['status'] as String?;
+        _progressMessage = content;
+        _progressPercentage = (metadata?['percentage'] as num?)?.toInt();
+        _progressAt = DateTime.now();
+        refreshUI();
+        break;
+
       default:
         // Unknown types silently ignored (already in _rawEvents).
         break;
@@ -1562,6 +1609,14 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
 
     if (status != null && _conversation != null) {
       _conversation = _conversation!.copyWith(status: status);
+
+      // Clear progress on terminal conversation statuses.
+      if (status == 'completed' || status == 'failed') {
+        _progressStatus = null;
+        _progressMessage = null;
+        _progressPercentage = null;
+        _progressAt = null;
+      }
     }
 
     // Sync session phase from conversation status events — the API includes

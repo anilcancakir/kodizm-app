@@ -12,6 +12,7 @@ import '../../../app/models/user.dart';
 import '../../../app/state/conversation_chat_state.dart';
 import '../../widgets/organisms/agent_role_picker_modal.dart';
 import '../../widgets/organisms/chat_header.dart';
+import '../../widgets/organisms/sticky_progress_bar.dart';
 import '../../widgets/organisms/chat_input_bar.dart';
 import '../../widgets/organisms/chat_question_card.dart';
 import '../../widgets/organisms/chat_permission_card.dart';
@@ -343,6 +344,16 @@ class _ConversationChatViewState extends State<ConversationChatView> {
           onToggleDebug: () =>
               setState(() => _rawEventsExpanded = !_rawEventsExpanded),
         ),
+
+        // Sticky progress bar — shown when agent is actively reporting progress
+        if (_state.hasActiveProgress)
+          StickyProgressBar(
+            status: _state.progressStatus,
+            message: _state.progressMessage,
+            percentage: _state.progressPercentage,
+            agentRoleSlug: _state.conversation?.agentRoleSlug,
+            agentRoleName: _state.conversation?.agentRoleName,
+          ),
 
         // Message area — expands to fill available space
         WDiv(className: 'flex-1', child: _buildMessageArea()),

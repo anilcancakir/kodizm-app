@@ -283,16 +283,13 @@ void main() {
   // 5. Renders run history with agent name and status
   // -------------------------------------------------------------------------
 
-  testWidgets('renders run history with agent name and status', (tester) async {
+  testWidgets('renders run data in activity feed', (tester) async {
     await pumpWithData(tester);
 
-    // Run history section heading.
-    expect(find.text(trans('tasks.run_history')), findsOneWidget);
-
-    // Agent role name from fixture.
+    // Agent role name from fixture (in activity feed + sidebar details).
     expect(find.text('Developer'), findsWidgets);
 
-    // The run row is rendered — cost may appear in sidebar + activity feed.
+    // The run cost appears in the activity feed.
     expect(find.text('\$0.42'), findsWidgets);
   });
 

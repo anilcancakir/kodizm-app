@@ -5,7 +5,6 @@ import '../../../app/models/conversation.dart';
 import '../../../app/models/task.dart';
 import '../atoms/collapsible_section.dart';
 import '../atoms/priority_badge.dart';
-import '../atoms/status_badge.dart';
 import '../atoms/task_type_icon.dart';
 import 'pipeline_progress.dart';
 
@@ -206,61 +205,36 @@ class TaskDetailSidebar extends StatelessWidget {
           ),
 
         // -------------------------------------------------------------------
-        // Run history section
+        // Run Agent button
         // -------------------------------------------------------------------
-        CollapsibleSection(
-          title: trans('tasks.run_history'),
-          initiallyExpanded: true,
+        WAnchor(
+          onTap: hasActiveRun ? null : onStartRun,
           child: WDiv(
-            className: 'flex flex-col gap-3 pt-3',
+            className: hasActiveRun
+                ? '''
+                    self-start flex flex-row items-center gap-2
+                    px-4 py-2.5 rounded-lg
+                    bg-slate-100 dark:bg-slate-700
+                    opacity-50
+                  '''
+                : '''
+                    self-start flex flex-row items-center gap-2
+                    px-4 py-2.5 rounded-lg
+                    bg-amber-400
+                  ''',
             children: [
-              // Run Agent button
-              WAnchor(
-                onTap: hasActiveRun ? null : onStartRun,
-                child: WDiv(
-                  className: hasActiveRun
-                      ? '''
-                          self-start flex flex-row items-center gap-2
-                          px-4 py-2 rounded-lg
-                          bg-slate-100 dark:bg-slate-700
-                          opacity-50
-                        '''
-                      : '''
-                          self-start flex flex-row items-center gap-2
-                          px-4 py-2 rounded-lg
-                          bg-amber-400
-                        ''',
-                  children: [
-                    WIcon(
-                      Icons.play_arrow,
-                      className: hasActiveRun
-                          ? 'text-sm text-slate-500'
-                          : 'text-sm text-primary-900',
-                    ),
-                    WText(
-                      trans('tasks.run_agent'),
-                      className: hasActiveRun
-                          ? 'text-sm font-semibold text-slate-500'
-                          : 'text-sm font-semibold text-primary-900',
-                    ),
-                  ],
-                ),
+              WIcon(
+                Icons.play_arrow,
+                className: hasActiveRun
+                    ? 'text-sm text-slate-500'
+                    : 'text-sm text-primary-900',
               ),
-
-              // Run list or empty state
-              if (conversations.isEmpty)
-                WText(
-                  trans('tasks.no_runs'),
-                  className: 'text-sm text-slate-400 dark:text-slate-500',
-                )
-              else
-                WDiv(
-                  className: 'flex flex-col gap-2',
-                  children: [
-                    for (final run in conversations)
-                      _SidebarRunRow(run: run, projectId: task.projectId ?? ''),
-                  ],
-                ),
+              WText(
+                trans('tasks.run_agent'),
+                className: hasActiveRun
+                    ? 'text-sm font-semibold text-slate-500'
+                    : 'text-sm font-semibold text-primary-900',
+              ),
             ],
           ),
         ),
@@ -310,70 +284,6 @@ class _SidebarInfoRow extends StatelessWidget {
             ),
           ),
       ],
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// _SidebarRunRow
-// ---------------------------------------------------------------------------
-
-/// A single row in the run history list.
-///
-/// Tapping navigates to the chat view for that conversation.
-class _SidebarRunRow extends StatelessWidget {
-  const _SidebarRunRow({required this.run, required this.projectId});
-
-  /// The conversation (run) to display.
-  final Conversation run;
-
-  /// The project ID used for navigation.
-  final String projectId;
-
-  // -------
-
-  /// Formats a cost double as `$X.XX` or `--`.
-  String _formatCost(double? cost) {
-    if (cost == null) return '--';
-    return '\$${cost.toStringAsFixed(2)}';
-  }
-
-  /// Formats [DateTime] as `Mar 25, 2026`.
-  String _formatDate(DateTime? date) {
-    if (date == null) return '--';
-    final month = trans('common.month_${date.month}');
-    return '$month ${date.day}, ${date.year}';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return WAnchor(
-      onTap: () => MagicRoute.to('/projects/$projectId/chats/${run.id}'),
-      child: WDiv(
-        className: '''
-          flex flex-row items-center gap-3
-          p-3 rounded-lg
-          bg-slate-50 dark:bg-gray-700/50
-        ''',
-        children: [
-          WDiv(
-            className: 'flex-1',
-            child: WText(
-              run.agentRoleName ?? trans('common.unknown'),
-              className: 'text-sm font-semibold text-gray-900 dark:text-white',
-            ),
-          ),
-          StatusBadge(status: run.status),
-          WText(
-            _formatCost(run.totalCostUsd),
-            className: 'text-xs text-slate-500 dark:text-slate-400',
-          ),
-          WText(
-            _formatDate(run.startedAt),
-            className: 'text-xs text-slate-400 dark:text-slate-500',
-          ),
-        ],
-      ),
     );
   }
 }

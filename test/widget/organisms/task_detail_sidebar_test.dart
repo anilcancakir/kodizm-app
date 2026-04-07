@@ -293,10 +293,8 @@ void main() {
       ),
     );
 
-    // Both agent role names appear in run rows
-    // 'Developer' may appear twice (detail row + run row) — use findsWidgets
+    // Agent role name from details row
     expect(find.text('Developer'), findsWidgets);
-    expect(find.text('Reviewer'), findsOneWidget);
   });
 
   // -------------------------------------------------------------------------

@@ -305,8 +305,7 @@ void main() {
   // -----------------------------------------------------------------------
 
   group('route-change subscription resilience', () {
-    test(
-        'resubscribe followed by unsubscribeChannels simulates the old bug — '
+    test('resubscribe followed by unsubscribeChannels simulates the old bug — '
         'events stop arriving', () async {
       await createConversation();
 
@@ -565,8 +564,9 @@ void main() {
       await Future.wait([first, second]);
 
       // Both POSTs fire — serialised, not dropped.
-      final messagePosts =
-          driver.recorded.where((r) => r.$1.url.contains('/messages')).toList();
+      final messagePosts = driver.recorded
+          .where((r) => r.$1.url.contains('/messages'))
+          .toList();
       expect(messagePosts, hasLength(2));
     });
 
@@ -601,8 +601,9 @@ void main() {
       await state.sendMessage('Another message');
 
       // No HTTP call — send was blocked by pending question guard.
-      final messagePosts =
-          driver.recorded.where((r) => r.$1.url.contains('/messages')).toList();
+      final messagePosts = driver.recorded
+          .where((r) => r.$1.url.contains('/messages'))
+          .toList();
       expect(messagePosts, isEmpty);
     });
 

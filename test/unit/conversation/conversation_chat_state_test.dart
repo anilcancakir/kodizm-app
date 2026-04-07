@@ -289,8 +289,9 @@ void main() {
       await Future.wait([first, second]);
 
       // Both POSTs are serialized (second awaits first, then executes).
-      final postCalls =
-          driver.recorded.where((r) => r.$1.method == 'POST').toList();
+      final postCalls = driver.recorded
+          .where((r) => r.$1.method == 'POST')
+          .toList();
       expect(postCalls.length, equals(2));
     });
 
@@ -631,8 +632,9 @@ void main() {
         expect(state.messages.length, equals(2));
 
         // HTTP calls: GET conversation, GET messages.
-        final getCalls =
-            driver.recorded.where((r) => r.$1.method == 'GET').toList();
+        final getCalls = driver.recorded
+            .where((r) => r.$1.method == 'GET')
+            .toList();
         expect(getCalls.length, equals(2));
         expect(
           getCalls[0].$1.url,

@@ -6,7 +6,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
 import 'package:magic/testing.dart';
 
-
 import 'package:app/app/state/conversation_chat_state.dart';
 import 'package:app/resources/views/conversation/conversation_chat_view.dart';
 import 'package:app/resources/widgets/atoms/streaming_indicator.dart';

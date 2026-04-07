@@ -37,14 +37,16 @@ Roles support 3-tier scoping (system / team / project) with inheritance — a pr
 
 ### Persistent Containers
 
-One Docker container per project, reused across all sessions — not ephemeral. The universal agent image includes:
+One Docker container per project (1:1 mapping), reused across all sessions — not ephemeral. Containers are fully platform-managed: provisioned, bootstrapped, health-checked, and reaped automatically. Users only see container status (Creating, Running, Stopped, Failed) — no Docker host management exposed to end users.
+
+The universal agent image includes:
 
 - 9 languages (Python, Node.js, Bun, Rust, Go, Ruby, Java, PHP, Flutter)
-- Developer tools (LSP servers, linters, formatters)
-- Databases (PostgreSQL 17, Redis, SQLite3)
-- AI CLIs (Claude Code, OpenCode)
+- Developer tools (LSP servers, linters, formatters, build systems)
+- Databases (PostgreSQL 17 with pgvector/timescaledb, Redis, SQLite3)
+- AI CLIs (Claude Code native binary, OpenCode)
 
-Containers are bootstrapped once with SSH keys, git repos, credentials, skills, and memories. Runtime versions switch dynamically per project configuration without rebuilding the container. Per-session git worktrees provide file isolation so concurrent agents don't collide.
+Containers are bootstrapped once with SSH keys, git repos, credentials, skills, and memories — all steps idempotent. Runtime versions switch dynamically per project configuration without rebuilding. Per-session git worktrees (flock-protected) provide file isolation so concurrent agents don't collide.
 
 ### Project Onboarding & Profiling
 
@@ -58,13 +60,17 @@ When a project is added to the platform, Kodizm runs an automated profiling pipe
 
 The result: a project goes from "git clone" to "ready for AI-driven development" with optimized agent configuration, accurate system prompts, and generated documentation — all before the first task is created.
 
+### Agent Architecture
+
+Built on Claude Code's native agent/subagent system. Each task run spawns a primary agent with a specific role (Lead Developer, Developer, QA, etc.). The primary agent orchestrates its own subagents internally — planning, analysis, implementation, review — using Claude Code's built-in delegation. Agents write their outputs into task sections via MCP tools, and the platform advances the pipeline based on section completion. This means multi-agent coordination happens organically through Claude Code's architecture, not through custom inter-agent messaging.
+
 ### Dual Execution Modes
 
 Two modes for running AI agents inside containers, chosen automatically based on session type:
 
 **One-Shot Resume** (autonomous task runs): Each message spawns a fresh CLI process inside the container. Subsequent messages resume the prior conversation context via session ID. Zero resource consumption between messages — ideal for autonomous runs that execute a prompt and complete.
 
-**Persistent Process** (interactive conversations): A long-lived proxy keeps the AI CLI process alive between messages. Near-instant responses with no cold start. Adaptive idle timeout releases resources after inactivity — ideal for interactive chat where users send multiple messages in quick succession.
+**Persistent Process** (interactive conversations): A long-lived Node.js socket proxy keeps the AI CLI process alive between messages. Near-instant responses with no cold start. Adaptive idle timeout (TTL refreshed on each message) releases resources after inactivity — ideal for interactive chat where users send multiple messages in quick succession.
 
 ### Task Lifecycle
 
@@ -72,7 +78,11 @@ Two modes for running AI agents inside containers, chosen automatically based on
 Draft -> Analysis -> Planning -> Design -> In Progress -> Review -> Testing -> Done
 ```
 
-Tasks have types (Story, Task, Bug, Spike), priority (P0-P3), structured sections (Analysis, Plan, Dev Report, Review, Test Report), and subtask hierarchy. Agents populate these sections during execution through platform tools. Concurrency guards prevent runaway execution (per-task, per-project, per-team limits).
+Tasks have types (Story, Task, Bug, Spike), priority (P0-P3), and 9 structured section types (analysis, plan, design_brief, design_assets, dev_report, review_report, test_report, notes, comments). Sections are versioned and track their creator (agent role or user).
+
+**Section-driven workflow:** Agents populate sections during execution through MCP tools (`CreateTaskSection`, `UpdateTaskSection`). The platform uses section completion as pipeline triggers — e.g., when an agent writes an `analysis` section, the system auto-dispatches the next pipeline stage (`planning`). This creates a natural sequential flow where each agent's output feeds the next phase.
+
+**Concurrency guards** prevent runaway execution at three levels: per-task (max 1 active run), per-project (default 3 concurrent), per-team (default 10 concurrent). Violations throw scoped exceptions — pipeline stages fail gracefully without retry.
 
 ### External Integrations
 
@@ -88,26 +98,36 @@ The platform extends AI agent capabilities through the Model Context Protocol (M
 
 ### Sessions & Conversations
 
-- **Conversation** — the user-facing entity. Can be interactive (user sends messages) or autonomous (triggered by a task run). Tracks messages, cost, and status. Agents can pause and ask questions mid-execution.
-- **Session** — the execution context behind a conversation. Manages the container, CLI process, streamed events, and token usage tracking.
+- **Conversation** — the user-facing entity. Can be interactive (user sends messages) or autonomous (triggered by a task run). Tracks messages, cost, and status.
+- **Session** — the execution context behind a conversation. Manages the container, CLI process, streamed events, and token usage tracking. Sessions can be shared (user, team, or external link).
 
-Session phases: Provisioning -> Executing -> Warm (idle but reusable) -> Dead (terminal).
+Session phases: Provisioning → Executing → Warm (idle but reusable) → Dead (terminal).
+
+**Agent Q&A flow:** Agents can pause mid-execution and ask clarifying questions (`AgentQuestion`). The conversation enters a waiting state, the user is notified, answers inline, and the agent resumes with the new context. This keeps humans in the loop without breaking autonomous execution.
 
 ### Knowledge & Memory
 
 Agents accumulate context over time within a project:
 
-- **Memories** — persistent files synced bidirectionally between the database and container. Agents read and write them natively across sessions.
-- **Documents** — knowledge artifacts (guides, decisions, issues) created by agents or users, searchable across the project.
-- **Skills** — reusable instruction sets injected into agent prompts. Define coding conventions, domain rules, and workflow patterns. Importable from the SkillsMP marketplace.
+- **Memories** — persistent files synced bidirectionally between the database and container filesystem. Agents read and write them natively via Claude Code's memory system across sessions. Typed (user, feedback, project, reference) with metadata tracking.
+- **Documents** — knowledge artifacts (architecture guides, API references, conventions, runbooks, agent outputs) created by agents or users. Categorized, markdown-rendered, searchable across the project.
+- **Skills** — reusable instruction sets injected into agent prompts. Define coding conventions, domain rules, and workflow patterns.
+
+**SkillsMP Marketplace:** A searchable skill marketplace with two search modes — keyword search and AI-powered semantic search (with quota tracking). Teams browse, preview, and import community skills directly into their workspace. Already-imported skills are visually marked in search results.
 
 ### Configuration Hierarchy
 
 4-level merge where each level can override the previous: System -> Agent Role -> Team -> Project. Applies to runtime config, permissions, environment variables, skills, and MCP servers. Narrower scope always wins on conflicts.
 
+### AI Credential Pool
+
+System-scoped OAuth/API key pool — managed entirely by the platform, invisible to teams and users. Multiple OAuth accounts and API keys across providers (Anthropic, OpenAI, Google, OpenRouter) are rotated automatically using configurable algorithms (FillFirst, RoundRobin, Random) with atomic leasing (database-level row locks).
+
+Health monitoring runs continuously: proactive token refresh 2 hours before expiry, automatic rate-limit cooldown with TTL-based recovery, and health check sessions that validate token liveness. When an OAuth token fails in a running container (expired, rate-limited, revoked), the system replaces it with a healthy credential from the pool and the agent continues — zero downtime, zero user intervention. Three consecutive refresh failures mark a token as Expired and remove it from rotation.
+
 ### Cost & Billing
 
-Credit-based model. Platform admins manage AI provider credentials centrally — teams only see their credit balance. Every agent run deducts from team balance based on actual token usage. Per-turn cost tracking, real-time cost streaming via WebSocket, and pre-execution balance checks ensure no surprises.
+Credit-based model. Teams only see their credit balance — never provider tokens or credentials. Every agent run deducts from team balance based on actual token usage. Per-turn cost tracking, real-time cost streaming via WebSocket, and pre-execution balance checks ensure no surprises.
 
 ---
 
@@ -115,13 +135,16 @@ Credit-based model. Platform admins manage AI provider credentials centrally —
 
 ### Screens
 
-- **Dashboard** — active runs, task summary by status, recent runs with cost, monthly usage
-- **Projects** — CRUD, repository management, environment config, MCP servers, SSH keys
-- **Task Board** — filterable list with status/priority badges, one-click autonomous execution
-- **Chat** — real-time WebSocket conversation with agents, streaming tool use, agent Q&A flow
-- **Sessions** — global execution monitor across all projects, phase indicators, token counts
-- **Skills** — team skill directory + SkillsMP marketplace with keyword and AI semantic search
-- **Billing** — credit balance, monthly breakdown, detailed usage history
+- **Dashboard** — active runs with agent role + cost, task summary by status, recent runs, monthly usage breakdown by model, quick actions
+- **Projects** — full CRUD, multi-repository management (clone/pull with real-time progress), environment config (runtime versions, services), MCP server config, SSH deploy key generation
+- **Tasks** — filterable list (status/type/priority), sorting (priority/status/date), task creation (manual + quick run), detail view with section viewer, status transitions, one-click agent execution with role picker
+- **Chat** — real-time WebSocket streaming of Claude Code CLI events (text deltas, tool use, thinking blocks, subagent progress, file changes), attachment support (images, PDFs), agent Q&A inline flow
+- **Conversations** — dual mode: simple Q&A view + agent execution view, conversation list with cost/status
+- **Sessions** — global execution monitor, live event streaming, phase indicators, per-model cost breakdown, session sharing, usage records
+- **Skills** — team skill directory + SkillsMP marketplace (keyword + AI semantic search with quota tracking, one-click import)
+- **Documents & Memory** — project-scoped knowledge base: documents (7 categories, markdown), agent memories (4 types, bidirectional sync)
+- **Billing** — credit balance, monthly summary with average cost/run, usage by agent role, paginated usage history
+- **Settings** — AI token status display, user profile, 2FA setup, browser session management
 
 ### Real-Time
 
@@ -140,8 +163,8 @@ WebSocket streaming (Laravel Reverb) delivers session events, conversation statu
 
 ## Infrastructure
 
-- **Docker hosts** — local or remote (SSH transport), load-balanced, health-monitored
-- **Queues** — Laravel Horizon with Redis-backed job processing for autonomous execution
-- **Admin panel** — Filament for system management (agent roles, skills, MCP servers, Docker hosts, AI tokens, billing)
-- **AI token pool** — multi-provider (Anthropic, OpenAI, Google, OpenRouter) with automatic rotation, health checks, and OAuth refresh
-- **Real-time** — Laravel Reverb WebSocket for event broadcasting
+- **Docker hosts** — local or remote (SSH transport), health-monitored, auto-provisioned. Platform manages container lifecycle (create, bootstrap, health-check, reap) — users never touch Docker
+- **Queues** — Laravel Horizon with Redis-backed job processing across 4 queues: default, agent_runs, conversations, container-lifecycle. Scoped wait thresholds and trim policies per queue
+- **Admin panel** — Filament for system management (17 resource types: agent roles, skills, MCP servers, Docker hosts, AI credentials, billing, containers, sessions, tasks, documents, memories)
+- **AI credential pool** — system-scoped multi-provider (Anthropic, OpenAI, Google, OpenRouter) with atomic rotation (FillFirst/RoundRobin/Random), proactive OAuth refresh, rate-limit cooldown, and automatic failover in running containers
+- **Real-time** — Laravel Reverb WebSocket broadcasting: conversation messages, session events, cost updates, balance changes, pipeline progress, repository clone status

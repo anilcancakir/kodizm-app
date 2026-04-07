@@ -6,7 +6,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
 import 'package:magic/testing.dart';
 
-
 import 'package:app/app/state/session_state.dart';
 import 'package:app/resources/views/session/session_detail_view.dart';
 import 'package:app/resources/widgets/molecules/model_cost_breakdown.dart';

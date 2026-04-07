@@ -7,7 +7,6 @@ import 'package:magic/magic.dart';
 import 'package:magic/testing.dart';
 import 'package:magic_starter/magic_starter.dart';
 
-
 import 'package:app/app/models/user.dart';
 import 'package:app/app/state/project_repository_state.dart';
 import 'package:app/app/state/project_state.dart';

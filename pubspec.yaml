@@ -34,10 +34,10 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
-  file_picker: ^10.3.10
+  file_picker: ^11.0.2
   flutter_highlighter: ^0.1.1
   flutter_markdown_plus: ^1.0.7
-  magic: ^1.0.0-alpha.10
+  magic: ^1.0.0-alpha.11
   magic_notifications: ^0.0.1-alpha.1
   magic_starter: ^0.0.1-alpha.11
   markdown: ^7.3.1

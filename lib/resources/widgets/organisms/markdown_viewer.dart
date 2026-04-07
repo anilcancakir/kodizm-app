@@ -205,6 +205,10 @@ class MarkdownViewer extends StatelessWidget {
       horizontalRuleDecoration: BoxDecoration(
         border: Border(top: BorderSide(color: border, width: 1)),
       ),
+      // Code block — clear default decoration/padding; _CodeBlockBuilder
+      // handles all styling via Wind UI.
+      codeblockDecoration: const BoxDecoration(),
+      codeblockPadding: EdgeInsets.zero,
     );
   }
 

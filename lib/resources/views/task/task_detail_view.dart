@@ -305,9 +305,8 @@ class _TaskDetailViewState extends State<TaskDetailView> {
             WDiv(
               className: 'flex-1 flex flex-col gap-6',
               children: [
-                _buildInfoSection(task),
-                _buildStatusActionsSection(task),
-                _buildSectionsCard(sections),
+                _buildDescriptionCard(task),
+                ..._buildSectionCards(sections),
               ],
             ),
 
@@ -366,14 +365,11 @@ class _TaskDetailViewState extends State<TaskDetailView> {
           onContinuePipeline: _onContinuePipeline,
         ),
 
-        // Description + AC card
-        _buildInfoSection(task),
+        // Description
+        _buildDescriptionCard(task),
 
-        // Status actions
-        _buildStatusActionsSection(task),
-
-        // Sections
-        _buildSectionsCard(sections),
+        // Sections — each as its own card
+        ..._buildSectionCards(sections),
 
         // Activity feed
         TaskActivityFeed(
@@ -389,36 +385,26 @@ class _TaskDetailViewState extends State<TaskDetailView> {
   // Section builders
   // -----------------------------------------------------------------------
 
-  Widget _buildInfoSection(Task task) {
+  Widget _buildDescriptionCard(Task task) {
     return MagicStarterCard(
-      title: trans('tasks.task_info'),
+      title: trans('tasks.description_label'),
       child: WDiv(
         className: 'flex flex-col gap-4',
         children: [
-          // Description
-          WDiv(
-            className: 'flex flex-col gap-2',
-            children: [
-              WText(
-                trans('tasks.description_label'),
-                className:
-                    'text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wide',
-              ),
-              if (task.description != null && task.description!.isNotEmpty)
-                MarkdownViewer(data: task.description!)
-              else
-                WText(
-                  trans('tasks.no_description'),
-                  className: 'text-sm text-slate-400 dark:text-slate-500',
-                ),
-            ],
-          ),
+          if (task.description != null && task.description!.isNotEmpty)
+            MarkdownViewer(data: task.description!)
+          else
+            WText(
+              trans('tasks.no_description'),
+              className: 'text-sm text-slate-400 dark:text-slate-500',
+            ),
 
           // Acceptance Criteria
           if (task.acceptanceCriteria != null &&
               task.acceptanceCriteria!.isNotEmpty)
             WDiv(
-              className: 'flex flex-col gap-2',
+              className:
+                  'flex flex-col gap-2 pt-4 border-t border-slate-200 dark:border-slate-700',
               children: [
                 WText(
                   trans('tasks.acceptance_criteria'),
@@ -428,135 +414,52 @@ class _TaskDetailViewState extends State<TaskDetailView> {
                 MarkdownViewer(data: task.acceptanceCriteria!),
               ],
             ),
-
-          // Assigned agent — quick reference in the main content area
-          WDiv(
-            className: 'flex flex-row items-start gap-2',
-            children: [
-              WText(
-                trans('tasks.assigned_to'),
-                className:
-                    'text-xs font-semibold text-slate-500 dark:text-slate-400 w-24 pt-0.5',
-              ),
-              WDiv(
-                className: 'flex-1',
-                child: WText(
-                  task.assignedAgentRoleName ?? trans('tasks.unassigned'),
-                  className: 'text-sm text-gray-800 dark:text-gray-200',
-                ),
-              ),
-            ],
-          ),
         ],
       ),
     );
   }
 
-  Widget _buildStatusActionsSection(Task task) {
-    final currentStatus = task.status ?? 'draft';
-    final transitions = _allowedTransitions[currentStatus] ?? [];
+  List<Widget> _buildSectionCards(List<TaskSection> sections) {
+    if (sections.isEmpty) return [];
 
-    return MagicStarterCard(
-      title: trans('tasks.status_actions'),
-      child: WDiv(
-        className: 'flex flex-col gap-4',
-        children: [
-          if (transitions.isEmpty)
-            WText(
-              trans('tasks.status_done'),
-              className: 'text-sm text-slate-500 dark:text-slate-400',
-            )
-          else
-            WDiv(
-              className: 'wrap gap-2',
+    return [
+      for (final section in sections)
+        MagicStarterCard(
+          child: CollapsibleSection(
+            key: Key(section.id),
+            title: section.title,
+            initiallyExpanded: false,
+            trailing: WDiv(
+              className: 'flex flex-row items-center gap-2',
               children: [
-                for (final targetStatus in transitions)
-                  WAnchor(
-                    onTap: () => _onTransitionTap(targetStatus),
-                    child: WDiv(
-                      className: _transitionButtonClassName(
-                        currentStatus,
-                        targetStatus,
-                      ),
-                      child: WText(
-                        trans(
-                          _transitionLabelKeys[targetStatus] ??
-                              'tasks.transition_start_analysis',
-                        ),
-                        className: 'text-sm font-medium',
-                      ),
-                    ),
+                WDiv(
+                  className:
+                      'px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-500',
+                  child: WText(
+                    _sectionTypeLabel(section.type),
+                    className: 'text-[11px] font-semibold text-indigo-500',
                   ),
+                ),
+                WDiv(
+                  className:
+                      'px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700',
+                  child: WText(
+                    trans('tasks.version_label', {
+                      'version': section.version.toString(),
+                    }),
+                    className:
+                        'text-[11px] font-medium text-slate-500 dark:text-slate-400',
+                  ),
+                ),
               ],
             ),
-        ],
-      ),
-    );
-  }
-
-  String _transitionButtonClassName(String from, String to) {
-    if (to == 'failed') {
-      return 'bg-red-500/15 text-red-500 px-3 py-1.5 rounded-lg text-sm font-medium';
-    }
-    if (to == 'draft') {
-      return '''
-        bg-slate-200 dark:bg-slate-700
-        text-slate-600 dark:text-slate-300
-        px-3 py-1.5 rounded-lg text-sm font-medium
-      ''';
-    }
-    return 'bg-amber-400 text-primary-900 px-3 py-1.5 rounded-lg text-sm font-medium';
-  }
-
-  Widget _buildSectionsCard(List<TaskSection> sections) {
-    return MagicStarterCard(
-      title: trans('tasks.sections'),
-      child: WDiv(
-        className: 'flex flex-col gap-4',
-        children: [
-          if (sections.isEmpty)
-            WText(
-              trans('tasks.no_sections'),
-              className: 'text-sm text-slate-400 dark:text-slate-500',
-            )
-          else
-            for (final section in sections)
-              CollapsibleSection(
-                key: Key(section.id),
-                title: section.title,
-                initiallyExpanded: false,
-                trailing: WDiv(
-                  className: 'flex flex-row items-center gap-2',
-                  children: [
-                    WDiv(
-                      className:
-                          'px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-500',
-                      child: WText(
-                        _sectionTypeLabel(section.type),
-                        className: 'text-[11px] font-semibold text-indigo-500',
-                      ),
-                    ),
-                    WDiv(
-                      className:
-                          'px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-700',
-                      child: WText(
-                        trans('tasks.version_label', {
-                          'version': section.version.toString(),
-                        }),
-                        className:
-                            'text-[11px] font-medium text-slate-500 dark:text-slate-400',
-                      ),
-                    ),
-                  ],
-                ),
-                child: WDiv(
-                  className: 'pt-3',
-                  child: MarkdownViewer(data: section.content),
-                ),
-              ),
-        ],
-      ),
-    );
+            child: WDiv(
+              className: 'pt-3',
+              child: MarkdownViewer(data: section.content),
+            ),
+          ),
+        ),
+    ];
   }
 }
 

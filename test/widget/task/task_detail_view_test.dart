@@ -227,8 +227,8 @@ void main() {
   testWidgets('renders description with markdown', (tester) async {
     await pumpWithData(tester);
 
-    // The task info section heading is rendered.
-    expect(find.text(trans('tasks.task_info')), findsOneWidget);
+    // Description card heading.
+    expect(find.text(trans('tasks.description_label')), findsWidgets);
 
     // Description content from fixture is visible (rendered by MarkdownViewer).
     expect(find.textContaining('Build the login screen'), findsOneWidget);
@@ -238,41 +238,19 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // 3. Renders status transition buttons for in_progress
-  // -------------------------------------------------------------------------
-
-  testWidgets('renders status transition buttons for in_progress', (
-    tester,
-  ) async {
-    await pumpWithData(tester);
-
-    // The status actions section heading is visible.
-    expect(find.text(trans('tasks.status_actions')), findsOneWidget);
-
-    // in_progress → review
-    expect(find.text(trans('tasks.transition_submit_review')), findsOneWidget);
-
-    // in_progress → failed
-    expect(find.text(trans('tasks.transition_mark_failed')), findsOneWidget);
-  });
-
-  // -------------------------------------------------------------------------
-  // 4. Renders sections with type badge and title
+  // 3. Renders sections as individual cards
   // -------------------------------------------------------------------------
 
   testWidgets('renders sections with type and title', (tester) async {
     await pumpWithData(tester);
 
-    // Sections section heading.
-    expect(find.text(trans('tasks.sections')), findsOneWidget);
-
-    // Section title from fixture (may appear in sections card + activity feed).
+    // Section title from fixture (may appear in section card + activity feed).
     expect(find.text('Requirements Analysis'), findsWidgets);
 
-    // Section type badge label ("Analysis") — may appear in both cards.
+    // Section type badge label ("Analysis") — may appear in both.
     expect(find.text(trans('tasks.section_type_analysis')), findsWidgets);
 
-    // Version badge — may appear in both sections card and activity feed.
+    // Version badge — may appear in section card and activity feed.
     expect(
       find.text(trans('tasks.version_label', {'version': '2'})),
       findsWidgets,
@@ -308,22 +286,19 @@ void main() {
   // 7. Renders task info fields
   // -------------------------------------------------------------------------
 
-  testWidgets('renders task info fields', (tester) async {
+  testWidgets('renders sidebar detail fields', (tester) async {
     await pumpWithData(tester);
 
-    // Branch field.
+    // Branch field (in sidebar).
     expect(find.text(trans('tasks.branch')), findsOneWidget);
     expect(find.text('feature/login'), findsOneWidget);
 
-    // Total cost field.
+    // Total cost field (in sidebar).
     expect(find.text(trans('tasks.total_cost')), findsOneWidget);
     expect(find.text('\$1.2345'), findsOneWidget);
 
-    // Created by field.
+    // Created by field (in sidebar).
     expect(find.text(trans('tasks.created_by')), findsOneWidget);
     expect(find.text('Anilcan'), findsOneWidget);
-
-    // Assigned to field.
-    expect(find.text(trans('tasks.assigned_to')), findsOneWidget);
   });
 }

@@ -148,6 +148,7 @@
     "status_deploying": "Deploying",
     "status_blocked": "Blocked",
     "status_planned": "Planned",
+    "status_complete": "Complete",
     "status_unknown": "Working",
     "toast_navigate": "Click to view",
     "sticky_idle": "Agent idle"

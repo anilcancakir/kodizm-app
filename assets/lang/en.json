@@ -986,7 +986,14 @@
     "detail_type": "Type",
     "detail_priority": "Priority",
     "detail_agent": "Agent",
-    "detail_pipeline": "Pipeline"
+    "detail_pipeline": "Pipeline",
+    "validation_has_commits": "Changes committed",
+    "validation_has_uncommitted": "Uncommitted changes detected",
+    "validation_no_changes": "No changes made",
+    "validation_has_uncommitted_detail": "The developer agent left uncommitted changes. The task was marked as failed.",
+    "validation_no_changes_detail": "The developer agent made no file changes. The task was marked as failed.",
+    "validation_has_commits_detail": "Changes were committed and pushed successfully.",
+    "reopen_task": "Reopen Task"
   },
   "usage": {
     "title": "Usage History",

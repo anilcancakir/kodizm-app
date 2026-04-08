@@ -56,10 +56,8 @@ class _TaskListViewState extends State<TaskListView> {
     'draft',
     'analysis',
     'planning',
-    'design',
     'in_progress',
     'review',
-    'testing',
     'done',
     'failed',
   ];

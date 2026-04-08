@@ -49,20 +49,6 @@ class TaskDetailView extends StatefulWidget {
 
 class _TaskDetailViewState extends State<TaskDetailView> {
   // ---------------------------------------------------------------------------
-  // Transition map — mirrors backend TaskStatus.php allowed transitions.
-  // ---------------------------------------------------------------------------
-
-  static const Map<String, List<String>> _allowedTransitions = {
-    'draft': ['analysis', 'failed'],
-    'analysis': ['planning', 'failed'],
-    'planning': ['in_progress', 'failed'],
-    'in_progress': ['review', 'failed'],
-    'review': ['in_progress', 'done', 'failed'],
-    'failed': ['draft'],
-    'done': [],
-  };
-
-  // ---------------------------------------------------------------------------
   // Transition label keys — keyed by target status.
   // ---------------------------------------------------------------------------
 
@@ -139,8 +125,9 @@ class _TaskDetailViewState extends State<TaskDetailView> {
   Future<void> _showStatusTransitionModal(
     BuildContext context,
     String currentStatus,
+    List<String> allowedTransitions,
   ) async {
-    final targets = _allowedTransitions[currentStatus] ?? [];
+    final targets = allowedTransitions;
     if (targets.isEmpty) return;
 
     await showDialog<void>(
@@ -258,7 +245,8 @@ class _TaskDetailViewState extends State<TaskDetailView> {
 
   Widget _buildHeader(Task task) {
     final status = task.status ?? 'draft';
-    final hasTransitions = (_allowedTransitions[status] ?? []).isNotEmpty;
+    final allowedTransitions = task.allowedTransitions;
+    final hasTransitions = allowedTransitions.isNotEmpty;
 
     return MagicStarterPageHeader(
       title: task.title ?? '',
@@ -273,7 +261,11 @@ class _TaskDetailViewState extends State<TaskDetailView> {
       ),
       titleSuffix: WAnchor(
         onTap: hasTransitions
-            ? () => _showStatusTransitionModal(context, status)
+            ? () => _showStatusTransitionModal(
+                context,
+                status,
+                allowedTransitions,
+              )
             : null,
         child: WDiv(
           className:
@@ -329,6 +321,7 @@ class _TaskDetailViewState extends State<TaskDetailView> {
                           ?.isPipelineEnabled ??
                       false,
                   onContinuePipeline: _onContinuePipeline,
+                  onReopen: () => _onTransitionTap('draft'),
                 ),
               ],
             ),
@@ -366,6 +359,7 @@ class _TaskDetailViewState extends State<TaskDetailView> {
           isPipelineEnabled:
               ProjectState.instance.selectedProject?.isPipelineEnabled ?? false,
           onContinuePipeline: _onContinuePipeline,
+          onReopen: () => _onTransitionTap('draft'),
         ),
 
         // Description

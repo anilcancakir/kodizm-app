@@ -172,6 +172,19 @@ class Task extends Model with HasTimestamps, InteractsWithPersistence {
   /// Set the total cost in USD.
   set totalCostUsd(String? value) => setAttribute('total_cost_usd', value);
 
+  /// Get the allowed status transitions for this task (detail view only).
+  List<String> get allowedTransitions {
+    final raw = getAttribute('allowed_transitions');
+    if (raw is List) return raw.cast<String>();
+    return [];
+  }
+
+  /// Get the workspace path inside the container (pipeline tasks only).
+  String? get worktreePath => getAttribute('worktree_path') as String?;
+
+  /// Get the workspace branch name (pipeline tasks only).
+  String? get worktreeBranch => getAttribute('worktree_branch') as String?;
+
   // ---------------------------------------------------------------------------
   // Typed Accessors — detail shape (conditionally present)
   // ---------------------------------------------------------------------------

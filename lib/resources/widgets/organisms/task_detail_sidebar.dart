@@ -46,6 +46,7 @@ class TaskDetailSidebar extends StatelessWidget {
     required this.hasActiveRun,
     this.isPipelineEnabled = false,
     this.onContinuePipeline,
+    this.onReopen,
   });
 
   /// The task whose details are displayed.
@@ -65,6 +66,9 @@ class TaskDetailSidebar extends StatelessWidget {
 
   /// Called when the user taps "Continue" on a waiting pipeline stage.
   final VoidCallback? onContinuePipeline;
+
+  /// Called when the user taps "Reopen Task" on a failed pipeline task.
+  final VoidCallback? onReopen;
 
   // -----------------------------------------------------------------------
   // Formatting helpers
@@ -147,6 +151,49 @@ class TaskDetailSidebar extends StatelessWidget {
                 label: trans('tasks.branch'),
                 value: task.branchName ?? trans('tasks.no_branch'),
               ),
+
+              // Validation result (pipeline tasks only)
+              if (task.worktreeBranch != null &&
+                  (task.status == 'failed' ||
+                      task.status == 'done' ||
+                      task.status == 'review'))
+                WDiv(
+                  className: task.status == 'failed'
+                      ? 'p-3 rounded-lg bg-red-500/10'
+                      : 'p-3 rounded-lg bg-emerald-500/10',
+                  children: [
+                    WText(
+                      trans(
+                        task.status == 'failed'
+                            ? 'tasks.validation_no_changes'
+                            : 'tasks.validation_has_commits',
+                      ),
+                      className: task.status == 'failed'
+                          ? 'text-sm font-semibold text-red-600 dark:text-red-400'
+                          : 'text-sm font-semibold text-emerald-600 dark:text-emerald-400',
+                    ),
+                    WSpacer(className: 'h-1'),
+                    WText(
+                      trans(
+                        task.status == 'failed'
+                            ? 'tasks.validation_no_changes_detail'
+                            : 'tasks.validation_has_commits_detail',
+                      ),
+                      className: 'text-xs text-slate-600 dark:text-slate-400',
+                    ),
+                    if (task.status == 'failed') ...[
+                      WSpacer(className: 'h-2'),
+                      WAnchor(
+                        onTap: () => onReopen?.call(),
+                        child: WText(
+                          trans('tasks.reopen_task'),
+                          className:
+                              'text-xs font-semibold text-red-600 dark:text-red-400 underline',
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
 
               // Total cost
               if (task.totalCostUsd != null)

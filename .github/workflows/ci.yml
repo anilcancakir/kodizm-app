@@ -141,14 +141,14 @@ jobs:
 
       - name: Deploy to server
         run: |
-          for attempt in 1 2 3; do
-            echo "Attempt $attempt/3..."
+          for attempt in 1 2 3 4 5; do
+            echo "Attempt $attempt/5..."
             rsync -avz --delete \
-              -e "ssh -o ConnectTimeout=30 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -p ${{ secrets.SSH_PORT }}" \
+              -e "ssh -o ConnectTimeout=60 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -p ${{ secrets.SSH_PORT }}" \
               build/web/ \
               ${{ secrets.SSH_USER_APP }}@${{ secrets.SSH_HOST }}:/home/kodizm-ai/htdocs/ai.kodizm.com/ && exit 0
-            echo "Attempt $attempt failed (exit $?), retrying in $((attempt * 15))s..."
-            sleep $((attempt * 15))
+            echo "Attempt $attempt failed (exit $?), retrying in $((attempt * 20))s..."
+            sleep $((attempt * 20))
           done
-          echo "All 3 attempts failed"
+          echo "All 5 attempts failed"
           exit 1

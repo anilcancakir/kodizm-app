@@ -10,8 +10,8 @@ import '../resources/views/task/task_create_view.dart';
 import '../resources/views/task/task_detail_view.dart';
 import '../resources/views/billing/billing_view.dart';
 import '../resources/views/billing/usage_history_view.dart';
-import '../resources/views/settings/ai_token_list_view.dart';
 import '../resources/views/settings/app_settings_view.dart';
+import '../resources/views/settings/integrations_view.dart';
 import '../resources/views/conversation/conversation_chat_view.dart';
 import '../resources/views/conversation/conversation_list_view.dart';
 import '../resources/views/nav/project_scoped_nav_view.dart';
@@ -108,13 +108,13 @@ void registerAppRoutes() {
 
       // Settings routes.
       MagicRoute.page(
-        '/settings/ai-tokens',
-        () => const AiTokenListView(),
-      ).title('AI Tokens');
-      MagicRoute.page(
         '/settings/app',
         () => const AppSettingsView(),
       ).title('Settings');
+      MagicRoute.page(
+        '/settings/integrations',
+        () => const IntegrationsView(),
+      ).title('Integrations');
 
       // Project-scoped conversation routes.
       MagicRoute.page(

@@ -70,26 +70,6 @@
     "attachment_sent": ":count attachment(s) sent",
     "attachment_upload_failed": "Failed to upload :filename"
   },
-  "ai_tokens": {
-    "title": "AI Tokens",
-    "subtitle": "Team AI provider tokens",
-    "empty_title": "No AI Tokens",
-    "empty_subtitle": "AI tokens are managed in the admin panel.",
-    "provider_anthropic": "Anthropic",
-    "provider_openai": "OpenAI",
-    "provider_google": "Google",
-    "provider_openrouter": "OpenRouter",
-    "auth_api_key": "API Key",
-    "auth_subscription": "Subscription",
-    "status_active": "Active",
-    "status_inactive": "Inactive",
-    "status_rate_limited": "Rate Limited",
-    "status_expired": "Expired",
-    "usage_count": ":count uses",
-    "last_used": "Last used :time",
-    "cooldown_until": "Cooldown until :time",
-    "managed_in_admin": "Token management is available in the admin panel."
-  },
   "agent_run": {
     "agent_role": "Agent",
     "back_to_task": "Back to Task",
@@ -491,7 +471,6 @@
     "select_project": "Select a Project",
     "select_project_subtitle": "Choose a project to view :target",
     "billing": "Billing",
-    "ai_tokens": "AI Tokens",
     "sessions": "Sessions",
     "conversations": "Conversations",
     "knowledge": "Knowledge Base",
@@ -1071,7 +1050,6 @@
     "continue_action": "Continue"
   },
   "routes": {
-    "ai_tokens": "AI Tokens",
     "billing": "Billing",
     "chat": "Chat",
     "conversations": "Conversations",

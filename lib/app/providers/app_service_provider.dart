@@ -104,11 +104,6 @@ class AppServiceProvider extends ServiceProvider {
           path: '/settings/app',
         ),
         MagicStarterNavItem(
-          icon: Icons.bolt_outlined,
-          labelKey: 'nav.ai_tokens',
-          path: '/settings/ai-tokens',
-        ),
-        MagicStarterNavItem(
           icon: Icons.link_outlined,
           labelKey: 'nav.integrations',
           path: '/settings/integrations',

@@ -567,6 +567,15 @@
     "answered_by": "Answered by :name",
     "answer_label": "Your Answer"
   },
+  "repos": {
+    "picker_title": "Select Repository",
+    "search_placeholder": "Search repositories...",
+    "add_manually": "Add manually instead",
+    "no_repos": "No repositories found",
+    "private_badge": "Private",
+    "select": "Select",
+    "adding": "Adding repository..."
+  },
   "projects": {
     "active_count": ":count active",
     "add_repository": "Add Repository",
@@ -786,6 +795,10 @@
     "environment": "Environment",
     "terms": "Terms of Service",
     "privacy": "Privacy Policy"
+  },
+  "sidebar": {
+    "version_label": "v:version",
+    "env_label": ":env"
   },
   "skills": {
     "title": "Skills",

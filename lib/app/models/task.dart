@@ -225,6 +225,18 @@ class Task extends Model with HasTimestamps, InteractsWithPersistence {
     return user?['name'] as String?;
   }
 
+  /// Pull requests associated with this task (detail view only).
+  ///
+  /// Returns an empty list when the `pull_requests` relation was not loaded
+  /// in the API response.
+  List<Map<String, dynamic>> get pullRequests {
+    final data = getAttribute('pull_requests');
+    if (data is List) {
+      return data.cast<Map<String, dynamic>>();
+    }
+    return [];
+  }
+
   /// Get the total number of sub-tasks (detail view only).
   int? get subTasksCount => getAttribute('sub_tasks_count') as int?;
 

@@ -6,8 +6,10 @@ import 'package:magic_starter/magic_starter.dart';
 import '../../../app/models/project.dart';
 import '../../../app/models/project_repository.dart';
 import '../../../app/models/user.dart';
+import '../../../app/state/git_provider_state.dart';
 import '../../../app/state/project_repository_state.dart';
 import '../../../app/state/project_state.dart';
+import '../../widgets/organisms/repo_picker_dialog.dart';
 import '../../widgets/atoms/container_status_badge.dart';
 import '../../widgets/organisms/environment_config_section.dart';
 import '../../widgets/organisms/mcp_server_section.dart';
@@ -318,8 +320,50 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
     _repoMountDirController.text = name ?? '';
   }
 
-  /// Opens the "Add Repository" dialog.
+  /// Opens the "Add Repository" flow.
+  ///
+  /// When the team has connected Git providers, shows [RepoPickerDialog] first.
+  /// Falls through to the manual form when the user chooses "Add manually",
+  /// no providers are connected, or the picker is dismissed.
   Future<void> _showAddRepositoryDialog() async {
+    final teamId = _teamId;
+    if (teamId == null) return;
+
+    // Check for connected Git providers → show picker if available.
+    await GitProviderState.instance.loadProviders(teamId);
+    final providers = GitProviderState.instance.rxState ?? [];
+
+    if (providers.isNotEmpty && mounted) {
+      // Single provider → use directly. Multi → pick first for now.
+      final providerId = providers.first.id;
+
+      final pickerResult = await RepoPickerDialog.show(
+        context,
+        teamId: teamId,
+        projectId: widget.projectId,
+        providerId: providerId,
+      );
+
+      if (pickerResult == true) {
+        // Repo created via picker — refresh list and done.
+        if (!mounted) return;
+        await ProjectRepositoryState.instance.fetchRepositories(
+          teamId,
+          widget.projectId,
+        );
+        return;
+      }
+
+      // null = dismissed, false = "Add manually" → fall through to manual form.
+      if (pickerResult == null || !mounted) return;
+    }
+
+    // Manual form fallback.
+    await _showManualAddRepositoryDialog(teamId);
+  }
+
+  /// Shows the manual "Add Repository" form dialog.
+  Future<void> _showManualAddRepositoryDialog(String teamId) async {
     _repoNameController.clear();
     _repoUrlController.clear();
     _repoBranchController.text = 'master';
@@ -452,9 +496,6 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
     _repoUrlController.removeListener(_onRepoUrlChanged);
 
     if (result != true || !mounted) return;
-
-    final teamId = _teamId;
-    if (teamId == null) return;
 
     final repoUrl = _repoUrlController.text.trim();
     final mountDir = _repoMountDirController.text.trim();

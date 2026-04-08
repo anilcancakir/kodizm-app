@@ -712,7 +712,15 @@
       "saved": "pipeline configuration saved.",
       "save_failed": "Failed to save pipeline configuration.",
       "role_label": "Role"
-    }
+    },
+    "commit_settings": "Commit Settings",
+    "commit_settings_subtitle": "Configure git author identity for commits made by agents in this project.",
+    "commit_author_name": "Author Name",
+    "commit_author_name_hint": "e.g. John Doe",
+    "commit_author_email": "Author Email",
+    "commit_author_email_hint": "e.g. john@example.com",
+    "co_author_enabled": "Co-Author Attribution",
+    "co_author_description": "Include 'Co-Authored-By: Kodizm' in commit messages"
   },
   "teams": {
     "accept_invitation": "Accept Invitation",

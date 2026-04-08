@@ -45,11 +45,15 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   final _shortNameController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _techStackController = TextEditingController();
+  final _commitAuthorNameController = TextEditingController();
+  final _commitAuthorEmailController = TextEditingController();
+  bool _coAuthorEnabled = true;
 
   /// Whether the user has manually edited the short_name field.
   bool _shortNameManuallyEdited = false;
 
   bool _saving = false;
+  bool _savingCommitSettings = false;
   bool _deleting = false;
   bool _formPopulated = false;
   bool _regeneratingKey = false;
@@ -79,6 +83,8 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
     _shortNameController.dispose();
     _descriptionController.dispose();
     _techStackController.dispose();
+    _commitAuthorNameController.dispose();
+    _commitAuthorEmailController.dispose();
     _repoNameController.dispose();
     _repoUrlController.dispose();
     _repoBranchController.dispose();
@@ -122,6 +128,12 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
     _shortNameController.text = project.shortName ?? '';
     _descriptionController.text = project.description ?? '';
     _techStackController.text = project.techStack.join(', ');
+    _commitAuthorNameController.text =
+        (project.settings?['commit_author_name'] as String?) ?? '';
+    _commitAuthorEmailController.text =
+        (project.settings?['commit_author_email'] as String?) ?? '';
+    _coAuthorEnabled =
+        (project.settings?['co_author_enabled'] as bool?) ?? true;
 
     // If the project already has a short_name, treat it as manually set.
     _shortNameManuallyEdited = (project.shortName ?? '').isNotEmpty;
@@ -205,6 +217,33 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
 
     if (!mounted) return;
     setState(() => _saving = false);
+
+    await ProjectState.instance.fetchProject(teamId, widget.projectId);
+  }
+
+  /// Saves the commit settings fields into the project's settings map.
+  Future<void> _saveCommitSettings() async {
+    final teamId = _teamId;
+    if (teamId == null) return;
+
+    final project = ProjectState.instance.selectedProject;
+    if (project == null) return;
+
+    setState(() => _savingCommitSettings = true);
+
+    final data = <String, dynamic>{
+      'settings': {
+        ...project.settings ?? {},
+        'commit_author_name': _commitAuthorNameController.text.trim(),
+        'commit_author_email': _commitAuthorEmailController.text.trim(),
+        'co_author_enabled': _coAuthorEnabled,
+      },
+    };
+
+    await ProjectState.instance.updateProject(teamId, widget.projectId, data);
+
+    if (!mounted) return;
+    setState(() => _savingCommitSettings = false);
 
     await ProjectState.instance.fetchProject(teamId, widget.projectId);
   }
@@ -541,6 +580,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
               if (_hasRuntimeData) _buildEnvironmentSection(project),
               if (_canManageProject) _buildPipelineSection(project),
               _buildMcpServersSection(),
+              if (_canManageProject) _buildCommitSettingsSection(project),
               if (_canManageProject) _buildSettingsSection(project),
             ],
           ),
@@ -1324,6 +1364,99 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
     if (teamId == null) return const WSpacer(className: 'h-0');
 
     return McpServerSection(teamId: teamId, projectId: widget.projectId);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Commit Settings Section
+  // ---------------------------------------------------------------------------
+
+  /// Builds the commit settings section for configuring git author identity.
+  Widget _buildCommitSettingsSection(Project project) {
+    return MagicStarterCard(
+      title: trans('projects.commit_settings'),
+      child: WDiv(
+        className: 'flex flex-col gap-5',
+        children: [
+          WText(
+            trans('projects.commit_settings_subtitle'),
+            className: 'text-sm text-slate-500 dark:text-slate-400',
+          ),
+          _buildField(
+            label: trans('projects.commit_author_name'),
+            hint: trans('projects.commit_author_name_hint'),
+            controller: _commitAuthorNameController,
+          ),
+          _buildField(
+            label: trans('projects.commit_author_email'),
+            hint: trans('projects.commit_author_email_hint'),
+            controller: _commitAuthorEmailController,
+          ),
+          // Co-author toggle row.
+          WDiv(
+            className:
+                'flex flex-row items-center justify-between gap-3 w-full',
+            children: [
+              WDiv(
+                className: 'flex flex-col gap-1 flex-1',
+                children: [
+                  WText(
+                    trans('projects.co_author_enabled'),
+                    className:
+                        'text-sm font-medium text-slate-700 dark:text-slate-200',
+                  ),
+                  WText(
+                    trans('projects.co_author_description'),
+                    className: 'text-xs text-slate-400 dark:text-slate-500',
+                  ),
+                ],
+              ),
+              Switch.adaptive(
+                value: _coAuthorEnabled,
+                onChanged: (value) {
+                  setState(() => _coAuthorEnabled = value);
+                },
+              ),
+            ],
+          ),
+          // Save button — right-aligned.
+          WDiv(
+            className: 'w-full flex flex-row items-center justify-end',
+            children: [
+              WAnchor(
+                onTap: _savingCommitSettings ? null : _saveCommitSettings,
+                child: WDiv(
+                  className: '''
+                    flex flex-row items-center gap-2
+                    px-5 py-2 rounded-lg
+                    bg-amber-400 dark:bg-amber-500
+                  ''',
+                  children: [
+                    if (_savingCommitSettings)
+                      SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            WindTheme.dataOf(context).getColor('primary', 500)!,
+                          ),
+                        ),
+                      ),
+                    WText(
+                      trans('projects.save_changes'),
+                      className: '''
+                        text-sm font-semibold
+                        text-primary dark:text-primary-900
+                      ''',
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   // ---------------------------------------------------------------------------

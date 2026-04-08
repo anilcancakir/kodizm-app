@@ -312,8 +312,9 @@ void main() {
     );
     expect(descField, findsOneWidget);
 
-    // Save and Delete buttons.
-    expect(find.text(trans('projects.save_changes')), findsOneWidget);
+    // Save buttons — commit settings section and project settings section
+    // both render a "Save Changes" button, so two are expected.
+    expect(find.text(trans('projects.save_changes')), findsNWidgets(2));
     expect(find.text(trans('projects.delete_project')), findsOneWidget);
   });
 

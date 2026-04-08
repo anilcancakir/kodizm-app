@@ -97,6 +97,23 @@ class AppServiceProvider extends ServiceProvider {
           path: MagicStarterConfig.profileRoute(),
         ),
       ],
+      profileMenuItems: [
+        MagicStarterNavItem(
+          icon: Icons.tune_outlined,
+          labelKey: 'nav.settings',
+          path: '/settings/app',
+        ),
+        MagicStarterNavItem(
+          icon: Icons.bolt_outlined,
+          labelKey: 'nav.ai_tokens',
+          path: '/settings/ai-tokens',
+        ),
+        MagicStarterNavItem(
+          icon: Icons.link_outlined,
+          labelKey: 'nav.integrations',
+          path: '/settings/integrations',
+        ),
+      ],
     );
 
     // Magic Starter: Logout callback.

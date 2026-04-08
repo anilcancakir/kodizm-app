@@ -392,6 +392,17 @@
     "phone_placeholder": "+905301234567",
     "otp_placeholder": "123456"
   },
+  "integrations": {
+    "title": "Integrations",
+    "subtitle": "Connect your Git providers",
+    "connect_github": "Connect GitHub",
+    "disconnect": "Disconnect",
+    "disconnect_confirm": "Are you sure you want to disconnect this GitHub account? Deploy keys and webhooks will be removed from your repositories.",
+    "connected_at": "Connected :date",
+    "no_providers_title": "No integrations connected",
+    "no_providers_subtitle": "Connect your GitHub account to enable automatic deploy keys, webhooks, and pull request creation.",
+    "provider_github": "GitHub"
+  },
   "magic_starter": {
     "auth": {
       "continue_as_guest": "Continue as Guest",
@@ -484,7 +495,8 @@
     "sessions": "Sessions",
     "conversations": "Conversations",
     "knowledge": "Knowledge Base",
-    "memories": "Agent Memories"
+    "memories": "Agent Memories",
+    "integrations": "Integrations"
   },
   "notifications": {
     "empty": "No notifications",

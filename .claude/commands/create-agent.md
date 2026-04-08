@@ -37,26 +37,42 @@ Spawn an explore agent to read from the **clean CC source** at `/Users/anilcan/C
 
 **Report**: What CC provides automatically, closest built-in agent, context isolation model, what custom agent must NOT repeat.
 
-### 1B: ac Plugin Agent Patterns
+### 1B: Kodizm Agent Patterns (PRIMARY)
 
-Spawn an explore agent to read from `/Users/anilcan/Code/kodizm/api/references/ac/plugins/ac/agents/`:
+Spawn an explore agent to read from `/Users/anilcan/Code/kodizm/api/resources/agents/`:
 
-- Read agent file(s) most similar to the requested role.
-- Read `explore.md` as baseline reference for format and conciseness.
-- Extract PATTERNS (not literal content): frontmatter structure, success/failure conditions, output format contracts, model routing philosophy.
+- Read ALL existing agent .md files — these are the production agents, synced from AC plugin and tested.
+- Find the agent(s) most similar to the requested role.
+- Read `Explore.md` (capital E, haiku, allowlist) and `plan-review.md` (sonnet, denylist) as contrasting format examples.
+- Extract PATTERNS: frontmatter structure, success/failure conditions, output format contracts, model routing, tool access patterns.
+- Note the tier system: `plan-worker.md` serves 3 tiers via orchestrator model override (haiku/sonnet/opus).
+
+Current agent inventory (12 agents):
+
+| Agent | Model | Role | Tool Mode |
+|-------|-------|------|-----------|
+| Explore | haiku | Codebase search (shadows CC built-in) | allowlist: Glob,Grep,LS,Read,Bash |
+| librarian | sonnet | External docs via kodizm MCP | denylist: Write,Edit,NotebookEdit |
+| linter | haiku | LSP diagnostics after code changes | allowlist: LSP,Glob,Read |
+| challenger | opus | Devil's advocate, gap analysis | denylist: Write,Edit,NotebookEdit |
+| feasibility | sonnet | Effort estimation, codebase fit | denylist: Write,Edit,NotebookEdit |
+| plan-analysis | sonnet | Pre/post-plan gap detector | denylist: Write,Edit,NotebookEdit |
+| plan-review | sonnet | Plan reviewer (approval bias) | denylist: Write,Edit,NotebookEdit |
+| plan-deep-review | opus | Adversarial plan reviewer (reject bias) | denylist: Write,Edit,NotebookEdit |
+| plan-worker | sonnet | Step executor (tier-overridable) | denylist: NotebookEdit |
+| plan-verifier | sonnet | Post-execution compliance auditor | denylist: Write,Edit,NotebookEdit |
+| plan-code-review | sonnet | 2-stage code review (spec + quality) | denylist: Write,Edit,NotebookEdit |
+| plan-deep-code-review | opus | Cross-layer integration review | denylist: Write,Edit,NotebookEdit |
 
 **Report**: Relevant agent definitions (full content), design patterns, model/effort recommendations.
 
-### 1C: oh-my-openagent Reference
+### 1C: External References (OPTIONAL — spawn only if 1B insufficient)
 
-Spawn an explore agent to search `/Users/anilcan/Code/kodizm/api/references/oh-my-openagent/src/agents/`:
+**AC plugin source** — `/Users/anilcan/Code/kodizm/api/references/ac/plugins/ac/agents/`: Original agent definitions before Kodizm adaptation. Useful for understanding design rationale.
 
-- Find the agent most similar to the requested role.
-- Read its prompt and factory function.
-- Check `dynamic-agent-prompt-builder.ts` for shared patterns.
-- Check `AGENTS.md` for conventions.
+**oh-my-openagent** — `/Users/anilcan/Code/kodizm/api/references/oh-my-openagent/src/agents/`: Alternative agent framework. Check `dynamic-agent-prompt-builder.ts` for shared patterns, `AGENTS.md` for conventions.
 
-**Report**: Closest agent's prompt, notable patterns, anything that informs the new agent.
+**Report**: Closest agent's prompt, notable patterns, anything that supplements 1B findings.
 
 ### 1D: Kodizm Context
 
@@ -95,7 +111,7 @@ Cross-reference research results. The agent prompt must NOT include:
 | Container environment (Ubuntu, tools, services, runtimes) | Container description, available tools list |
 | Project name, tech stack, default branch, repos table | Project context (say "in your CLAUDE.md" instead) |
 | MCP tools table (all tools with descriptions) | MCP tool reference or tutorials |
-| Agent Delegation (Explore, librarian, challenger, feasibility) | General-purpose subagent descriptions |
+| Agent Delegation (Explore, librarian, linter) | General-purpose subagent descriptions |
 | Memory guidance | Memory instructions |
 | Skills reference (`my-coding`, `my-language`) | Skill application rules (but DO reference: "Apply `my-coding` skill") |
 | Rules (scope, tests, commits, secrets, dependencies, blockers, ambiguity) | Generic working rules |
@@ -115,7 +131,7 @@ CC's `omitClaudeMd` flag only works for built-in agents (Explore, Plan). Custom 
 | Container environment (Ubuntu, tools, services, runtimes) | Container description, tool availability |
 | Project name, tech stack, default branch, repos table | Project context |
 | MCP tools table (all tools with descriptions) | MCP tool reference or tutorials |
-| Agent Delegation (general-purpose agents) | When-to-use guidance for Explore/librarian/etc. |
+| Agent Delegation (Explore, librarian, linter) | When-to-use guidance for general-purpose agents |
 | Rules (scope, tests, commits, secrets, dependencies) | Generic working rules |
 | Skills reference (`my-coding`, `my-language`) | Skill instructions |
 | Orchestrator's Agent tool description | Agent listing, usage notes |
@@ -244,14 +260,19 @@ Common patterns:
 
 **Agent Naming Conventions:**
 - To shadow/replace a CC built-in: use the EXACT same `name` (case-sensitive, e.g., `Explore`)
-- New agents: kebab-case (e.g., `plan-reviewer`)
-- Related agents: use a shared prefix (e.g., `plan-reviewer`, `plan-worker`, `plan-verifier`, `plan-code-review`)
+- New agents: kebab-case (e.g., `plan-review`)
+- Related agents: use a shared prefix (e.g., `plan-review`, `plan-worker`, `plan-verifier`, `plan-code-review`)
 - The `name` field in frontmatter MUST match the filename (without `.md`)
 
 **claude-md Agent Delegation — what goes there vs role prompts:**
-- `claude-md.blade.php` Agent Delegation section: ONLY general-purpose research agents usable by ALL roles (Explore, librarian, challenger, feasibility)
-- Purpose-specific subagents (plan-worker, plan-code-review, etc.): belong in the role prompt that uses them, NOT in claude-md
+- `claude-md.blade.php` Agent Delegation section: ONLY general-purpose agents usable by ALL roles (currently: Explore, librarian, linter)
+- Purpose-specific subagents (plan-worker, plan-code-review, challenger, feasibility, etc.): belong in the role prompt that uses them, NOT in claude-md
 - Rationale: Not every role needs to know about plan-specific agents. Keeps claude-md concise (every token costs money on every message)
+
+**"MCP" string avoidance in role prompts:**
+- Use "Kodizm tools" instead of literal "MCP" in role-prompt Blade files
+- Reason: Dedup grep checks (`grep -c 'MCP' ...`) flag false positives when role prompts mention "MCP tools" generically
+- claude-md.blade.php already provides the full "Kodizm MCP Tools" table — role prompts should say "Kodizm tools" or just tool names directly
 
 #### For `role-prompt` (Blade system prompt):
 
@@ -266,6 +287,19 @@ Common patterns:
 **Role slug**: Must match the AgentRole's `slug` field exactly — `prompts.system.{slug}` is how PromptRenderer resolves the view.
 
 **Subagent briefing guidance**: When a role-prompt orchestrates subagents, include clear briefing format in the workflow. Subagents have ZERO parent context — the orchestrator must provide self-contained prompts with all context, file paths, and constraints.
+
+**Proven role-prompt patterns** (from production Kodizm roles):
+
+| Pattern | Used In | Description |
+|---------|---------|-------------|
+| 2-stage review | code-reviewer | Stage 1 (spec compliance) gates Stage 2 (code quality). Stop early if spec fails. |
+| Severity + confidence | code-reviewer | CRITICAL/IMPORTANT/MINOR severity. Confidence 0-100, suppress <50, tag <80. |
+| Ambiguity gate | product-manager | Dimension-weighted clarity (Goal/Constraints/Success/Context) routes to fast vs clarification path. Internal — never surfaced to user. |
+| INVEST validation | product-manager | 6-criterion gate for stories. Failures = warnings in Open Questions, not blockers. |
+| Phase decomposition | product-manager | L/XL scope → max 6 phases (foundation→features→polish), each a linked task. |
+| Tier system | lead-developer | quick→haiku, mid→sonnet, senior→opus. Benchmark-informed (SWE-bench, GPQA). |
+| Wave parallelism | developer | File-exclusive steps within a wave, sequential across waves. |
+| Complexity gating | lead-developer, developer | Simple/Standard/Complex routes to different research depth, review layers, verification layers. |
 
 ### 2C: Prompt Architecture
 
@@ -369,6 +403,17 @@ Project details, MCP tool reference, available agents, and working rules are in 
 
 If the role needs an autonomous initial instruction, also write `/Users/anilcan/Code/kodizm/api/resources/views/prompts/user/{slug}.blade.php` (1-3 lines).
 
+### Deployment: How Changes Reach Containers
+
+**Role prompts** (Blade templates): Automatically fresh — `PromptRenderer` renders per-session, `reinjectClaudeMd()` re-renders before every message. Deploy to API server → immediately active on next message.
+
+**Agent .md files**: Filesystem-backed, NO auto-observer. Changes require marking `ProjectContainer.dirty_flags`:
+- `$container->markDirty(ProjectContainer::STEP_AGENTS)` → next session syncs agents
+- `$container->dirty_flags = null; $container->save()` → full re-bootstrap on next session
+- No artisan command yet — must be done via tinker or Filament
+
+**After creating/modifying a cc-agent**: Remind the user to mark STEP_AGENTS dirty on affected containers so the next session picks up the changes.
+
 ---
 
 ## Quality Checklist
@@ -394,18 +439,21 @@ If the role needs an autonomous initial instruction, also write `/Users/anilcan/
 - [ ] Tool access mode chosen correctly: denylist if MCP needed, allowlist if MCP not needed
 - [ ] Related agents share a naming prefix (e.g., `plan-*`)
 - [ ] No `maxTurns` unless explicitly requested or agent has known runaway risk
+- [ ] Deployment note: remind user to mark STEP_AGENTS dirty on containers after deploying new agent files
 
 ### `role-prompt` specific
 
 - [ ] No duplication with `claude-md.blade.php` (2A checklist — MCP tools, project info, container, rules)
 - [ ] Opens with "...in your CLAUDE.md" reference for platform context
 - [ ] CAN/CANNOT/MUST constraints are explicit and complete
-- [ ] Workflow references MCP tool names accurately (get-task, create-task-section, report-progress, etc.)
+- [ ] Workflow references tool names accurately (get-task, create-task-section, report-progress, etc.)
+- [ ] No literal "MCP" string — use "Kodizm tools" or tool names directly (dedup grep avoidance)
 - [ ] Blade syntax only where content genuinely varies per session
 - [ ] Slug matches intended AgentRole slug
 - [ ] User prompt created only if role runs autonomously
 - [ ] If role spawns subagents: workflow includes complete briefing format (subagents have zero parent context)
 - [ ] Purpose-specific subagents listed in role prompt, NOT in claude-md Agent Delegation
+- [ ] Verdict strings (if applicable) match existing pipeline-parsed enums — no new states without API changes
 
 ---
 
@@ -413,6 +461,8 @@ If the role needs an autonomous initial instruction, also write `/Users/anilcan/
 
 | Source | Path | What to Look For |
 |--------|------|-----------------|
+| **Kodizm Agents** (PRIMARY) | `/Users/anilcan/Code/kodizm/api/resources/agents/` | 12 production agents — frontmatter patterns, tool access, model routing |
+| **Kodizm Prompts** | `/Users/anilcan/Code/kodizm/api/resources/views/prompts/` | Role prompts (system/), user prompts (user/), claude-md template |
 | CC Clean Source | `/Users/anilcan/Code/kodizm/api/references/claude-code-cli-source-code` | Built-in agents, auto-injected prompts, agent system |
 | CC runAgent.ts | `/Users/anilcan/Code/kodizm/api/references/claude-code-cli-source-code/tools/AgentTool/runAgent.ts` | Subagent lifecycle, context isolation, CLAUDE.md omission, tool filtering |
 | CC loadAgentsDir.ts | `/Users/anilcan/Code/kodizm/api/references/claude-code-cli-source-code/tools/AgentTool/loadAgentsDir.ts` | Frontmatter schema (lines 73-99), parsing, deduplication |
@@ -420,10 +470,10 @@ If the role needs an autonomous initial instruction, also write `/Users/anilcan/
 | CC prompts.ts | `/Users/anilcan/Code/kodizm/api/references/claude-code-cli-source-code/constants/prompts.ts` | enhanceSystemPromptWithEnvDetails, DEFAULT_AGENT_PROMPT, computeEnvInfo |
 | CC context.ts | `/Users/anilcan/Code/kodizm/api/references/claude-code-cli-source-code/context.ts` | getUserContext (CLAUDE.md loading), getSystemContext (git status) |
 | CC Minified Source | `/Users/anilcan/Code/kodizm/api/references/claude-code-cli-reversed` | Fallback if clean source missing |
-| ac Plugin Agents | `/Users/anilcan/Code/kodizm/api/references/ac/plugins/ac/agents/` | Agent design patterns, format reference |
-| oh-my-openagent | `/Users/anilcan/Code/kodizm/api/references/oh-my-openagent/src/agents/` | Alternative agent patterns |
-| Kodizm Agents | `/Users/anilcan/Code/kodizm/api/resources/agents/` | Existing CC agent overrides |
-| Kodizm Prompts | `/Users/anilcan/Code/kodizm/api/resources/views/prompts/` | Existing role prompts + claude-md template |
-| PromptRenderer | `/Users/anilcan/Code/kodizm/api/app/Services/PromptRenderer.php` | Blade rendering + bindings |
-| NativeSessionEngine | `/Users/anilcan/Code/kodizm/api/app/Services/NativeSessionEngine.php` | CLI options, systemPrompt injection |
-| Kodizm App | `/Users/anilcan/Code/kodizm/app/PROJECT.md` | Platform mission, features |
+| ac Plugin Agents | `/Users/anilcan/Code/kodizm/api/references/ac/plugins/ac/agents/` | Original agent designs before Kodizm adaptation |
+| oh-my-openagent | `/Users/anilcan/Code/kodizm/api/references/oh-my-openagent/src/agents/` | Alternative agent patterns, dynamic prompt builder |
+| PromptRenderer | `/Users/anilcan/Code/kodizm/api/app/Services/PromptRenderer.php` | Blade rendering + bindings ($project, $task, $user, $team, $role, $conversation) |
+| ContainerBootstrapService | `/Users/anilcan/Code/kodizm/api/app/Services/ContainerBootstrapService.php` | injectAgents(), syncAgents(), dirty-flag dispatch |
+| NativeSessionEngine | `/Users/anilcan/Code/kodizm/api/app/Services/NativeSessionEngine.php` | CLI options, systemPrompt injection, syncDirtyBootstrapSteps() |
+| ProjectContainer | `/Users/anilcan/Code/kodizm/api/app/Models/ProjectContainer.php` | Dirty-flag state machine (markDirty, clearDirty, STEP_* constants) |
+| Kodizm App | `/Users/anilcan/Code/kodizm/app/PROJECT.md` | Platform mission, features, agent roles |

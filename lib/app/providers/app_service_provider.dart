@@ -4,6 +4,7 @@ import 'package:magic/magic.dart';
 import 'package:magic_starter/magic_starter.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
+import '../../resources/widgets/molecules/sidebar_footer.dart';
 import '../interceptors/debug_interceptor.dart';
 import '../interceptors/sentry_tracing_interceptor.dart';
 import '../models/user.dart';
@@ -110,6 +111,9 @@ class AppServiceProvider extends ServiceProvider {
         ),
       ],
     );
+
+    // Magic Starter: Sidebar footer — compact version + environment badge.
+    MagicStarter.useSidebarFooter((context) => const SidebarFooter());
 
     // Magic Starter: Logout callback.
     MagicStarter.useLogout(() async {

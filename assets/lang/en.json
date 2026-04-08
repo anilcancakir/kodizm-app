@@ -178,7 +178,8 @@
     "toggle_theme": "Toggle theme",
     "unknown": "Unknown",
     "upload": "Upload",
-    "user": "User"
+    "user": "User",
+    "close": "Close"
   },
   "conversation_chat": {
     "agent_role": "Agent Role",
@@ -770,6 +771,11 @@
     "app_version": "App Version",
     "build_number": "Build Number",
     "api_server": "API Server",
+    "api_commit": "API Commit",
+    "api_build_date": "API Build Date",
+    "commit_hash": "Commit",
+    "build_date": "Build Date",
+    "environment": "Environment",
     "terms": "Terms of Service",
     "privacy": "Privacy Policy"
   },

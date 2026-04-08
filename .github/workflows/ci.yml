@@ -98,6 +98,11 @@ jobs:
       - name: Write .env
         run: echo "${{ secrets.APP_ENV_FILE }}" > .env
 
+      - name: Inject build metadata
+        run: |
+          echo "APP_BUILD_HASH=$(git rev-parse --short=7 HEAD)" >> .env
+          echo "APP_BUILD_DATE=$(git log -1 --format=%cI HEAD)" >> .env
+
       - name: Build web (release)
         run: |
           flutter build web --release \

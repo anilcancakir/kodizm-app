@@ -28,6 +28,8 @@ class AppSettingsView extends StatefulWidget {
 class _AppSettingsViewState extends State<AppSettingsView> {
   String _appVersion = '';
   String _buildNumber = '';
+  String _apiCommit = '';
+  String _apiBuildDate = '';
 
   SettingsState get _state => Magic.findOrPut(SettingsState.new);
 
@@ -36,6 +38,7 @@ class _AppSettingsViewState extends State<AppSettingsView> {
     super.initState();
     _state.init();
     _loadPackageInfo();
+    _loadApiHealth();
   }
 
   Future<void> _loadPackageInfo() async {
@@ -47,12 +50,31 @@ class _AppSettingsViewState extends State<AppSettingsView> {
     });
   }
 
+  Future<void> _loadApiHealth() async {
+    try {
+      final response = await Http.get('/health');
+      if (!mounted) return;
+      final version = response['version'] as Map<String, dynamic>?;
+      if (version == null) return;
+      setState(() {
+        _apiCommit = (version['commit'] as String?) ?? '';
+        _apiBuildDate = (version['date'] as String?) ?? '';
+      });
+    } catch (_) {
+      // Health endpoint unavailable — leave fields empty.
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: _state,
-      builder: (context, _) =>
-          _SettingsContent(appVersion: _appVersion, buildNumber: _buildNumber),
+      builder: (context, _) => _SettingsContent(
+        appVersion: _appVersion,
+        buildNumber: _buildNumber,
+        apiCommit: _apiCommit,
+        apiBuildDate: _apiBuildDate,
+      ),
     );
   }
 }
@@ -62,10 +84,17 @@ class _AppSettingsViewState extends State<AppSettingsView> {
 // ---------------------------------------------------------------------------
 
 class _SettingsContent extends StatelessWidget {
-  const _SettingsContent({required this.appVersion, required this.buildNumber});
+  const _SettingsContent({
+    required this.appVersion,
+    required this.buildNumber,
+    required this.apiCommit,
+    required this.apiBuildDate,
+  });
 
   final String appVersion;
   final String buildNumber;
+  final String apiCommit;
+  final String apiBuildDate;
 
   @override
   Widget build(BuildContext context) {
@@ -78,7 +107,12 @@ class _SettingsContent extends StatelessWidget {
         ),
         _AppearanceCard(),
         if (!kIsWeb) _NotificationsCard(),
-        _AboutCard(appVersion: appVersion, buildNumber: buildNumber),
+        _AboutCard(
+          appVersion: appVersion,
+          buildNumber: buildNumber,
+          apiCommit: apiCommit,
+          apiBuildDate: apiBuildDate,
+        ),
       ],
     );
   }
@@ -265,11 +299,51 @@ class _NotificationToggle extends StatelessWidget {
 // About section card
 // ---------------------------------------------------------------------------
 
+/// Formats an ISO 8601 date string as `MMM d, yyyy HH:mm UTC`.
+/// Falls back to the raw string if parsing fails, or `–` if empty.
+String _formatDateString(String raw) {
+  if (raw.isEmpty) return '–';
+
+  const monthNames = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+
+  final parsed = DateTime.tryParse(raw);
+  if (parsed == null) return raw;
+
+  final dt = parsed.toUtc();
+  final month = monthNames[dt.month - 1];
+  final hour = dt.hour.toString().padLeft(2, '0');
+  final minute = dt.minute.toString().padLeft(2, '0');
+  return '$month ${dt.day}, ${dt.year} $hour:$minute UTC';
+}
+
+/// Formats the app build date from `.env`.
+String _formatBuildDate() => _formatDateString(env('APP_BUILD_DATE', ''));
+
 class _AboutCard extends StatelessWidget {
-  const _AboutCard({required this.appVersion, required this.buildNumber});
+  const _AboutCard({
+    required this.appVersion,
+    required this.buildNumber,
+    required this.apiCommit,
+    required this.apiBuildDate,
+  });
 
   final String appVersion;
   final String buildNumber;
+  final String apiCommit;
+  final String apiBuildDate;
 
   @override
   Widget build(BuildContext context) {
@@ -287,8 +361,28 @@ class _AboutCard extends StatelessWidget {
             value: buildNumber.isEmpty ? '–' : buildNumber,
           ),
           _InfoRow(
+            label: trans('settings.commit_hash'),
+            value: env('APP_BUILD_HASH', 'dev'),
+          ),
+          _InfoRow(
+            label: trans('settings.build_date'),
+            value: _formatBuildDate(),
+          ),
+          _InfoRow(
+            label: trans('settings.environment'),
+            value: env('APP_ENV', 'local'),
+          ),
+          _InfoRow(
             label: trans('settings.api_server'),
             value: env('API_URL', ''),
+          ),
+          _InfoRow(
+            label: trans('settings.api_commit'),
+            value: apiCommit.isEmpty ? '–' : apiCommit,
+          ),
+          _InfoRow(
+            label: trans('settings.api_build_date'),
+            value: apiCommit.isEmpty ? '–' : _formatDateString(apiBuildDate),
           ),
           const WSpacer(className: 'h-2'),
           _LinkRow(label: trans('settings.terms'), url: env('TERMS_URL', '')),

@@ -90,6 +90,7 @@ class _TaskDetailViewState extends State<TaskDetailView> {
         widget.projectId,
         widget.taskId,
       ),
+      ProjectState.instance.fetchProject(teamId, widget.projectId),
     ]);
 
     // Subscribe to real-time pipeline events after data is loaded.

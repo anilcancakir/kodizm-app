@@ -72,6 +72,19 @@ class _TaskListViewState extends State<TaskListView> {
   void initState() {
     super.initState();
     _fetchTasks();
+    _subscribeToProjectEvents();
+  }
+
+  @override
+  void dispose() {
+    TaskState.instance.unsubscribeFromProjectEvents();
+    super.dispose();
+  }
+
+  void _subscribeToProjectEvents() {
+    final teamId = Auth.user<User>()?.currentTeam?.id;
+    if (teamId == null) return;
+    TaskState.instance.subscribeToProjectEvents(teamId, widget.projectId);
   }
 
   Future<void> _fetchTasks() async {

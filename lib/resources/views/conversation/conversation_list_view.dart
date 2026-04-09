@@ -37,6 +37,19 @@ class _ConversationListViewState extends State<ConversationListView> {
   void initState() {
     super.initState();
     _loadConversations();
+    _subscribeToProjectEvents();
+  }
+
+  @override
+  void dispose() {
+    _state.unsubscribeFromProjectEvents();
+    super.dispose();
+  }
+
+  void _subscribeToProjectEvents() {
+    final teamId = Auth.user<User>()?.currentTeam?.id;
+    if (teamId == null) return;
+    _state.subscribeToProjectEvents(teamId, widget.projectId);
   }
 
   /// Loads conversations for the current team and project.

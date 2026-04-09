@@ -92,6 +92,11 @@ class TaskState extends MagicController
   String? _pipelineTeamId;
   StreamSubscription<void>? _reconnectSubscription;
 
+  // Project list subscription state
+  StreamSubscription<BroadcastEvent>? _projectListSubscription;
+  StreamSubscription<void>? _listReconnectSubscription;
+  String? _listProjectId;
+
   /// The currently selected task (set by [fetchTask]).
   Task? get selectedTask => _selectedTask;
 
@@ -416,6 +421,9 @@ class TaskState extends MagicController
           if (event.event == '.pipeline.stage.waiting') {
             Log.debug('Pipeline stage waiting — refreshing task $taskId');
             fetchTask(teamId, projectId, taskId);
+          } else if (event.event == '.conversation.status') {
+            Log.debug('Conversation status changed — refreshing conversations');
+            fetchConversations(teamId, projectId, taskId);
           }
         });
 
@@ -498,6 +506,55 @@ class TaskState extends MagicController
     } else {
       Log.error('continuePipeline failed for task $taskId');
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Project list event subscriptions
+  // ---------------------------------------------------------------------------
+
+  /// Subscribe to real-time project-level events that require a task list
+  /// refresh for [projectId] in [teamId].
+  ///
+  /// Listens on `project.$projectId` for `.task.status.changed` and calls
+  /// [fetchTasks] when it arrives. Also sets up a reconnect listener so the
+  /// list is refreshed after a WebSocket reconnection.
+  ///
+  /// Any prior project list subscription is cancelled before re-subscribing.
+  /// Call [unsubscribeFromProjectEvents] when leaving the task list screen.
+  void subscribeToProjectEvents(String teamId, String projectId) {
+    unsubscribeFromProjectEvents();
+
+    _listProjectId = projectId;
+
+    _projectListSubscription = Echo.private('project.$projectId').events.listen(
+      (BroadcastEvent event) {
+        if (event.event == '.task.status.changed') {
+          fetchTasks(teamId, projectId);
+        }
+      },
+    );
+
+    _listReconnectSubscription = Echo.onReconnect.listen((_) {
+      fetchTasks(teamId, projectId);
+    });
+  }
+
+  /// Cancel all active project list subscriptions and leave the Echo channel.
+  ///
+  /// Should be called from `dispose()` of the task list screen or when
+  /// navigating away from a project.
+  void unsubscribeFromProjectEvents() {
+    _projectListSubscription?.cancel();
+    _projectListSubscription = null;
+
+    _listReconnectSubscription?.cancel();
+    _listReconnectSubscription = null;
+
+    if (_listProjectId != null) {
+      Echo.leave('project.$_listProjectId');
+    }
+
+    _listProjectId = null;
   }
 
   // ---------------------------------------------------------------------------

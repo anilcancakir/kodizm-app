@@ -111,7 +111,6 @@ jobs:
             --base-href=/ \
             --source-maps \
             --no-web-resources-cdn \
-            --no-tree-shake-icons \
             --dart-define=SENTRY_RELEASE=${SENTRY_RELEASE} \
             --dart-define=SENTRY_DIST=1
         env:

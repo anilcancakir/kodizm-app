@@ -39,7 +39,7 @@ dependencies:
   flutter_markdown_plus: ^1.0.7
   magic: ^1.0.0-alpha.11
   magic_notifications: ^0.0.1-alpha.1
-  magic_starter: ^0.0.1-alpha.12
+  magic_starter: ^0.0.1-alpha.13
   markdown: ^7.3.1
   package_info_plus: ^8.3.0
   flutter_native_splash: ^2.4.7

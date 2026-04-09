@@ -657,10 +657,10 @@ packages:
     dependency: "direct main"
     description:
       name: magic_starter
-      sha256: "143e9578fe3e57961b201ea79df5d2ecd049e2e9087affd3e45aaee0fb40ece1"
+      sha256: "7ed7deef3cfde31796ce5c602e6300e99c4aa367a5936b3e3417427644c2d4f4"
       url: "https://pub.dev"
     source: hosted
-    version: "0.0.1-alpha.12"
+    version: "0.0.1-alpha.13"
   markdown:
     dependency: "direct main"
     description:

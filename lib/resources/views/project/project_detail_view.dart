@@ -1389,7 +1389,10 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   Widget _buildEnvironmentSection(Project project) {
     final teamId = _teamId;
     final raw = ProjectState.instance.runtimes ?? {};
-    final runtimesMap = raw['runtimes'] as Map<String, dynamic>? ?? {};
+    final runtimesRaw = raw['runtimes'];
+    final runtimesMap = runtimesRaw is Map<String, dynamic>
+        ? runtimesRaw
+        : <String, dynamic>{};
 
     // Flatten {'python': {'versions': [...], ...}} → {'python': [...versions]}
     final flatRuntimes = <String, dynamic>{

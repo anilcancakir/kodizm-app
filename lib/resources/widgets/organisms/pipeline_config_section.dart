@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:magic/magic.dart';
 
+import '../../../app/models/project.dart';
 import '../../../app/state/project_state.dart';
 
 // ---------------------------------------------------------------------------
@@ -95,7 +96,7 @@ class PipelineConfigSection extends StatefulWidget {
   const PipelineConfigSection({super.key, required this.project, this.onSave});
 
   /// The project whose pipeline config is being edited.
-  final dynamic project;
+  final Project project;
 
   /// Called after a successful save so the parent can refresh data.
   final VoidCallback? onSave;
@@ -142,7 +143,7 @@ class _PipelineConfigSectionState extends State<PipelineConfigSection> {
   /// Reads the current pipeline config from the project model and populates
   /// local editing state.
   void _syncFromProject() {
-    final config = widget.project.pipelineConfig as Map<String, dynamic>?;
+    final config = widget.project.pipelineConfig;
     _enabled = (config?['enabled'] as bool?) ?? false;
     _maxRetries = (config?['max_retries'] as int?) ?? 3;
     _retriesController.text = _maxRetries.toString();
@@ -152,7 +153,7 @@ class _PipelineConfigSectionState extends State<PipelineConfigSection> {
     for (final stage in _stages) {
       bool auto = true;
       if (stages != null) {
-        final match = stages.cast<Map<String, dynamic>>().where(
+        final match = stages.whereType<Map<String, dynamic>>().where(
           (s) => s['name'] == stage.name,
         );
         if (match.isNotEmpty) {
@@ -185,7 +186,7 @@ class _PipelineConfigSectionState extends State<PipelineConfigSection> {
 
   /// Whether local state differs from the project's persisted config.
   bool get _hasChanges {
-    final config = widget.project.pipelineConfig as Map<String, dynamic>?;
+    final config = widget.project.pipelineConfig;
     final currentEnabled = (config?['enabled'] as bool?) ?? false;
     final currentRetries = (config?['max_retries'] as int?) ?? 3;
 
@@ -196,7 +197,7 @@ class _PipelineConfigSectionState extends State<PipelineConfigSection> {
     for (final stage in _stages) {
       bool originalAuto = true;
       if (stages != null) {
-        final match = stages.cast<Map<String, dynamic>>().where(
+        final match = stages.whereType<Map<String, dynamic>>().where(
           (s) => s['name'] == stage.name,
         );
         if (match.isNotEmpty) {
@@ -218,8 +219,8 @@ class _PipelineConfigSectionState extends State<PipelineConfigSection> {
     setState(() => _saving = true);
 
     try {
-      final teamId = widget.project.teamId as String?;
-      final projectId = widget.project.id as String;
+      final teamId = widget.project.teamId;
+      final projectId = widget.project.id;
 
       if (teamId == null) throw Exception('No team');
 

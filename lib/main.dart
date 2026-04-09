@@ -113,6 +113,16 @@ void main() async {
       options.dsn = sentryDsn;
       options.environment = Config.get<String>('sentry.environment', 'local');
 
+      // -- Release (injected at build time via --dart-define) --
+      const sentryRelease = String.fromEnvironment('SENTRY_RELEASE');
+      if (sentryRelease.isNotEmpty) {
+        options.release = sentryRelease;
+      }
+      const sentryDist = String.fromEnvironment('SENTRY_DIST');
+      if (sentryDist.isNotEmpty) {
+        options.dist = sentryDist;
+      }
+
       // -- Error Tracking --
       options.sampleRate = Config.get<double>('sentry.sample_rate', 1.0);
 

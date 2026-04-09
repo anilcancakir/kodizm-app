@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:magic/magic.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../../../app/state/settings_state.dart';
 import 'package:magic_starter/magic_starter.dart';
@@ -390,6 +391,34 @@ class _AboutCard extends StatelessWidget {
             label: trans('settings.privacy'),
             url: env('PRIVACY_URL', ''),
           ),
+          // TODO(anilcan): Remove after verifying Sentry source maps.
+          if (env('APP_ENV', 'local') != 'production') ...[
+            const WSpacer(className: 'h-4'),
+            WAnchor(
+              onTap: () {
+                try {
+                  throw StateError(
+                    'Sentry source-map test from AppSettingsView',
+                  );
+                } catch (e, s) {
+                  Sentry.captureException(e, stackTrace: s);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Test exception sent to Sentry'),
+                    ),
+                  );
+                }
+              },
+              child: WDiv(
+                className:
+                    'px-4 py-2 rounded-lg bg-red-500/10 flex flex-row items-center justify-center',
+                child: WText(
+                  'Send Test Exception to Sentry',
+                  className: 'text-sm font-medium text-red-600',
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );

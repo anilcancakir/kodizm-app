@@ -253,18 +253,30 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   }
 
   /// Shows a password confirmation dialog and deletes the project.
+  ///
+  /// The delete request is sent directly inside [onConfirm] with the password
+  /// in the body (Laravel method spoofing `_method: DELETE`), matching
+  /// magic_starter's `ConfirmPasswordRequest` pattern.
   Future<void> _confirmDelete() async {
+    final teamId = _teamId;
+    if (teamId == null) return;
+
     final confirmed = await MagicStarterPasswordConfirmDialog.show(
       context,
       title: trans('projects.delete_confirm_title'),
       description: trans('projects.delete_confirm_body'),
+      variant: ConfirmDialogVariant.danger,
       onConfirm: (password) async {
-        final response = await Http.post(
-          '/auth/confirm-password',
-          data: {'password': password},
+        setState(() => _deleting = true);
+
+        final response = await ProjectState.instance.deleteProject(
+          teamId,
+          widget.projectId,
+          password: password,
         );
 
         if (!response.successful) {
+          setState(() => _deleting = false);
           return response.errorMessage ?? trans('errors.invalid_password');
         }
 
@@ -274,23 +286,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
 
     if (!confirmed || !mounted) return;
 
-    final teamId = _teamId;
-    if (teamId == null) return;
-
-    setState(() => _deleting = true);
-
-    final success = await ProjectState.instance.deleteProject(
-      teamId,
-      widget.projectId,
-    );
-
-    if (!mounted) return;
-
-    if (success) {
-      MagicRoute.to('/projects');
-    } else {
-      setState(() => _deleting = false);
-    }
+    MagicRoute.to('/projects');
   }
 
   // ---------------------------------------------------------------------------

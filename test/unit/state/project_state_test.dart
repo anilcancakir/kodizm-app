@@ -202,7 +202,7 @@ void main() {
     // 6. deleteProject — success
     // -----------------------------------------------------------------------
 
-    test('deleteProject sends DELETE and returns true on success', () async {
+    test('deleteProject sends POST with _method DELETE and password', () async {
       final fake = Http.fake(
         (MagicRequest req) => MagicResponse(data: null, statusCode: 204),
       );
@@ -210,15 +210,19 @@ void main() {
       final result = await state.deleteProject(
         'team-uuid-001',
         'proj-uuid-001',
+        password: 'secret123',
       );
 
-      expect(result, isTrue);
+      expect(result.successful, isTrue);
 
-      expect(fake.recorded.first.$1.method, equals('DELETE'));
+      final recorded = fake.recorded.first.$1;
+      expect(recorded.method, equals('POST'));
       expect(
-        fake.recorded.first.$1.url,
+        recorded.url,
         equals('/teams/team-uuid-001/projects/proj-uuid-001'),
       );
+      expect(recorded.data['_method'], equals('DELETE'));
+      expect(recorded.data['password'], equals('secret123'));
     });
 
     // -----------------------------------------------------------------------
@@ -297,7 +301,7 @@ void main() {
     // 10. deleteProject — failure returns false
     // -----------------------------------------------------------------------
 
-    test('deleteProject returns false on failure', () async {
+    test('deleteProject returns unsuccessful response on failure', () async {
       Http.fake(
         (MagicRequest req) =>
             MagicResponse(data: {'message': 'Forbidden'}, statusCode: 403),
@@ -306,9 +310,10 @@ void main() {
       final result = await state.deleteProject(
         'team-uuid-001',
         'proj-uuid-001',
+        password: 'wrong-password',
       );
 
-      expect(result, isFalse);
+      expect(result.successful, isFalse);
     });
 
     // -----------------------------------------------------------------------

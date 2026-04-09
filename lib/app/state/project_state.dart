@@ -150,13 +150,22 @@ class ProjectState extends MagicController
     return null;
   }
 
-  /// Delete a project.
+  /// Delete a project with password confirmation.
   ///
-  /// Returns `true` on success, `false` on failure.
-  Future<bool> deleteProject(String teamId, String projectId) async {
-    final response = await Http.delete('/teams/$teamId/projects/$projectId');
-
-    return response.successful;
+  /// Uses Laravel method spoofing (`_method: DELETE`) via `Http.post()` to
+  /// include the [password] in the request body for `ConfirmPasswordRequest`
+  /// validation on the API side.
+  ///
+  /// Returns the [MagicResponse] so callers can inspect error messages.
+  Future<MagicResponse> deleteProject(
+    String teamId,
+    String projectId, {
+    required String password,
+  }) async {
+    return Http.post(
+      '/teams/$teamId/projects/$projectId',
+      data: {'_method': 'DELETE', 'password': password},
+    );
   }
 
   // ---------------------------------------------------------------------------

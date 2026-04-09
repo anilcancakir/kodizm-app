@@ -58,7 +58,6 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_launcher_icons: ^0.14.3
   flutter_lints: ^6.0.0
-  sentry_dart_plugin: ^2.0.0
 
 
 # For information on the generic Dart part of this file, see the
@@ -108,13 +107,6 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
-
-sentry:
-  upload_debug_symbols: true
-  upload_source_maps: true
-  upload_sources: true
-  project: kodizm-ai-app
-  org: kodizmai
 
 flutter_launcher_icons:
   android: true

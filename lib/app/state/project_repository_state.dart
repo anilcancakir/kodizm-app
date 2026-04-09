@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:magic/magic.dart';
 
+import '../concerns/sentry_state_mixin.dart';
 import '../models/project_repository.dart';
 
 // ---------------------------------------------------------------------------
@@ -70,7 +71,9 @@ class _EchoRepoBroadcast implements RepoWebSocket {
 /// final status = repoState.repoStatuses['repo-uuid'];
 /// ```
 class ProjectRepositoryState extends MagicController
-    with MagicStateMixin<List<ProjectRepository>> {
+    with
+        MagicStateMixin<List<ProjectRepository>>,
+        SentryStateMixin<List<ProjectRepository>> {
   /// Creates a [ProjectRepositoryState] with optional [ws] for testing.
   ///
   /// When [ws] is `null` (production), [_EchoRepoBroadcast] delegates to the

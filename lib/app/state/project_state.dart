@@ -1,5 +1,6 @@
 import 'package:magic/magic.dart';
 
+import '../concerns/sentry_state_mixin.dart';
 import '../models/project.dart';
 
 // ---------------------------------------------------------------------------
@@ -45,7 +46,8 @@ enum SortField {
 /// // Sort the in-memory list.
 /// projects.sortProjects(SortField.name);
 /// ```
-class ProjectState extends MagicController with MagicStateMixin<List<Project>> {
+class ProjectState extends MagicController
+    with MagicStateMixin<List<Project>>, SentryStateMixin<List<Project>> {
   /// Creates a [ProjectState].
   ProjectState();
 

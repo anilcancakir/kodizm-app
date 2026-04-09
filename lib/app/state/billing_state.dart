@@ -1,5 +1,6 @@
 import 'package:magic/magic.dart';
 
+import '../concerns/sentry_state_mixin.dart';
 import '../models/team_balance.dart';
 import '../models/usage_record.dart';
 
@@ -37,7 +38,8 @@ import '../models/usage_record.dart';
 /// await billing.loadUsageByRole('team-uuid-001');
 /// print(billing.usageByRole); // Map<String, double>
 /// ```
-class BillingState extends MagicController with MagicStateMixin<TeamBalance> {
+class BillingState extends MagicController
+    with MagicStateMixin<TeamBalance>, SentryStateMixin<TeamBalance> {
   /// Creates a [BillingState].
   BillingState();
 

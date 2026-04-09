@@ -1,5 +1,6 @@
 import 'package:magic/magic.dart';
 
+import '../concerns/sentry_state_mixin.dart';
 import '../models/project_document.dart';
 
 // ---------------------------------------------------------------------------
@@ -30,7 +31,9 @@ import '../models/project_document.dart';
 /// final selected = docs.selectedDocument;
 /// ```
 class DocumentState extends MagicController
-    with MagicStateMixin<List<ProjectDocument>> {
+    with
+        MagicStateMixin<List<ProjectDocument>>,
+        SentryStateMixin<List<ProjectDocument>> {
   /// Creates a [DocumentState].
   DocumentState();
 

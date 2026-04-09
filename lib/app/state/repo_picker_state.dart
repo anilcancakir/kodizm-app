@@ -1,5 +1,6 @@
 import 'package:magic/magic.dart';
 
+import '../concerns/sentry_state_mixin.dart';
 import '../models/git_repo.dart';
 
 // ---------------------------------------------------------------------------
@@ -32,7 +33,7 @@ import '../models/git_repo.dart';
 /// );
 /// ```
 class RepoPickerState extends MagicController
-    with MagicStateMixin<List<GitRepo>> {
+    with MagicStateMixin<List<GitRepo>>, SentryStateMixin<List<GitRepo>> {
   /// Creates a [RepoPickerState].
   RepoPickerState();
 

@@ -1,5 +1,6 @@
 import 'package:magic/magic.dart';
 
+import '../concerns/sentry_state_mixin.dart';
 import '../models/agent_role.dart';
 import '../models/conversation.dart';
 
@@ -26,7 +27,9 @@ import '../models/conversation.dart';
 /// await state.deleteConversation('team-uuid', 'proj-uuid', 'conv-uuid');
 /// ```
 class ConversationListState extends MagicController
-    with MagicStateMixin<List<Conversation>> {
+    with
+        MagicStateMixin<List<Conversation>>,
+        SentryStateMixin<List<Conversation>> {
   /// Creates a [ConversationListState].
   ConversationListState();
 

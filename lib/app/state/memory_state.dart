@@ -1,5 +1,6 @@
 import 'package:magic/magic.dart';
 
+import '../concerns/sentry_state_mixin.dart';
 import '../models/project_memory.dart';
 
 // ---------------------------------------------------------------------------
@@ -33,7 +34,9 @@ import '../models/project_memory.dart';
 /// );
 /// ```
 class MemoryState extends MagicController
-    with MagicStateMixin<List<ProjectMemory>> {
+    with
+        MagicStateMixin<List<ProjectMemory>>,
+        SentryStateMixin<List<ProjectMemory>> {
   /// Creates a [MemoryState].
   MemoryState();
 

@@ -7,7 +7,6 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../../resources/widgets/molecules/sidebar_footer.dart';
 import '../interceptors/debug_interceptor.dart';
-import '../interceptors/sentry_tracing_interceptor.dart';
 import '../models/user.dart';
 
 /// Application Service Provider.
@@ -154,7 +153,7 @@ class AppServiceProvider extends ServiceProvider {
 
     // Magic Starter: Logout callback.
     MagicStarter.useLogout(() async {
-      await Sentry.configureScope((scope) => scope.setUser(null));
+      await Sentry.configureScope((scope) => scope.clear());
       await Echo.disconnect();
       await Auth.logout();
       MagicRoute.to(MagicStarterConfig.loginRoute());
@@ -172,13 +171,14 @@ class AppServiceProvider extends ServiceProvider {
             data: {'team_id': user?.currentTeam?.id ?? ''},
           ),
         );
+        scope.setTag('team_id', user?.currentTeam?.id ?? '');
+        scope.setTag('platform', kIsWeb ? 'web' : 'mobile');
+        scope.setContexts('team', {
+          'id': user?.currentTeam?.id ?? '',
+          'name': user?.currentTeam?.name ?? '',
+        });
       });
     }
-
-    // Sentry tracing interceptor — distributed tracing headers + breadcrumbs.
-    Magic.make<NetworkDriver>(
-      'network',
-    ).addInterceptor(SentryTracingInterceptor());
 
     // Sentry Dio integration — automatic HTTP performance spans, detailed
     // breadcrumbs (method, URL, status code, duration), and error capture.

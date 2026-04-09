@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:magic/magic.dart';
 
+import '../concerns/sentry_state_mixin.dart';
 import '../models/agent_role.dart';
 import '../models/conversation.dart';
 import '../models/task.dart';
@@ -62,7 +63,8 @@ enum TaskSortField {
 /// // Sort the in-memory list.
 /// tasks.sortTasks(TaskSortField.priority);
 /// ```
-class TaskState extends MagicController with MagicStateMixin<List<Task>> {
+class TaskState extends MagicController
+    with MagicStateMixin<List<Task>>, SentryStateMixin<List<Task>> {
   /// Creates a [TaskState].
   TaskState();
 

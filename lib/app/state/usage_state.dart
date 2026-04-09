@@ -1,5 +1,6 @@
 import 'package:magic/magic.dart';
 
+import '../concerns/sentry_state_mixin.dart';
 import '../models/usage_record.dart';
 
 // ---------------------------------------------------------------------------
@@ -35,7 +36,9 @@ import '../models/usage_record.dart';
 /// print(usage.totalCostUsd);
 /// ```
 class UsageState extends MagicController
-    with MagicStateMixin<List<UsageRecord>> {
+    with
+        MagicStateMixin<List<UsageRecord>>,
+        SentryStateMixin<List<UsageRecord>> {
   /// Creates a [UsageState].
   UsageState();
 

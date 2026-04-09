@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:magic/magic.dart';
 
+import '../concerns/sentry_state_mixin.dart';
+
 // ---------------------------------------------------------------------------
 // AgentProgressItem data class
 // ---------------------------------------------------------------------------
@@ -132,7 +134,8 @@ class AgentProgressItem {
 /// // Switch teams (unsubscribes old, subscribes new).
 /// progress.switchTeam('team-uuid-002');
 /// ```
-class AgentProgressState extends MagicController with MagicStateMixin<void> {
+class AgentProgressState extends MagicController
+    with MagicStateMixin<void>, SentryStateMixin<void> {
   /// Creates an [AgentProgressState].
   AgentProgressState();
 

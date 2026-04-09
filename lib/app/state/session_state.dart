@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:magic/magic.dart';
 
+import '../concerns/sentry_state_mixin.dart';
 import '../models/session.dart';
 import '../models/session_usage_record.dart';
 import '../models/stream_event.dart';
@@ -75,7 +76,8 @@ class _EchoSessionBroadcast implements SessionWebSocket {
 /// sessionState.unsubscribeFromSession();
 /// sessionState.reset();
 /// ```
-class SessionState extends MagicController with MagicStateMixin<void> {
+class SessionState extends MagicController
+    with MagicStateMixin<void>, SentryStateMixin<void> {
   /// Creates a [SessionState] with optional injectable dependencies for testing.
   ///
   /// When [webSocket] is `null`, [_EchoSessionBroadcast] delegates to the

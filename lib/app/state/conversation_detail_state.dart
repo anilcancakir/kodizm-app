@@ -1,5 +1,6 @@
 import 'package:magic/magic.dart';
 
+import '../concerns/sentry_state_mixin.dart';
 import '../models/conversation.dart';
 import '../models/conversation_message.dart';
 
@@ -22,7 +23,7 @@ import '../models/conversation_message.dart';
 /// final messages = state.messages;
 /// ```
 class ConversationDetailState extends MagicController
-    with MagicStateMixin<Conversation> {
+    with MagicStateMixin<Conversation>, SentryStateMixin<Conversation> {
   /// Creates a [ConversationDetailState].
   ConversationDetailState();
 

@@ -1,5 +1,6 @@
 import 'package:magic/magic.dart';
 
+import '../concerns/sentry_state_mixin.dart';
 import '../models/skill.dart';
 
 // ---------------------------------------------------------------------------
@@ -33,7 +34,8 @@ import '../models/skill.dart';
 /// // Import a skill.
 /// final imported = await skills.importSkill({'source_id': 'mp-skill-001'});
 /// ```
-class SkillState extends MagicController with MagicStateMixin<List<Skill>> {
+class SkillState extends MagicController
+    with MagicStateMixin<List<Skill>>, SentryStateMixin<List<Skill>> {
   /// Creates a [SkillState].
   SkillState();
 

@@ -1,5 +1,6 @@
 import 'package:magic/magic.dart';
 
+import '../concerns/sentry_state_mixin.dart';
 import '../models/mcp_server.dart';
 
 // ---------------------------------------------------------------------------
@@ -30,7 +31,7 @@ import '../models/mcp_server.dart';
 /// final server = await mcpState.createServer('team-uuid', 'proj-uuid', data);
 /// ```
 class McpServerState extends MagicController
-    with MagicStateMixin<List<McpServer>> {
+    with MagicStateMixin<List<McpServer>>, SentryStateMixin<List<McpServer>> {
   /// Creates an [McpServerState].
   McpServerState();
 

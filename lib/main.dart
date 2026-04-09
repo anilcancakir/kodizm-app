@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:magic/magic.dart';
@@ -22,7 +25,23 @@ void main() async {
   // during boot(), so observers must be added before that. Unconditional
   // because env() isn't loaded yet; the observer is a no-op when Sentry
   // has no DSN.
-  MagicRouter.instance.addObserver(SentryNavigatorObserver());
+  MagicRouter.instance.addObserver(
+    SentryNavigatorObserver(
+      setRouteNameAsTransaction: true,
+      routeNameExtractor: (settings) {
+        if (settings == null) return null;
+        final name = settings.name ?? '/';
+        final normalized = name.replaceAllMapped(
+          RegExp(
+            r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}'
+            r'|[0-9A-Za-z]{26}',
+          ),
+          (_) => ':id',
+        );
+        return RouteSettings(name: normalized, arguments: settings.arguments);
+      },
+    ),
+  );
 
   await Magic.init(
     configFactories: [
@@ -109,90 +128,120 @@ void main() async {
   // -- Sentry Initialization --
   final sentryDsn = Config.get<String>('sentry.dsn', '') ?? '';
   if (sentryDsn.isNotEmpty) {
-    await SentryFlutter.init((options) {
-      options.dsn = sentryDsn;
-      options.environment = Config.get<String>('sentry.environment', 'local');
+    await SentryFlutter.init(
+      (options) {
+        options.dsn = sentryDsn;
+        options.environment = Config.get<String>('sentry.environment', 'local');
 
-      // -- Release (injected at build time via --dart-define) --
-      const sentryRelease = String.fromEnvironment('SENTRY_RELEASE');
-      if (sentryRelease.isNotEmpty) {
-        options.release = sentryRelease;
-      }
-      const sentryDist = String.fromEnvironment('SENTRY_DIST');
-      if (sentryDist.isNotEmpty) {
-        options.dist = sentryDist;
-      }
+        // -- Release (injected at build time via --dart-define) --
+        const sentryRelease = String.fromEnvironment('SENTRY_RELEASE');
+        if (sentryRelease.isNotEmpty) {
+          options.release = sentryRelease;
+        }
+        const sentryDist = String.fromEnvironment('SENTRY_DIST');
+        if (sentryDist.isNotEmpty) {
+          options.dist = sentryDist;
+        }
 
-      // -- Error Tracking --
-      options.sampleRate = Config.get<double>('sentry.sample_rate', 1.0);
+        // -- Error Tracking --
+        options.sampleRate = Config.get<double>('sentry.sample_rate', 1.0);
 
-      // -- Performance Tracing --
-      options.tracesSampleRate = Config.get<double>(
-        'sentry.traces_sample_rate',
-        1.0,
-      );
-      options.enableAutoPerformanceTracing = true;
+        // -- Performance Tracing --
+        options.tracesSampleRate = Config.get<double>(
+          'sentry.traces_sample_rate',
+          1.0,
+        );
+        options.enableAutoPerformanceTracing = true;
 
-      // -- Profiling (iOS/macOS only) --
-      options.profilesSampleRate = Config.get<double>(
-        'sentry.profiles_sample_rate',
-        1.0,
-      );
+        // -- Session Replay --
+        options.replay.sessionSampleRate = Config.get<double>(
+          'sentry.replay_session_sample_rate',
+          0.1,
+        );
+        options.replay.onErrorSampleRate = Config.get<double>(
+          'sentry.replay_error_sample_rate',
+          1.0,
+        );
+        options.replay.quality = SentryReplayQuality.medium;
 
-      // -- Session Replay --
-      options.replay.sessionSampleRate = Config.get<double>(
-        'sentry.replay_session_sample_rate',
-        0.1,
-      );
-      options.replay.onErrorSampleRate = Config.get<double>(
-        'sentry.replay_error_sample_rate',
-        1.0,
-      );
-      options.replay.quality = SentryReplayQuality.medium;
+        // -- Screenshots & View Hierarchy --
+        options.attachScreenshot = true;
+        options.screenshotQuality = SentryScreenshotQuality.medium;
+        options.attachViewHierarchy = true;
 
-      // -- Screenshots & View Hierarchy --
-      options.attachScreenshot = true;
-      options.screenshotQuality = SentryScreenshotQuality.medium;
-      options.attachViewHierarchy = true;
+        // -- Native-Only Options (not supported on web) --
+        if (!kIsWeb) {
+          options.anrEnabled = true;
+          options.enableNativeCrashHandling = true;
+          options.enableAppHangTracking = true;
+          options.appHangTimeoutInterval = Duration(seconds: 2);
+          options.enableFramesTracking = true;
+          options.profilesSampleRate = Config.get<double>(
+            'sentry.profiles_sample_rate',
+            1.0,
+          );
+        }
 
-      // -- Native Crash Handling --
-      options.enableNativeCrashHandling = true;
-      options.anrEnabled = true;
-      options.enableAppHangTracking = true;
-      options.appHangTimeoutInterval = Duration(seconds: 2);
+        // -- Breadcrumbs --
+        options.enableAutoNativeBreadcrumbs = true;
+        options.enableUserInteractionBreadcrumbs = true;
+        options.maxBreadcrumbs = 100;
 
-      // -- Frame Tracking --
-      options.enableFramesTracking = true;
+        // -- Sessions --
+        options.enableAutoSessionTracking = true;
 
-      // -- Breadcrumbs --
-      options.enableAutoNativeBreadcrumbs = true;
-      options.enableUserInteractionBreadcrumbs = true;
-      options.maxBreadcrumbs = 100;
+        // -- Privacy --
+        options.privacy.maskAllText = true;
+        options.privacy.maskAllImages = true;
+        options.sendDefaultPii = false;
 
-      // -- Sessions --
-      options.enableAutoSessionTracking = true;
+        // -- Distributed Tracing --
+        options.tracePropagationTargets.add(
+          Config.get<String>('network.drivers.api.base_url', 'localhost') ??
+              'localhost',
+        );
 
-      // -- Privacy --
-      options.privacy.maskAllText = true;
-      options.privacy.maskAllImages = true;
-      options.sendDefaultPii = false;
-
-      // -- Distributed Tracing --
-      options.tracePropagationTargets.add(
-        Config.get<String>('network.drivers.api.base_url', 'localhost') ??
-            'localhost',
-      );
-
-      // -- Debug (only in non-production) --
-      options.debug =
-          Config.get<String>('sentry.environment', 'local') != 'production';
-    });
+        // -- Debug (only in non-production) --
+        options.debug =
+            Config.get<String>('sentry.environment', 'local') != 'production';
+      },
+      appRunner: () {
+        return runZonedGuarded(
+          () {
+            _configureErrorVisibility();
+            FlutterNativeSplash.remove();
+            runApp(
+              SentryWidget(
+                child: MagicApplication(
+                  title: 'Kodizm.AI',
+                  titleSuffix: 'Kodizm.AI',
+                  windTheme: windTheme,
+                ),
+              ),
+            );
+          },
+          (exception, stackTrace) {
+            Sentry.captureException(exception, stackTrace: stackTrace);
+          },
+        );
+      },
+    );
+  } else {
+    _configureErrorVisibility();
+    FlutterNativeSplash.remove();
+    runApp(
+      MagicApplication(
+        title: 'Kodizm.AI',
+        titleSuffix: 'Kodizm.AI',
+        windTheme: windTheme,
+      ),
+    );
   }
+}
 
-  // -- Error Visibility (non-production) --
-  // Release mode hides build errors behind SizedBox.shrink() — override
-  // to show the red error widget in development so rendering bugs are
-  // visible instead of silent gray blanks.
+/// Overrides [ErrorWidget.builder] in non-production environments so
+/// rendering errors show the red error widget instead of silent gray blanks.
+void _configureErrorVisibility() {
   final isProduction =
       Config.get<String>('sentry.environment', 'local') == 'production';
   if (!isProduction) {
@@ -200,21 +249,4 @@ void main() async {
       return ErrorWidget(details.exception);
     };
   }
-
-  FlutterNativeSplash.remove();
-  runApp(
-    sentryDsn.isNotEmpty
-        ? SentryWidget(
-            child: MagicApplication(
-              title: 'Kodizm.AI',
-              titleSuffix: 'Kodizm.AI',
-              windTheme: windTheme,
-            ),
-          )
-        : MagicApplication(
-            title: 'Kodizm.AI',
-            titleSuffix: 'Kodizm.AI',
-            windTheme: windTheme,
-          ),
-  );
 }

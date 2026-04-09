@@ -6,6 +6,7 @@ import 'dart:isolate';
 import 'package:flutter/foundation.dart';
 import 'package:magic/magic.dart';
 
+import '../concerns/sentry_state_mixin.dart';
 import '../models/agent_role.dart';
 import '../models/chat_item.dart';
 import '../models/conversation.dart';
@@ -97,7 +98,8 @@ class EchoChatBroadcast implements ConversationChatWebSocket {
 /// // Clean up when leaving the screen.
 /// chatState.reset();
 /// ```
-class ConversationChatState extends MagicController with MagicStateMixin<void> {
+class ConversationChatState extends MagicController
+    with MagicStateMixin<void>, SentryStateMixin<void> {
   /// Creates a [ConversationChatState] with optional injectable
   /// dependencies for testing.
   ///
@@ -391,7 +393,8 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
               as Map<String, dynamic>?;
       if (data == null) return null;
       return MessageAttachment.fromMap(data);
-    } catch (e) {
+    } catch (e, s) {
+      captureStateException(e, s, operation: 'uploadAttachment');
       Log.error('Attachment upload exception for ${file.name}: $e');
       _error = 'Failed to upload attachment';
       refreshUI();

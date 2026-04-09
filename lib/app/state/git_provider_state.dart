@@ -1,5 +1,6 @@
 import 'package:magic/magic.dart';
 
+import '../concerns/sentry_state_mixin.dart';
 import '../models/git_provider.dart';
 
 // ---------------------------------------------------------------------------
@@ -31,7 +32,9 @@ import '../models/git_provider.dart';
 /// );
 /// ```
 class GitProviderState extends MagicController
-    with MagicStateMixin<List<GitProvider>> {
+    with
+        MagicStateMixin<List<GitProvider>>,
+        SentryStateMixin<List<GitProvider>> {
   /// Creates a [GitProviderState].
   GitProviderState();
 

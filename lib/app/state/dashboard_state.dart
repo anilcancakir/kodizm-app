@@ -1,5 +1,6 @@
 import 'package:magic/magic.dart';
 
+import '../concerns/sentry_state_mixin.dart';
 import '../models/dashboard_data.dart';
 
 // ---------------------------------------------------------------------------
@@ -31,7 +32,7 @@ import '../models/dashboard_data.dart';
 /// );
 /// ```
 class DashboardState extends MagicController
-    with MagicStateMixin<DashboardData> {
+    with MagicStateMixin<DashboardData>, SentryStateMixin<DashboardData> {
   /// Creates a [DashboardState].
   DashboardState();
 

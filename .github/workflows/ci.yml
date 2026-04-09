@@ -117,11 +117,7 @@ jobs:
             "--dart-define=SENTRY_DIST=1"
           )
 
-          # Production: WASM + full minification
-          # Development: JS-only — preserves type names in error messages
-          if [ "$ENV" = "production" ]; then
-            BUILD_ARGS+=(--wasm)
-          fi
+          BUILD_ARGS+=(--wasm)
 
           flutter build web "${BUILD_ARGS[@]}"
         env:

@@ -398,7 +398,7 @@ class _AboutCard extends StatelessWidget {
               onTap: () {
                 try {
                   throw StateError(
-                    'Sentry source-map test from AppSettingsView',
+                    'Sentry Wasm source-map test from AppSettingsView',
                   );
                 } catch (e, s) {
                   Sentry.captureException(e, stackTrace: s);

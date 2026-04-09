@@ -138,10 +138,7 @@ class _SidebarFooterState extends State<SidebarFooter> {
             WDiv(
               className: 'flex flex-row items-center gap-2',
               children: [
-                WIcon(
-                  _showApp ? _appIcon : _apiIcon,
-                  className: 'text-sm text-primary-300 dark:text-slate-500',
-                ),
+                WText(_showApp ? '📱' : '☁️', className: 'text-sm'),
                 WText(
                   commitText,
                   className: 'text-xs text-primary-300 dark:text-slate-500',

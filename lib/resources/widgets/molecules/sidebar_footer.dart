@@ -24,6 +24,10 @@ class SidebarFooter extends StatefulWidget {
 }
 
 class _SidebarFooterState extends State<SidebarFooter> {
+  // Static const icons — ensures const_finder detects them for tree-shaking.
+  static const _appIcon = Icons.phone_iphone;
+  static const _apiIcon = Icons.cloud_outlined;
+
   /// `true` = showing App info, `false` = showing API info.
   bool _showApp = true;
 
@@ -135,7 +139,7 @@ class _SidebarFooterState extends State<SidebarFooter> {
               className: 'flex flex-row items-center gap-2',
               children: [
                 WIcon(
-                  _showApp ? Icons.phone_iphone : Icons.cloud_outlined,
+                  _showApp ? _appIcon : _apiIcon,
                   className: 'text-xs text-primary-300 dark:text-slate-500',
                 ),
                 WText(

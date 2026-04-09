@@ -140,7 +140,7 @@ class _SidebarFooterState extends State<SidebarFooter> {
               children: [
                 WIcon(
                   _showApp ? _appIcon : _apiIcon,
-                  className: 'text-xs text-primary-300 dark:text-slate-500',
+                  className: 'text-sm text-primary-300 dark:text-slate-500',
                 ),
                 WText(
                   commitText,

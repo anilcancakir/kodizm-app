@@ -107,10 +107,10 @@ jobs:
         run: |
           SENTRY_RELEASE="app@${{ github.sha }}"
           flutter build web --release \
+            --wasm \
             --base-href=/ \
             --source-maps \
             --no-web-resources-cdn \
-            --pwa-strategy none \
             --no-tree-shake-icons \
             --dart-define=SENTRY_RELEASE=${SENTRY_RELEASE} \
             --dart-define=SENTRY_DIST=1

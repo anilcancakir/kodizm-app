@@ -103,16 +103,27 @@ jobs:
           echo "APP_BUILD_HASH=$(git rev-parse --short=7 HEAD)" >> .env
           echo "APP_BUILD_DATE=$(git log -1 --format=%cI HEAD)" >> .env
 
-      - name: Build web (release)
+      - name: Build web
         run: |
           SENTRY_RELEASE="app@${{ github.sha }}"
-          flutter build web --release \
-            --wasm \
-            --base-href=/ \
-            --source-maps \
-            --no-web-resources-cdn \
-            --dart-define=SENTRY_RELEASE=${SENTRY_RELEASE} \
-            --dart-define=SENTRY_DIST=1
+          ENV="${{ inputs.environment || 'development' }}"
+
+          BUILD_ARGS=(
+            --release
+            --base-href=/
+            --source-maps
+            --no-web-resources-cdn
+            "--dart-define=SENTRY_RELEASE=${SENTRY_RELEASE}"
+            "--dart-define=SENTRY_DIST=1"
+          )
+
+          # Production: WASM + full minification
+          # Development: JS-only — preserves type names in error messages
+          if [ "$ENV" = "production" ]; then
+            BUILD_ARGS+=(--wasm)
+          fi
+
+          flutter build web "${BUILD_ARGS[@]}"
         env:
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
 

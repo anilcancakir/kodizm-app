@@ -95,7 +95,7 @@ class Project extends Model with HasTimestamps, InteractsWithPersistence {
   /// Get the optional tech stack list (e.g. `['laravel', 'phpunit']`).
   List<String> get techStack {
     final raw = getAttribute('tech_stack');
-    if (raw is List) return raw.cast<String>();
+    if (raw is List) return raw.whereType<String>().toList();
     return [];
   }
 
@@ -112,8 +112,10 @@ class Project extends Model with HasTimestamps, InteractsWithPersistence {
   set executionMode(String value) => setAttribute('execution_mode', value);
 
   /// Get the optional project-level settings map.
-  Map<String, dynamic>? get settings =>
-      getAttribute('settings') as Map<String, dynamic>?;
+  Map<String, dynamic>? get settings {
+    final raw = getAttribute('settings');
+    return raw is Map<String, dynamic> ? raw : null;
+  }
 
   /// Set the project settings map.
   set settings(Map<String, dynamic>? value) => setAttribute('settings', value);
@@ -126,7 +128,11 @@ class Project extends Model with HasTimestamps, InteractsWithPersistence {
   /// Whether an SSH key pair has been generated for this project.
   ///
   /// Falls back to `false` when not set on the model.
-  bool get hasSshKey => getAttribute('has_ssh_key') as bool? ?? false;
+  bool get hasSshKey {
+    final raw = getAttribute('has_ssh_key');
+    if (raw is bool) return raw;
+    return false;
+  }
 
   // -- Pipeline --
 
@@ -134,8 +140,10 @@ class Project extends Model with HasTimestamps, InteractsWithPersistence {
   ///
   /// Contains the auto-pipeline settings including enabled state, stage
   /// configurations, and retry limits. Returns `null` when not set.
-  Map<String, dynamic>? get pipelineConfig =>
-      getAttribute('pipeline_config') as Map<String, dynamic>?;
+  Map<String, dynamic>? get pipelineConfig {
+    final raw = getAttribute('pipeline_config');
+    return raw is Map<String, dynamic> ? raw : null;
+  }
 
   /// Set the project-level pipeline configuration map.
   set pipelineConfig(Map<String, dynamic>? value) =>
@@ -144,7 +152,10 @@ class Project extends Model with HasTimestamps, InteractsWithPersistence {
   /// Whether the auto-pipeline is enabled for this project.
   ///
   /// Reads from [pipelineConfig] and defaults to `false` when not set.
-  bool get isPipelineEnabled => (pipelineConfig?['enabled'] as bool?) ?? false;
+  bool get isPipelineEnabled {
+    final val = pipelineConfig?['enabled'];
+    return val is bool ? val : false;
+  }
 
   // -- Environment --
 
@@ -152,8 +163,10 @@ class Project extends Model with HasTimestamps, InteractsWithPersistence {
   ///
   /// Contains per-service runtime version overrides defined for this project.
   /// Returns `null` when not set on the model.
-  Map<String, dynamic>? get environment =>
-      getAttribute('environment') as Map<String, dynamic>?;
+  Map<String, dynamic>? get environment {
+    final raw = getAttribute('environment');
+    return raw is Map<String, dynamic> ? raw : null;
+  }
 
   /// Set the project-level environment configuration map.
   set environment(Map<String, dynamic>? value) =>
@@ -163,8 +176,10 @@ class Project extends Model with HasTimestamps, InteractsWithPersistence {
   ///
   /// Populated by the API and reflects the effective runtime versions after
   /// inheritance resolution. Returns `null` when not included in the response.
-  Map<String, dynamic>? get resolvedEnvironment =>
-      getAttribute('resolved_environment') as Map<String, dynamic>?;
+  Map<String, dynamic>? get resolvedEnvironment {
+    final raw = getAttribute('resolved_environment');
+    return raw is Map<String, dynamic> ? raw : null;
+  }
 
   /// Get the resolved runtime version for a specific service key.
   ///
@@ -185,7 +200,10 @@ class Project extends Model with HasTimestamps, InteractsWithPersistence {
   /// ```dart
   /// final postgresEnabled = project.serviceEnabled('pg'); // true/false
   /// ```
-  bool serviceEnabled(String key) => resolvedEnvironment?[key] as bool? ?? true;
+  bool serviceEnabled(String key) {
+    final val = resolvedEnvironment?[key];
+    return val is bool ? val : true;
+  }
 
   // ---------------------------------------------------------------------------
   // Relationship Accessors
@@ -197,8 +215,8 @@ class Project extends Model with HasTimestamps, InteractsWithPersistence {
   /// a typed [ProjectContainer] value object. Returns null when
   /// the relation is not loaded or no container exists.
   ProjectContainer? get container {
-    final raw = getAttribute('container') as Map<String, dynamic>?;
-    if (raw == null) return null;
+    final raw = getAttribute('container');
+    if (raw is! Map<String, dynamic>) return null;
     return ProjectContainer.fromMap(raw);
   }
 
@@ -208,10 +226,11 @@ class Project extends Model with HasTimestamps, InteractsWithPersistence {
   /// a typed list of [ProjectRepository] value objects. Returns an empty
   /// list when the relation is not loaded.
   List<ProjectRepository> get repositories {
-    final raw = getAttribute('repositories') as List<dynamic>?;
-    if (raw == null) return const [];
+    final raw = getAttribute('repositories');
+    if (raw is! List) return const [];
     return raw
-        .map((e) => ProjectRepository.fromMap(e as Map<String, dynamic>))
+        .whereType<Map<String, dynamic>>()
+        .map(ProjectRepository.fromMap)
         .toList();
   }
 
@@ -219,8 +238,12 @@ class Project extends Model with HasTimestamps, InteractsWithPersistence {
   ///
   /// Uses the API-provided `repositories_count` when available, otherwise
   /// falls back to the length of the loaded [repositories] list.
-  int get repositoriesCount =>
-      getAttribute('repositories_count') as int? ?? repositories.length;
+  int get repositoriesCount {
+    final raw = getAttribute('repositories_count');
+    if (raw is int) return raw;
+    if (raw is num) return raw.toInt();
+    return repositories.length;
+  }
 
   // ---------------------------------------------------------------------------
   // Computed (API-only) Accessors
@@ -229,12 +252,22 @@ class Project extends Model with HasTimestamps, InteractsWithPersistence {
   /// Get the total number of tasks in this project (computed by the API).
   ///
   /// Returns `null` when not included in the API response.
-  int? get taskCount => getAttribute('task_count') as int?;
+  int? get taskCount {
+    final raw = getAttribute('task_count');
+    if (raw is int) return raw;
+    if (raw is num) return raw.toInt();
+    return null;
+  }
 
   /// Get the number of currently active runs in this project (computed by the API).
   ///
   /// Returns `null` when not included in the API response.
-  int? get activeRunCount => getAttribute('active_run_count') as int?;
+  int? get activeRunCount {
+    final raw = getAttribute('active_run_count');
+    if (raw is int) return raw;
+    if (raw is num) return raw.toInt();
+    return null;
+  }
 
   // ---------------------------------------------------------------------------
   // Static Helpers

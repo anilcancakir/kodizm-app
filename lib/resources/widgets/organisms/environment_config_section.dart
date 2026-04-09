@@ -387,9 +387,11 @@ class _EnvironmentConfigSectionState extends State<EnvironmentConfigSection> {
   /// Builds a single service toggle row with label, description, and switch.
   Widget _buildServiceToggle(String key) {
     final isProjectOverride = _isOverride(key);
+    final pendingVal = _pending[key];
+    final resolvedVal = widget.resolvedEnvironment?[key];
     final currentValue =
-        _pending[key] as bool? ??
-        widget.resolvedEnvironment?[key] as bool? ??
+        (pendingVal is bool ? pendingVal : null) ??
+        (resolvedVal is bool ? resolvedVal : null) ??
         true;
     final icon = _serviceIcons[key] ?? Icons.miscellaneous_services_outlined;
 

@@ -130,12 +130,14 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
     _shortNameController.text = project.shortName ?? '';
     _descriptionController.text = project.description ?? '';
     _techStackController.text = project.techStack.join(', ');
-    _commitAuthorNameController.text =
-        (project.settings?['commit_author_name'] as String?) ?? '';
-    _commitAuthorEmailController.text =
-        (project.settings?['commit_author_email'] as String?) ?? '';
-    _coAuthorEnabled =
-        (project.settings?['co_author_enabled'] as bool?) ?? true;
+    final commitName = project.settings?['commit_author_name'];
+    _commitAuthorNameController.text = commitName is String ? commitName : '';
+    final commitEmail = project.settings?['commit_author_email'];
+    _commitAuthorEmailController.text = commitEmail is String
+        ? commitEmail
+        : '';
+    final coAuthor = project.settings?['co_author_enabled'];
+    _coAuthorEnabled = coAuthor is bool ? coAuthor : true;
 
     // If the project already has a short_name, treat it as manually set.
     _shortNameManuallyEdited = (project.shortName ?? '').isNotEmpty;

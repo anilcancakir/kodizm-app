@@ -163,14 +163,6 @@ class ConversationChatState extends MagicController
   String? _runningCostUsd;
   String? _sessionPhase;
 
-  // Streaming text accumulator — builds up from text_delta events
-  StringBuffer _streamingTextBuffer = StringBuffer();
-  String? _streamingMessageId;
-
-  // Streaming thinking accumulator — builds up from thinking_delta events
-  StringBuffer _streamingThinkingBuffer = StringBuffer();
-  String? _streamingThinkingId;
-
   // Question/permission state
   Map<String, dynamic>? _pendingQuestion;
   Map<String, dynamic>? _pendingPermission;
@@ -1165,10 +1157,6 @@ class ConversationChatState extends MagicController
     _pendingQuestion = null;
     _pendingPermission = null;
     _isAnswering = false;
-    _streamingTextBuffer = StringBuffer();
-    _streamingMessageId = null;
-    _streamingThinkingBuffer = StringBuffer();
-    _streamingThinkingId = null;
     _uploadedAttachments = [];
     _isUploading = false;
     _progressStatus = null;
@@ -1227,7 +1215,6 @@ class ConversationChatState extends MagicController
       'result',
       'error',
       'text',
-      'text_delta',
       'assistant',
       'question',
       'permission',
@@ -1265,47 +1252,11 @@ class ConversationChatState extends MagicController
     }
 
     switch (eventType) {
-      // -- text_delta: accumulate streaming text for real-time typing --
-      case 'text_delta':
-        if (content != null) {
-          _streamingTextBuffer.write(content);
-          final bufferedText = _streamingTextBuffer.toString();
-          _streamingMessageId ??=
-              'streaming_${DateTime.now().microsecondsSinceEpoch}';
-
-          final streamingMessage = ChatMessageItem.fromConversationMessage(
-            ConversationMessage(
-              id: _streamingMessageId!,
-              conversationId:
-                  wsEvent.data['conversation_id'] as String? ??
-                  _conversation?.id ??
-                  '',
-              role: 'assistant',
-              content: bufferedText,
-              createdAt: occurredAt,
-            ),
-          );
-
-          // Replace existing streaming item or append new one
-          final existingIndex = _chatItems.indexWhere(
-            (item) => item.id == _streamingMessageId,
-          );
-          if (existingIndex >= 0) {
-            _chatItems = List.of(_chatItems)
-              ..[existingIndex] = streamingMessage;
-          } else {
-            _chatItems = [..._chatItems, streamingMessage];
-          }
-        }
-        return; // refreshUI called by addEvent
-
       case 'tool_use':
         // Append to active subagent or top-level
         final toolName = metadata?['toolName'] as String?;
         final incomingToolUseId = metadata?['toolUseId'] as String?;
-        // Cache agent name for subagent badge resolution — run BEFORE dedup
-        // because streaming content_block_start has empty input, but the full
-        // assistant event carries the real input with subagent_type.
+        // Cache agent name for subagent badge resolution.
         if (toolName == 'Agent' && incomingToolUseId != null) {
           final rawAgentInput = metadata?['input'];
           final input = rawAgentInput is Map
@@ -1322,8 +1273,7 @@ class ConversationChatState extends MagicController
             _patchSubagentName(incomingToolUseId, agentName);
           }
         }
-        // Deduplicate: streaming content_block_start sends tool_use early,
-        // then the full assistant event sends it again. Skip if already seen.
+        // Deduplicate: skip if a tool_use with the same ID already exists.
         if (incomingToolUseId != null) {
           final alreadyExists = _chatItems.any(
             (item) =>
@@ -1358,54 +1308,12 @@ class ConversationChatState extends MagicController
         }
 
       case 'thinking':
-        // Streaming content_block_start sends thinking with null content,
-        // then the full assistant event sends it with complete content.
-        // If there's already a streaming thinking item, replace it with the full one.
-        if (content != null &&
-            content.isNotEmpty &&
-            _streamingThinkingId != null) {
-          final idx = _chatItems.indexWhere(
-            (i) => i.id == _streamingThinkingId,
-          );
-          if (idx >= 0) {
-            _chatItems = List.of(_chatItems)
-              ..[idx] = ChatThinkingItem(
-                id: _streamingThinkingId!,
-                occurredAt: occurredAt,
-                content: content,
-              );
-            _streamingThinkingId = null;
-            _streamingThinkingBuffer = StringBuffer();
-            return;
-          }
-        }
-        _streamingThinkingId ??=
-            'thinking_${DateTime.now().microsecondsSinceEpoch}';
         final thinkingItem = ChatThinkingItem(
-          id: _streamingThinkingId!,
+          id: 'ws_thinking_${DateTime.now().microsecondsSinceEpoch}_${_chatItems.length}',
           occurredAt: occurredAt,
           content: content,
         );
         _appendItemOrNest(thinkingItem);
-
-      case 'thinking_delta':
-        if (content != null) {
-          _streamingThinkingBuffer.write(content);
-          if (_streamingThinkingId != null) {
-            final idx = _chatItems.indexWhere(
-              (i) => i.id == _streamingThinkingId,
-            );
-            if (idx >= 0) {
-              _chatItems = List.of(_chatItems)
-                ..[idx] = ChatThinkingItem(
-                  id: _streamingThinkingId!,
-                  occurredAt: occurredAt,
-                  content: _streamingThinkingBuffer.toString(),
-                );
-            }
-          }
-        }
-        return;
 
       case 'subagent_start':
         final subagentId =
@@ -1495,11 +1403,6 @@ class ConversationChatState extends MagicController
       case 'result':
         // Close any still-running subagents — the session is done.
         _closeAllActiveSubagents();
-        // Clear streaming state — result is the terminal event.
-        _streamingTextBuffer = StringBuffer();
-        _streamingMessageId = null;
-        _streamingThinkingBuffer = StringBuffer();
-        _streamingThinkingId = null;
         // Clear progress — session complete.
         _progressStatus = null;
         _progressMessage = null;
@@ -1551,21 +1454,7 @@ class ConversationChatState extends MagicController
           ),
         );
 
-        // Replace streaming message with final, or append if no streaming
-        if (_streamingMessageId != null) {
-          final streamIdx = _chatItems.indexWhere(
-            (item) => item.id == _streamingMessageId,
-          );
-          if (streamIdx >= 0) {
-            _chatItems = List.of(_chatItems)..[streamIdx] = finalMessage;
-          } else {
-            _chatItems = [..._chatItems, finalMessage];
-          }
-          _streamingTextBuffer = StringBuffer();
-          _streamingMessageId = null;
-        } else {
-          _chatItems = [..._chatItems, finalMessage];
-        }
+        _chatItems = [..._chatItems, finalMessage];
 
       case 'system':
         if (content == null) return;

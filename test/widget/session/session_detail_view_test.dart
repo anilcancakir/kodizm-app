@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -125,6 +126,8 @@ const List<Map<String, dynamic>> kEvents = [
 class _FakeSessionWebSocket implements SessionWebSocket {
   final List<String> subscribedChannels = [];
   final List<String> unsubscribedChannels = [];
+  final StreamController<void> _reconnectController =
+      StreamController<void>.broadcast();
 
   @override
   void subscribe(String channel, void Function(BroadcastEvent) onEvent) {
@@ -135,6 +138,9 @@ class _FakeSessionWebSocket implements SessionWebSocket {
   void unsubscribe(String channel) {
     unsubscribedChannels.add(channel);
   }
+
+  @override
+  Stream<void> get onReconnect => _reconnectController.stream;
 }
 
 // ---------------------------------------------------------------------------

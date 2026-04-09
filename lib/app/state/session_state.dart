@@ -24,6 +24,9 @@ abstract class SessionWebSocket {
 
   /// Unsubscribe from [channel] (bare name, no `private-` prefix).
   void unsubscribe(String channel);
+
+  /// Stream that emits after a successful WebSocket reconnection.
+  Stream<void> get onReconnect;
 }
 
 /// Default production [SessionWebSocket] backed by the [Echo] facade.
@@ -43,6 +46,9 @@ class _EchoSessionBroadcast implements SessionWebSocket {
     _subscriptions.remove(channel);
     Echo.leave(channel);
   }
+
+  @override
+  Stream<void> get onReconnect => Echo.onReconnect;
 }
 
 // ---------------------------------------------------------------------------
@@ -111,6 +117,7 @@ class SessionState extends MagicController
   // -- WebSocket state --
   String? _activeChannel;
   Map<String, dynamic>? _pendingQuestion;
+  StreamSubscription<void>? _reconnectSubscription;
 
   // ---------------------------------------------------------------------------
   // Public getters
@@ -317,7 +324,27 @@ class SessionState extends MagicController
 
     _ws.subscribe(channel, handleWebSocketEvent);
 
+    _reconnectSubscription?.cancel();
+    _reconnectSubscription = _ws.onReconnect.listen((_) {
+      _catchUpAfterReconnect();
+    });
+
     refreshUI();
+  }
+
+  // ---------------------------------------------------------------------------
+  // _catchUpAfterReconnect
+  // ---------------------------------------------------------------------------
+
+  /// Re-fetches the current session after a WebSocket reconnection.
+  ///
+  /// Ensures the UI reflects the latest session state (phase, cost, events)
+  /// that may have been missed during the disconnect window.
+  Future<void> _catchUpAfterReconnect() async {
+    if (_currentSession == null) return;
+
+    Log.debug('SessionState: catching up after reconnect');
+    await loadSession(_currentSession!.id);
   }
 
   // ---------------------------------------------------------------------------
@@ -332,6 +359,9 @@ class SessionState extends MagicController
     if (_activeChannel == null) return;
 
     _ws.unsubscribe(_activeChannel!);
+
+    _reconnectSubscription?.cancel();
+    _reconnectSubscription = null;
 
     _activeChannel = null;
     refreshUI();

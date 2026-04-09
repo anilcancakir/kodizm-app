@@ -89,6 +89,8 @@ class TaskState extends MagicController
   StreamSubscription<BroadcastEvent>? _taskStatusSubscription;
   String? _pipelineProjectId;
   String? _pipelineTaskId;
+  String? _pipelineTeamId;
+  StreamSubscription<void>? _reconnectSubscription;
 
   /// The currently selected task (set by [fetchTask]).
   Task? get selectedTask => _selectedTask;
@@ -407,6 +409,7 @@ class TaskState extends MagicController
 
     _pipelineProjectId = projectId;
     _pipelineTaskId = taskId;
+    _pipelineTeamId = teamId;
 
     _projectPipelineSubscription = Echo.private('project.$projectId').events
         .listen((BroadcastEvent event) {
@@ -425,6 +428,30 @@ class TaskState extends MagicController
         fetchConversations(teamId, projectId, taskId);
       }
     });
+
+    _reconnectSubscription?.cancel();
+    _reconnectSubscription = Echo.onReconnect.listen((_) {
+      _catchUpAfterReconnect();
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // _catchUpAfterReconnect
+  // ---------------------------------------------------------------------------
+
+  /// Re-fetches the current task after a WebSocket reconnection.
+  ///
+  /// Ensures the UI reflects the latest task status and conversations
+  /// that may have been missed during the disconnect window.
+  Future<void> _catchUpAfterReconnect() async {
+    if (_pipelineTeamId == null ||
+        _pipelineProjectId == null ||
+        _pipelineTaskId == null) {
+      return;
+    }
+
+    Log.debug('TaskState: catching up after reconnect');
+    await fetchTask(_pipelineTeamId!, _pipelineProjectId!, _pipelineTaskId!);
   }
 
   /// Cancel all active pipeline subscriptions and leave the Echo channels.
@@ -438,6 +465,9 @@ class TaskState extends MagicController
     _taskStatusSubscription?.cancel();
     _taskStatusSubscription = null;
 
+    _reconnectSubscription?.cancel();
+    _reconnectSubscription = null;
+
     if (_pipelineProjectId != null) {
       Echo.leave('project.$_pipelineProjectId');
     }
@@ -447,6 +477,7 @@ class TaskState extends MagicController
 
     _pipelineProjectId = null;
     _pipelineTaskId = null;
+    _pipelineTeamId = null;
   }
 
   /// Resume a paused pipeline stage for the given task.

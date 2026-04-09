@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
 import 'package:magic/testing.dart';
@@ -98,6 +100,8 @@ class _FakeSessionWebSocket implements SessionWebSocket {
   final List<String> subscribed = [];
   final List<String> unsubscribed = [];
   void Function(BroadcastEvent)? lastHandler;
+  final StreamController<void> _reconnectController =
+      StreamController<void>.broadcast();
 
   @override
   void subscribe(String channel, void Function(BroadcastEvent) onEvent) {
@@ -109,6 +113,9 @@ class _FakeSessionWebSocket implements SessionWebSocket {
   void unsubscribe(String channel) {
     unsubscribed.add(channel);
   }
+
+  @override
+  Stream<void> get onReconnect => _reconnectController.stream;
 }
 
 // ---------------------------------------------------------------------------

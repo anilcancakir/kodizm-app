@@ -133,6 +133,11 @@
     "toast_navigate": "Click to view",
     "sticky_idle": "Agent idle"
   },
+  "connection": {
+    "reconnecting": "Reconnecting...",
+    "disconnected": "Connection lost",
+    "connected": "Back online"
+  },
   "billing": {
     "title": "Billing",
     "subtitle": "Team balance and usage overview",

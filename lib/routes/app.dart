@@ -24,6 +24,7 @@ import '../resources/views/memory/memory_list_view.dart';
 import '../resources/views/skill/skill_detail_view.dart';
 import '../resources/views/skill/skill_list_view.dart';
 import '../resources/views/skill/skill_marketplace_view.dart';
+import '../resources/widgets/atoms/connection_status_banner.dart';
 import '../resources/widgets/organisms/agent_progress_overlay.dart';
 
 /// Application Route Definitions.
@@ -37,7 +38,7 @@ void registerAppRoutes() {
   MagicRoute.group(
     layout: (child) => MagicStarter.view.makeLayout(
       'layout.app',
-      child: AgentProgressOverlay(child: child),
+      child: ConnectionStatusBanner(child: AgentProgressOverlay(child: child)),
     ),
     middleware: ['auth'],
     layoutId: 'app',
@@ -165,7 +166,9 @@ void registerAppRoutes() {
   // Desktop: AppLayout shell (sidebar + header) with bounded content area.
   // Mobile: bare fullscreen (chat provides its own header + input bar).
   MagicRoute.group(
-    layout: (child) => _ChatLayout(child: AgentProgressOverlay(child: child)),
+    layout: (child) => _ChatLayout(
+      child: ConnectionStatusBanner(child: AgentProgressOverlay(child: child)),
+    ),
     middleware: ['auth'],
     layoutId: 'app.chat',
     routes: () {

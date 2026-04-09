@@ -757,6 +757,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
     final status = repoState.repoStatuses[repo.id] ?? repo.repoStatus;
     final isCloning = status == 'cloning';
     final isOnboarding = status == 'onboarding';
+    final isWaitingForInput = status == 'waiting_for_input';
     final isCloned = status == 'cloned';
     final isReady = status == 'ready';
     final isError = status == 'error';
@@ -785,6 +786,8 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
               WIcon(Icons.check_circle, className: 'text-sm text-emerald-500')
             else if (isError)
               WIcon(Icons.error_outline, className: 'text-sm text-red-500')
+            else if (isWaitingForInput)
+              WIcon(Icons.help_outline, className: 'text-sm text-amber-500')
             else
               WDiv(
                 className:
@@ -891,6 +894,11 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
                 trans('projects.onboarding_in_progress'),
                 className: 'text-xs text-amber-600 dark:text-amber-400',
               )
+            else if (isWaitingForInput)
+              WText(
+                trans('projects.profiler_waiting'),
+                className: 'text-xs text-amber-600 dark:text-amber-400',
+              )
             else if (isCloned)
               WText(
                 trans('projects.clone_complete'),
@@ -923,12 +931,43 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
             ),
           ),
 
+        // Answer Question button — visible when profiler is waiting for user input.
+        if (isWaitingForInput && repo.onboardingConversationId != null)
+          WDiv(
+            className: 'w-full flex flex-row items-center justify-end',
+            children: [
+              WAnchor(
+                onTap: () => MagicRoute.to(
+                  '/projects/${repo.projectId}/chats/${repo.onboardingConversationId}',
+                ),
+                child: WDiv(
+                  className: '''
+                    flex flex-row items-center gap-1
+                    px-3 py-1.5 rounded-lg
+                    bg-amber-500
+                  ''',
+                  children: [
+                    WIcon(Icons.chat_outlined, className: 'text-xs text-white'),
+                    WText(
+                      trans('projects.answer_profiler_question'),
+                      className: 'text-xs font-medium text-white',
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
         // Row 3: Action buttons — clone hidden when cloned, cloning, or onboarding.
         WDiv(
           className: 'flex flex-row items-center gap-2',
           children: [
             // Clone button — hidden when repo is already cloned, cloning, or onboarding.
-            if (!isCloned && !isCloning && !isOnboarding)
+            if (!isCloned &&
+                !isCloning &&
+                !isOnboarding &&
+                !isWaitingForInput &&
+                !isReady)
               WAnchor(
                 onTap: (project?.hasSshKey ?? false)
                     ? () => _cloneRepository(repo)

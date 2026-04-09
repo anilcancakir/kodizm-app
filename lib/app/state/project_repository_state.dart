@@ -317,7 +317,10 @@ class ProjectRepositoryState extends MagicController
     refreshUI();
 
     // On terminal status, re-fetch full list for complete model data.
-    if (status == 'cloned' || status == 'ready' || status == 'error') {
+    if (status == 'cloned' ||
+        status == 'ready' ||
+        status == 'error' ||
+        status == 'waiting_for_input') {
       if (_activeTeamId != null && _activeProjectId != null) {
         fetchRepositories(_activeTeamId!, _activeProjectId!);
       }

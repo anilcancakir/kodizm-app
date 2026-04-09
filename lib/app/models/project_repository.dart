@@ -23,6 +23,7 @@ class ProjectRepository {
     this.repositoryUrl,
     this.repoStatus,
     this.repoError,
+    this.onboardingConversationId,
     this.lastSyncedAt,
     this.createdAt,
     this.updatedAt,
@@ -52,6 +53,10 @@ class ProjectRepository {
 
   /// Error message from the last failed sync attempt. Null when healthy.
   final String? repoError;
+
+  /// The conversation ID of the onboarding session for this repository.
+  /// Null when onboarding has not been started.
+  final String? onboardingConversationId;
 
   /// ISO-8601 timestamp of the last successful sync. Null when never synced.
   final String? lastSyncedAt;
@@ -83,6 +88,7 @@ class ProjectRepository {
       defaultBranch: map['default_branch'] as String? ?? 'main',
       repoStatus: map['repo_status'] as String?,
       repoError: map['repo_error'] as String?,
+      onboardingConversationId: map['onboarding_conversation_id'] as String?,
       lastSyncedAt: map['last_synced_at'] as String?,
       mountPath: map['mount_path'] as String? ?? '/workspace',
       createdAt: map['created_at'] as String?,
@@ -108,6 +114,8 @@ class ProjectRepository {
     bool clearRepoStatus = false,
     String? repoError,
     bool clearRepoError = false,
+    String? onboardingConversationId,
+    bool clearOnboardingConversationId = false,
     String? lastSyncedAt,
     bool clearLastSyncedAt = false,
     String? mountPath,
@@ -125,6 +133,9 @@ class ProjectRepository {
       defaultBranch: defaultBranch ?? this.defaultBranch,
       repoStatus: clearRepoStatus ? null : (repoStatus ?? this.repoStatus),
       repoError: clearRepoError ? null : (repoError ?? this.repoError),
+      onboardingConversationId: clearOnboardingConversationId
+          ? null
+          : (onboardingConversationId ?? this.onboardingConversationId),
       lastSyncedAt: clearLastSyncedAt
           ? null
           : (lastSyncedAt ?? this.lastSyncedAt),

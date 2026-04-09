@@ -117,7 +117,12 @@ jobs:
             "--dart-define=SENTRY_DIST=1"
           )
 
-          BUILD_ARGS+=(--wasm)
+          # Development: JS-only — Sentry source maps work with dart2js.
+          # Wasm binary lacks DWARF→Sentry mapping, so stack traces are opaque.
+          # Production: enable --wasm once Sentry adds Wasm source-map support.
+          if [ "$ENV" = "production" ]; then
+            BUILD_ARGS+=(--wasm)
+          fi
 
           flutter build web "${BUILD_ARGS[@]}"
         env:

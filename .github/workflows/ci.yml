@@ -106,9 +106,11 @@ jobs:
       - name: Build web (release)
         run: |
           flutter build web --release \
+            --wasm \
             --base-href=/ \
             --source-maps \
-            --no-web-resources-cdn
+            --no-web-resources-cdn \
+            --pwa-strategy none
         env:
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
 

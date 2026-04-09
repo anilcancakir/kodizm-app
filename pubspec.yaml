@@ -74,6 +74,7 @@ flutter:
     - assets/lang/en.json
     - assets/icon/
     - assets/splash/
+    - assets/logo.png
   uses-material-design: true
 
   # To add assets to your application, add an assets section, like this:

@@ -112,6 +112,42 @@ class AppServiceProvider extends ServiceProvider {
       ],
     );
 
+    // Magic Starter: Navigation theme — Kodizm brand (DESIGN.md).
+    MagicStarter.useNavigationTheme(
+      MagicStarterNavigationTheme(
+        // Brand: Kodizm logo image instead of default app name text.
+        brandBuilder: (context) => Image.asset('assets/logo.png', height: 32),
+        // Active sidebar item: amber accent bg + amber text.
+        activeItemClassName: '''
+          active:text-secondary-600 active:bg-secondary-400/10
+          dark:active:text-secondary-400 dark:active:bg-secondary-400/10
+        ''',
+        // Hover: subtle slate bg shift.
+        hoverItemClassName: '''
+          hover:bg-slate-50 hover:text-primary-600
+          dark:hover:bg-white/5 dark:hover:text-slate-200
+        ''',
+        // Bottom nav active: amber accent.
+        bottomNavActiveClassName: '''
+          active:text-secondary-500
+          dark:active:text-secondary-400
+        ''',
+        // Avatar: amber-tinted circle.
+        avatarClassName: '''
+          bg-secondary-400/10
+          dark:bg-secondary-400/10
+        ''',
+        avatarTextClassName: '''
+          text-sm font-bold text-secondary-600
+          dark:text-secondary-400
+        ''',
+        // Profile dropdown avatar: amber gradient.
+        dropdownAvatarClassName: '''
+          bg-gradient-to-tr from-secondary-500 to-secondary-300
+        ''',
+      ),
+    );
+
     // Magic Starter: Sidebar footer — compact version + environment badge.
     MagicStarter.useSidebarFooter((context) => const SidebarFooter());
 

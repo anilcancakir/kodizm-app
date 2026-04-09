@@ -327,14 +327,15 @@ class _ConversationChatViewState extends State<ConversationChatView> {
   // -----------------------------------------------------------------------
 
   Widget _buildChat() {
-    final conversation = _state.conversation!;
+    final conversation = _state.conversation;
+    if (conversation == null) return const SizedBox.shrink();
 
     if (_autoScroll && _state.chatItems.isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToBottom());
     }
 
     return WDiv(
-      className: 'flex flex-col',
+      className: 'flex flex-col axis-max',
       children: [
         // Header — fixed at top
         ChatHeader(
@@ -410,7 +411,8 @@ class _ConversationChatViewState extends State<ConversationChatView> {
 
   Widget _buildMessageArea() {
     final chatItems = _state.chatItems;
-    final conversation = _state.conversation!;
+    final conversation = _state.conversation;
+    if (conversation == null) return const SizedBox.shrink();
     final showTyping = _state.isSending || _state.awaitingResponse;
     final totalItems = chatItems.length + (showTyping ? 1 : 0);
 

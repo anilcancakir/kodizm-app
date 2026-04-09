@@ -39,7 +39,7 @@ Map<String, dynamic> get broadcastingConfig => {
         'auth_endpoint': '/broadcasting/auth',
         'reconnect': true,
         'max_reconnect_delay': 30,
-        'activity_timeout': 30,
+        'activity_timeout': 120,
       },
       'null': {'driver': 'null'},
     },

@@ -217,6 +217,7 @@ class ChatInputBarState extends State<ChatInputBar> {
       type: FileType.custom,
       allowedExtensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf'],
       allowMultiple: true,
+      withData: true,
     );
     if (result == null || result.files.isEmpty) return;
     validateAndAddAttachments(result.files);

@@ -364,6 +364,8 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
         encoded = await Isolate.run(() => base64Encode(bytes));
       }
 
+      if (_conversation == null) return null; // re-check after async gap
+
       final response = await Http.post(
         '/teams/$_teamId/projects/$_projectId'
         '/conversations/${_conversation!.id}/attachments',
@@ -379,15 +381,20 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
           'Attachment upload failed for ${file.name}: '
           '${response.errorMessage}',
         );
+        _error = response.errorMessage ?? 'Failed to upload attachment';
+        refreshUI();
         return null;
       }
 
       final data =
-          (response.data as Map<String, dynamic>)['data']
-              as Map<String, dynamic>;
+          (response.data as Map<String, dynamic>?)?['data']
+              as Map<String, dynamic>?;
+      if (data == null) return null;
       return MessageAttachment.fromMap(data);
     } catch (e) {
       Log.error('Attachment upload exception for ${file.name}: $e');
+      _error = 'Failed to upload attachment';
+      refreshUI();
       return null;
     }
   }

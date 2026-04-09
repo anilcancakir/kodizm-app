@@ -145,6 +145,7 @@ class _RepoPickerDialogState extends State<RepoPickerDialog> {
           'default_branch': repo.defaultBranch,
           'git_provider_id': widget.providerId,
           'is_main': false,
+          'profiler_enabled': true,
         },
       );
 

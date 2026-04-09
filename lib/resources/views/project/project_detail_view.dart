@@ -370,99 +370,131 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
 
     _repoUrlController.addListener(_onRepoUrlChanged);
 
+    final profilerNotifier = ValueNotifier<bool>(true);
+
     final result = await showDialog<bool>(
       context: context,
       builder: (_) => MagicStarterDialogShell(
         title: trans('projects.add_repository'),
         body: Form(
           key: _addRepoFormKey,
-          child: WDiv(
-            className: 'flex flex-col gap-4',
-            children: [
-              WFormInput(
-                controller: _repoNameController,
-                label: trans('projects.repo_name'),
-                labelClassName: '''
+          child: ValueListenableBuilder<bool>(
+            valueListenable: profilerNotifier,
+            builder: (context, profilerEnabled, _) => WDiv(
+              className: 'flex flex-col gap-4',
+              children: [
+                WFormInput(
+                  controller: _repoNameController,
+                  label: trans('projects.repo_name'),
+                  labelClassName: '''
                     text-sm font-medium mb-2
                     text-slate-600 dark:text-slate-300
                   ''',
-                placeholder: trans('projects.repo_name_placeholder'),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return trans('validation.required');
-                  }
-                  return null;
-                },
-                className: '''
+                  placeholder: trans('projects.repo_name_placeholder'),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return trans('validation.required');
+                    }
+                    return null;
+                  },
+                  className: '''
                     p-3 border border-slate-200 dark:border-gray-600
                     rounded-lg bg-white dark:bg-gray-900
                     text-sm text-slate-800 dark:text-slate-200
                     focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20
                     error:border-red-500 error:ring-2 error:ring-red-200
                   ''',
-                errorClassName: 'text-red-500 text-xs mt-1',
-              ),
-              WFormInput(
-                controller: _repoUrlController,
-                label: trans('projects.repo_url'),
-                labelClassName: '''
+                  errorClassName: 'text-red-500 text-xs mt-1',
+                ),
+                WFormInput(
+                  controller: _repoUrlController,
+                  label: trans('projects.repo_url'),
+                  labelClassName: '''
                     text-sm font-medium mb-2
                     text-slate-600 dark:text-slate-300
                   ''',
-                placeholder: trans('projects.repo_url_placeholder'),
-                className: '''
+                  placeholder: trans('projects.repo_url_placeholder'),
+                  className: '''
                     p-3 border border-slate-200 dark:border-gray-600
                     rounded-lg bg-white dark:bg-gray-900
                     text-sm text-slate-800 dark:text-slate-200
                     focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20
                     error:border-red-500 error:ring-2 error:ring-red-200
                   ''',
-                errorClassName: 'text-red-500 text-xs mt-1',
-              ),
-              WFormInput(
-                controller: _repoBranchController,
-                label: trans('projects.default_branch'),
-                labelClassName: '''
+                  errorClassName: 'text-red-500 text-xs mt-1',
+                ),
+                WFormInput(
+                  controller: _repoBranchController,
+                  label: trans('projects.default_branch'),
+                  labelClassName: '''
                     text-sm font-medium mb-2
                     text-slate-600 dark:text-slate-300
                   ''',
-                placeholder: trans('projects.default_branch_placeholder'),
-                className: '''
+                  placeholder: trans('projects.default_branch_placeholder'),
+                  className: '''
                     p-3 border border-slate-200 dark:border-gray-600
                     rounded-lg bg-white dark:bg-gray-900
                     text-sm text-slate-800 dark:text-slate-200
                     focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20
                     error:border-red-500 error:ring-2 error:ring-red-200
                   ''',
-                errorClassName: 'text-red-500 text-xs mt-1',
-              ),
-              WFormInput(
-                controller: _repoMountDirController,
-                label: trans('projects.mount_directory'),
-                labelClassName: '''
+                  errorClassName: 'text-red-500 text-xs mt-1',
+                ),
+                WFormInput(
+                  controller: _repoMountDirController,
+                  label: trans('projects.mount_directory'),
+                  labelClassName: '''
                     text-sm font-medium mb-2
                     text-slate-600 dark:text-slate-300
                   ''',
-                placeholder: trans('projects.mount_directory_placeholder'),
-                onChanged: (_) {
-                  _mountDirManuallyEdited = true;
-                },
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return trans('validation.required');
-                  }
-                  return null;
-                },
-                className: '''
+                  placeholder: trans('projects.mount_directory_placeholder'),
+                  onChanged: (_) {
+                    _mountDirManuallyEdited = true;
+                  },
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return trans('validation.required');
+                    }
+                    return null;
+                  },
+                  className: '''
                     p-3 border border-slate-200 dark:border-gray-600
                     rounded-lg bg-white dark:bg-gray-900
                     text-sm text-slate-800 dark:text-slate-200
                     focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20
                     error:border-red-500 error:ring-2 error:ring-red-200
                   ''',
-                errorClassName: 'text-red-500 text-xs mt-1',
-              ),
-            ],
+                  errorClassName: 'text-red-500 text-xs mt-1',
+                ),
+
+                // Profiler toggle
+                WDiv(
+                  className:
+                      'flex flex-row items-center justify-between gap-3 py-1',
+                  children: [
+                    WDiv(
+                      className: 'flex flex-col gap-0.5 flex-1',
+                      children: [
+                        WText(
+                          trans('projects.profiler_enabled'),
+                          className:
+                              'text-sm font-medium text-slate-700 dark:text-slate-200',
+                        ),
+                        WText(
+                          trans('projects.profiler_enabled_description'),
+                          className:
+                              'text-xs text-slate-400 dark:text-slate-500',
+                        ),
+                      ],
+                    ),
+                    Switch(
+                      value: profilerEnabled,
+                      onChanged: (v) => profilerNotifier.value = v,
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
         footerBuilder: (dialogContext) => WDiv(
@@ -504,6 +536,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
           ? 'master'
           : _repoBranchController.text.trim(),
       if (mountDir.isNotEmpty) 'mount_path': '/workspace/$mountDir',
+      'profiler_enabled': profilerNotifier.value,
     };
 
     final created = await ProjectRepositoryState.instance.createRepository(
@@ -511,6 +544,8 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
       widget.projectId,
       data,
     );
+
+    profilerNotifier.dispose();
 
     if (!mounted) return;
 

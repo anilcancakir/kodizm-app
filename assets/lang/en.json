@@ -666,6 +666,8 @@
     "reanalyze_repo": "Re-analyze",
     "answer_profiler_question": "Answer Question",
     "profiler_waiting": "Profiler needs your input",
+    "profiler_enabled": "Run Codebase Profiler",
+    "profiler_enabled_description": "AI analyzes the repository and generates CLAUDE.md configuration files",
     "environment": {
       "title": "Environment",
       "subtitle": "Configure runtime versions and services for this project",

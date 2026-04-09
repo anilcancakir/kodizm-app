@@ -28,6 +28,7 @@ class ProjectRepository {
     this.createdAt,
     this.updatedAt,
     this.isMain = false,
+    this.profilerEnabled = true,
   });
 
   // -------
@@ -73,6 +74,9 @@ class ProjectRepository {
   /// Whether this is the primary (main) repository for the project.
   final bool isMain;
 
+  /// Whether the codebase profiler is enabled for this repository.
+  final bool profilerEnabled;
+
   // -------
 
   /// Parses a [ProjectRepository] from a JSON-decoded map.
@@ -94,6 +98,7 @@ class ProjectRepository {
       createdAt: map['created_at'] as String?,
       updatedAt: map['updated_at'] as String?,
       isMain: map['is_main'] as bool? ?? false,
+      profilerEnabled: map['profiler_enabled'] as bool? ?? true,
     );
   }
 
@@ -122,6 +127,7 @@ class ProjectRepository {
     String? createdAt,
     String? updatedAt,
     bool? isMain,
+    bool? profilerEnabled,
   }) {
     return ProjectRepository(
       id: id ?? this.id,
@@ -143,6 +149,7 @@ class ProjectRepository {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       isMain: isMain ?? this.isMain,
+      profilerEnabled: profilerEnabled ?? this.profilerEnabled,
     );
   }
 }

@@ -123,16 +123,16 @@ jobs:
 
       - name: Upload source maps to Sentry
         run: |
+          RELEASE="app@${{ github.sha }}"
           npx @sentry/cli@latest sourcemaps inject build/web/
           npx @sentry/cli@latest sourcemaps upload \
-            --release="app@${{ github.sha }}" \
+            --release="$RELEASE" \
             --dist=1 \
             --url-prefix='~/' \
             build/web/
-          npx @sentry/cli@latest releases set-commits \
-            "app@${{ github.sha }}" --auto
-          npx @sentry/cli@latest releases deploys \
-            "app@${{ github.sha }}" new \
+          npx @sentry/cli@latest releases set-commits "$RELEASE" --local
+          npx @sentry/cli@latest releases finalize "$RELEASE"
+          npx @sentry/cli@latest releases deploys "$RELEASE" new \
             -e ${{ inputs.environment || 'development' }}
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}

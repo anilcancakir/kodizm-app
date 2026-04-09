@@ -107,7 +107,6 @@ jobs:
         run: |
           SENTRY_RELEASE="app@${{ github.sha }}"
           flutter build web --release \
-            --wasm \
             --base-href=/ \
             --source-maps \
             --no-web-resources-cdn \

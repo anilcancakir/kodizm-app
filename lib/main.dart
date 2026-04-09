@@ -189,6 +189,18 @@ void main() async {
     });
   }
 
+  // -- Error Visibility (non-production) --
+  // Release mode hides build errors behind SizedBox.shrink() — override
+  // to show the red error widget in development so rendering bugs are
+  // visible instead of silent gray blanks.
+  final isProduction =
+      Config.get<String>('sentry.environment', 'local') == 'production';
+  if (!isProduction) {
+    ErrorWidget.builder = (FlutterErrorDetails details) {
+      return ErrorWidget(details.exception);
+    };
+  }
+
   FlutterNativeSplash.remove();
   runApp(
     sentryDsn.isNotEmpty

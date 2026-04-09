@@ -798,7 +798,10 @@
   },
   "sidebar": {
     "version_label": "v:version",
-    "env_label": ":env"
+    "env_label": ":env",
+    "app_label": "App",
+    "api_label": "API",
+    "build_date_label": "Built :date"
   },
   "skills": {
     "title": "Skills",

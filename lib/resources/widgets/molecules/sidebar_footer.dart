@@ -96,7 +96,9 @@ class _SidebarFooterState extends State<SidebarFooter> {
     final parsed = DateTime.tryParse(raw);
     if (parsed == null) return raw;
     final dt = parsed.toUtc();
-    return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
+    final hour = dt.hour.toString().padLeft(2, '0');
+    final minute = dt.minute.toString().padLeft(2, '0');
+    return '${months[dt.month - 1]} ${dt.day}, ${dt.year} $hour:$minute';
   }
 
   // -----------------------------------------------------------------------

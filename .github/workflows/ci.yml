@@ -110,7 +110,8 @@ jobs:
             --base-href=/ \
             --source-maps \
             --no-web-resources-cdn \
-            --pwa-strategy none
+            --pwa-strategy none \
+            --no-tree-shake-icons
         env:
           SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
 

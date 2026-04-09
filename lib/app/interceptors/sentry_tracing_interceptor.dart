@@ -19,8 +19,14 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 ///     .addInterceptor(SentryTracingInterceptor());
 /// ```
 class SentryTracingInterceptor extends MagicNetworkInterceptor {
+  /// Stores the last request so onResponse can include URL/method in
+  /// breadcrumbs (MagicResponse does not carry a request reference).
+  MagicRequest? _lastRequest;
+
   @override
   dynamic onRequest(MagicRequest request) {
+    _lastRequest = request;
+
     final span = Sentry.getSpan();
     if (span == null) return request;
 
@@ -38,11 +44,16 @@ class SentryTracingInterceptor extends MagicNetworkInterceptor {
 
   @override
   dynamic onResponse(MagicResponse response) {
+    final method = _lastRequest?.method ?? 'UNKNOWN';
+    final url = _lastRequest?.url ?? '';
+
     Sentry.addBreadcrumb(
       Breadcrumb(
         type: 'http',
         category: 'http',
         data: {
+          'method': method,
+          'url': url,
           'status_code': response.statusCode,
           'reason': response.message ?? '',
         },

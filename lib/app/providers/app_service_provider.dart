@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:magic/magic.dart';
 import 'package:magic_starter/magic_starter.dart';
+import 'package:sentry_dio/sentry_dio.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 import '../../resources/widgets/molecules/sidebar_footer.dart';
@@ -179,15 +180,12 @@ class AppServiceProvider extends ServiceProvider {
       'network',
     ).addInterceptor(SentryTracingInterceptor());
 
-    // Sentry Dio hook — preparation point for sentry_dio SDK integration.
-    //
-    // SentryTracingInterceptor already handles header injection and breadcrumbs.
-    // configureDriver() is the escape hatch for raw Dio access if sentry_dio
-    // is added in the future (e.g., `dio.addSentry()`).
+    // Sentry Dio integration — automatic HTTP performance spans, detailed
+    // breadcrumbs (method, URL, status code, duration), and error capture.
     final driver = Magic.make<NetworkDriver>('network');
     if (driver is DioNetworkDriver) {
       driver.configureDriver((dio) {
-        // Hook point: add sentry_dio integration here when needed.
+        dio.addSentry(captureFailedRequests: true);
       });
     }
 

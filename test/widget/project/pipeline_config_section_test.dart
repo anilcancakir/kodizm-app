@@ -22,7 +22,9 @@ Map<String, dynamic> _projectMap({Map<String, dynamic>? pipelineConfig}) => {
   'description': 'Test project.',
   'tech_stack': <String>['Flutter'],
   'execution_mode': 'manual',
-  if (pipelineConfig != null) 'pipeline_config': pipelineConfig,
+  if (pipelineConfig case final config?) ...<String, dynamic>{
+    'pipeline_config': config,
+  },
 };
 
 const Map<String, dynamic> kPipelineConfig = {

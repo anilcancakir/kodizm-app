@@ -127,7 +127,7 @@ class Session {
 
   /// Parses a [Session] from a JSON-decoded map.
   ///
-  /// [totalCostUsd] is parsed via [double.parse] because the API returns it as
+  /// [totalCostUsd] is parsed via [double.tryParse] because the API returns it as
   /// a decimal string (e.g. `"0.012600"`). Nested [usageRecords] and [shares]
   /// default to empty lists when the keys are absent.
   factory Session.fromMap(Map<String, dynamic> map) {
@@ -139,7 +139,8 @@ class Session {
       type: map['type'] as String,
       phase: map['phase'] as String,
       model: map['model'] as String?,
-      totalCostUsd: double.parse(map['total_cost_usd'] as String),
+      totalCostUsd:
+          double.tryParse(map['total_cost_usd']?.toString() ?? '') ?? 0.0,
       totalInputTokens: map['total_input_tokens'] as int,
       totalOutputTokens: map['total_output_tokens'] as int,
       totalCacheReadTokens: map['total_cache_read_tokens'] as int,

@@ -637,7 +637,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
   /// Short name + tech stack + execution mode badges shown in the page header trailing.
   List<Widget> _buildHeaderBadges(Project project) {
     return [
-      if (project.shortName != null && project.shortName!.isNotEmpty)
+      if (project.shortName?.isNotEmpty ?? false)
         WDiv(
           className: '''
             px-3 py-1 rounded-full

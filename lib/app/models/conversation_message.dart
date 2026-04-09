@@ -116,7 +116,7 @@ class ConversationMessage {
       content: map['content'] as String?,
       metadata: map['metadata'] as Map<String, dynamic>?,
       streamEvents: map['stream_events'] as List<dynamic>?,
-      costUsd: costString != null ? double.parse(costString) : null,
+      costUsd: costString != null ? (double.tryParse(costString) ?? 0.0) : null,
       usage: map['usage'] as Map<String, dynamic>?,
       durationMs: map['duration_ms'] as int?,
       numTurns: map['num_turns'] as int?,

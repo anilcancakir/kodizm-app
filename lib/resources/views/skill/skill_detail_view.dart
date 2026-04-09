@@ -160,7 +160,7 @@ class _SkillDetailViewState extends State<SkillDetailView> {
                 WDiv(
                   className: 'flex flex-row items-center gap-2',
                   children: [
-                    if (skill.category != null && skill.category!.isNotEmpty)
+                    if (skill.category?.isNotEmpty ?? false)
                       WDiv(
                         className:
                             'px-2.5 py-0.5 rounded-full ${_categoryBadgeClassName(skill.category)}',
@@ -189,7 +189,7 @@ class _SkillDetailViewState extends State<SkillDetailView> {
                 ),
 
                 // When to use
-                if (skill.whenToUse != null && skill.whenToUse!.isNotEmpty) ...[
+                if (skill.whenToUse?.isNotEmpty ?? false) ...[
                   WText(
                     trans('skills.when_to_use'),
                     className: '''
@@ -204,7 +204,7 @@ class _SkillDetailViewState extends State<SkillDetailView> {
                 ],
 
                 // Source URL
-                if (skill.sourceUrl != null && skill.sourceUrl!.isNotEmpty)
+                if (skill.sourceUrl?.isNotEmpty ?? false)
                   WDiv(
                     className: 'flex flex-row items-center gap-2',
                     children: [
@@ -222,7 +222,7 @@ class _SkillDetailViewState extends State<SkillDetailView> {
           // -----------------------------------------------------------------
           // Skill body card
           // -----------------------------------------------------------------
-          if (skill.body != null && skill.body!.isNotEmpty)
+          if (skill.body?.isNotEmpty ?? false)
             MagicStarterCard(
               child: WDiv(
                 className: 'flex flex-col gap-3',

@@ -72,7 +72,7 @@ class SessionUsageRecord {
 
   /// Parses a [SessionUsageRecord] from a JSON-decoded map.
   ///
-  /// [costUsd] is parsed via [double.parse] because the API returns it as a
+  /// [costUsd] is parsed via [double.tryParse] because the API returns it as a
   /// decimal string (e.g. `"0.004200"`).
   factory SessionUsageRecord.fromMap(Map<String, dynamic> map) {
     return SessionUsageRecord(
@@ -84,10 +84,12 @@ class SessionUsageRecord {
       outputTokens: map['output_tokens'] as int,
       cacheReadTokens: map['cache_read_tokens'] as int,
       cacheCreationTokens: map['cache_creation_tokens'] as int,
-      costUsd: double.parse(map['cost_usd'] as String),
+      costUsd: double.tryParse(map['cost_usd']?.toString() ?? '') ?? 0.0,
       isSubagent: map['is_subagent'] as bool,
       subagentType: map['subagent_type'] as String?,
-      createdAt: DateTime.parse(map['created_at'] as String),
+      createdAt:
+          DateTime.tryParse(map['created_at']?.toString() ?? '') ??
+          DateTime.now(),
     );
   }
 }

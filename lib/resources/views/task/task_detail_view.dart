@@ -389,7 +389,7 @@ class _TaskDetailViewState extends State<TaskDetailView> {
       child: WDiv(
         className: 'flex flex-col gap-4',
         children: [
-          if (task.description != null && task.description!.isNotEmpty)
+          if (task.description?.isNotEmpty ?? false)
             MarkdownViewer(data: task.description!)
           else
             WText(

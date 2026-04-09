@@ -243,7 +243,7 @@ class _AgentRolePickerModalState extends State<AgentRolePickerModal> {
                     ? 'text-sm font-semibold text-amber-600 dark:text-amber-400'
                     : 'text-sm font-semibold text-slate-800 dark:text-slate-100',
               ),
-              if (role.description != null && role.description!.isNotEmpty)
+              if (role.description?.isNotEmpty ?? false)
                 WText(
                   role.description!,
                   className:

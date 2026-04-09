@@ -83,7 +83,7 @@ class StickyProgressBar extends StatelessWidget {
         ),
 
         // Message — fills remaining space with truncation
-        if (message != null && message!.isNotEmpty)
+        if (message?.isNotEmpty ?? false)
           WDiv(
             className: 'flex-1 overflow-hidden',
             child: WText(

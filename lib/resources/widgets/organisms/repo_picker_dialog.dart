@@ -281,7 +281,7 @@ class _RepoPickerDialogState extends State<RepoPickerDialog> {
                 className:
                     'text-sm font-medium text-slate-800 dark:text-white truncate',
               ),
-              if (repo.description != null && repo.description!.isNotEmpty)
+              if (repo.description?.isNotEmpty ?? false)
                 WText(
                   repo.description!,
                   className:

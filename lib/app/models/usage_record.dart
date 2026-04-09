@@ -89,7 +89,7 @@ class UsageRecord {
   /// field, [taskTitle] from `conversation.task.title`, and [projectId] from
   /// `conversation.task.project_id`.
   ///
-  /// [costUsd] is parsed via [double.parse] because the API returns it as a
+  /// [costUsd] is parsed via [double.tryParse] because the API returns it as a
   /// decimal string (e.g. `"0.00420"`).
   factory UsageRecord.fromMap(Map<String, dynamic> map) {
     final conversation = map['conversation'] as Map<String, dynamic>?;
@@ -104,9 +104,11 @@ class UsageRecord {
       outputTokens: map['output_tokens'] as int?,
       cacheReadTokens: map['cache_read_tokens'] as int?,
       cacheWriteTokens: map['cache_write_tokens'] as int?,
-      costUsd: double.parse(map['cost_usd'] as String),
+      costUsd: double.tryParse(map['cost_usd']?.toString() ?? '') ?? 0.0,
       period: map['period'] as String,
-      recordedAt: DateTime.parse(map['recorded_at'] as String),
+      recordedAt:
+          DateTime.tryParse(map['recorded_at']?.toString() ?? '') ??
+          DateTime.now(),
       agentRoleName: conversation?['agent_role_name'] as String?,
       taskTitle: task?['title'] as String?,
       projectId: task?['project_id'] as String?,

@@ -180,7 +180,9 @@ class Conversation {
       title: map['title'] as String?,
       status: map['status'] as String,
       model: map['model'] as String?,
-      totalCostUsd: costString != null ? double.parse(costString) : null,
+      totalCostUsd: costString != null
+          ? (double.tryParse(costString) ?? 0.0)
+          : null,
       totalInputTokens: map['total_input_tokens'] as int?,
       totalOutputTokens: map['total_output_tokens'] as int?,
       messagesCount: map['messages_count'] as int?,

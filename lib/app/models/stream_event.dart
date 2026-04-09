@@ -75,7 +75,9 @@ class StreamEvent {
       contentText: map['content_text'] as String?,
       filePath: map['file_path'] as String?,
       isQuestion: map['is_question'] as bool,
-      occurredAt: DateTime.parse(map['occurred_at'] as String),
+      occurredAt:
+          DateTime.tryParse(map['occurred_at']?.toString() ?? '') ??
+          DateTime.now(),
       subagentId: map['subagent_id'] as String?,
       parentEventId: map['parent_event_id'] as String?,
       model: map['model'] as String?,

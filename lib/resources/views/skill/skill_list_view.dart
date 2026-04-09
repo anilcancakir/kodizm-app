@@ -350,7 +350,7 @@ class _SkillCard extends StatelessWidget {
           // -----------------------------------------------------------------
           // Description
           // -----------------------------------------------------------------
-          if (skill.description != null && skill.description!.isNotEmpty)
+          if (skill.description?.isNotEmpty ?? false)
             WText(
               skill.description!,
               className: 'text-sm text-slate-500 dark:text-slate-400',
@@ -362,7 +362,7 @@ class _SkillCard extends StatelessWidget {
           WDiv(
             className: 'flex flex-row items-center gap-2',
             children: [
-              if (skill.category != null && skill.category!.isNotEmpty)
+              if (skill.category?.isNotEmpty ?? false)
                 WDiv(
                   className:
                       'px-2.5 py-0.5 rounded-full ${categoryBadgeClassName(skill.category)}',
@@ -371,7 +371,7 @@ class _SkillCard extends StatelessWidget {
                     className: 'text-xs font-medium',
                   ),
                 ),
-              if (skill.source != null && skill.source!.isNotEmpty)
+              if (skill.source?.isNotEmpty ?? false)
                 WDiv(
                   className:
                       'px-2.5 py-0.5 rounded-full ${sourceBadgeClassName(skill.source)}',

@@ -267,8 +267,7 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
   }
 
   Widget _buildUserAvatar() {
-    final String initial =
-        widget.userName != null && widget.userName!.isNotEmpty
+    final String initial = widget.userName?.isNotEmpty ?? false
         ? widget.userName![0].toUpperCase()
         : 'U';
 

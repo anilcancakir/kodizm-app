@@ -36,11 +36,11 @@ class TeamBalance {
 
   /// Parses a [TeamBalance] from a JSON-decoded map.
   ///
-  /// [balance] is parsed via [double.parse] because the API returns it as a
+  /// [balance] is parsed via [double.tryParse] because the API returns it as a
   /// decimal string (e.g. `"100.00"`).
   factory TeamBalance.fromMap(Map<String, dynamic> map) {
     return TeamBalance(
-      balance: double.parse(map['balance'] as String),
+      balance: double.tryParse(map['balance']?.toString() ?? '') ?? 0.0,
       currency: map['currency'] as String,
       maxConcurrentRuns: map['max_concurrent_runs'] as int,
     );

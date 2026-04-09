@@ -72,35 +72,6 @@ class _FakeWebSocketService implements ConversationChatWebSocket {
 // WebSocket event fixtures
 // ---------------------------------------------------------------------------
 
-BroadcastEvent _toolUseEvent() => BroadcastEvent(
-  channel: 'private-conversation.conv-uuid-001',
-  event: '.conversation.message',
-  data: {
-    'conversation_id': 'conv-uuid-001',
-    'type': 'tool_use',
-    'content': null,
-    'metadata': {
-      'toolUseId': 'toolu_xxx',
-      'toolName': 'AskUserQuestion',
-      'input': {
-        'questions': [
-          {
-            'question': 'Which framework?',
-            'header': 'Framework Selection',
-            'multiSelect': false,
-            'options': [
-              {'label': 'Flutter', 'description': 'Cross-platform'},
-              {'label': 'React Native', 'description': 'JS-based'},
-            ],
-          },
-        ],
-      },
-    },
-    'occurred_at': '2026-03-27T10:03:00.000Z',
-  },
-  receivedAt: DateTime.utc(2026, 3, 27, 10, 3),
-);
-
 BroadcastEvent _questionEvent() => BroadcastEvent(
   channel: 'private-conversation.conv-uuid-001',
   event: '.conversation.message',
@@ -209,29 +180,10 @@ void main() {
     });
 
     // -----------------------------------------------------------------------
-    // 2. tool_use with AskUserQuestion stores pending options
+    // 2. question event stores pending question with null options (MCP path)
     // -----------------------------------------------------------------------
 
-    test('tool_use with AskUserQuestion stores pending options', () {
-      state.addEvent(_toolUseEvent());
-
-      // Options are stored internally but not yet surfaced as a question.
-      // The question event correlates them.
-      expect(state.pendingQuestion, isNull);
-      // The tool_use should NOT be appended as a chat message.
-      expect(state.messages, isEmpty);
-      // Raw events are still recorded.
-      expect(state.rawEvents.length, equals(1));
-    });
-
-    // -----------------------------------------------------------------------
-    // 3. question event stores pending question with correlated options
-    // -----------------------------------------------------------------------
-
-    test('question event stores pending question with correlated options', () {
-      // First: tool_use with options.
-      state.addEvent(_toolUseEvent());
-      // Then: question event.
+    test('question event stores pending question', () {
       state.addEvent(_questionEvent());
 
       expect(state.pendingQuestion, isNotNull);
@@ -240,24 +192,12 @@ void main() {
         state.pendingQuestion!['message'],
         equals('Which framework do you prefer?'),
       );
-      expect(state.pendingQuestion!['options'], isNotNull);
-      expect(state.pendingQuestion!['options'], isList);
+      // Options come from MCP pendingQuestionPayload, not from tool_use events.
+      expect(state.pendingQuestion!['options'], isNull);
 
       // Should NOT append as a chat message.
       expect(state.messages, isEmpty);
-      expect(state.rawEvents.length, equals(2));
-    });
-
-    // -----------------------------------------------------------------------
-    // 4. question event without preceding tool_use has null options
-    // -----------------------------------------------------------------------
-
-    test('question event without tool_use has null options', () {
-      state.addEvent(_questionEvent());
-
-      expect(state.pendingQuestion, isNotNull);
-      expect(state.pendingQuestion!['questionId'], equals('q-uuid-001'));
-      expect(state.pendingQuestion!['options'], isNull);
+      expect(state.rawEvents.length, equals(1));
     });
 
     // -----------------------------------------------------------------------
@@ -282,16 +222,16 @@ void main() {
     });
 
     // -----------------------------------------------------------------------
-    // 6. non-AskUserQuestion tool_use is not stored as pending options
+    // 6. tool_use event does not affect question/permission state
     // -----------------------------------------------------------------------
 
-    test('non-AskUserQuestion tool_use does not store pending options', () {
+    test('tool_use event does not affect question or permission state', () {
       state.addEvent(_nonAskToolUseEvent());
 
       // Should not affect pending state.
       expect(state.pendingQuestion, isNull);
       expect(state.pendingPermission, isNull);
-      // Non-ask tool_use with null content should not append a message.
+      // tool_use with null content should not append a message.
       expect(state.messages, isEmpty);
     });
 
@@ -300,7 +240,6 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('answerQuestion posts answer and clears pending state', () async {
-      state.addEvent(_toolUseEvent());
       state.addEvent(_questionEvent());
       expect(state.pendingQuestion, isNotNull);
 
@@ -382,7 +321,6 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('reset clears pending question and permission state', () {
-      state.addEvent(_toolUseEvent());
       state.addEvent(_questionEvent());
       state.addEvent(_permissionEvent());
 

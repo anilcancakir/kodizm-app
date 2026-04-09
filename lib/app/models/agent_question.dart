@@ -23,6 +23,9 @@ class AgentQuestion {
     required this.questionText,
     required this.createdAt,
     this.streamEventId,
+    this.requestType,
+    this.toolName,
+    this.questionsData,
     this.answerText,
     this.answeredByUserId,
     this.answeredAt,
@@ -38,6 +41,15 @@ class AgentQuestion {
 
   /// The stream event that triggered this question. Null if not event-linked.
   final String? streamEventId;
+
+  /// The type of request — 'question', 'permission', or null for legacy records.
+  final String? requestType;
+
+  /// The MCP tool that raised this question — 'ask_user', 'AskUserQuestion', or null.
+  final String? toolName;
+
+  /// Structured question objects from the MCP ask-user tool. Null for legacy records.
+  final List<Map<String, dynamic>>? questionsData;
 
   /// The question text posed by the agent to the user.
   final String questionText;
@@ -65,6 +77,11 @@ class AgentQuestion {
       id: map['id'] as String,
       conversationId: map['conversation_id'] as String,
       streamEventId: map['stream_event_id'] as String?,
+      requestType: map['request_type'] as String?,
+      toolName: map['tool_name'] as String?,
+      questionsData: (map['questions_data'] as List<dynamic>?)
+          ?.map((e) => Map<String, dynamic>.from(e as Map))
+          .toList(),
       questionText: map['question_text'] as String,
       answerText: map['answer_text'] as String?,
       answeredByUserId: map['answered_by_user_id'] as String?,
@@ -86,11 +103,17 @@ class AgentQuestion {
     String? answerText,
     DateTime? answeredAt,
     String? answeredByUserId,
+    String? requestType,
+    String? toolName,
+    List<Map<String, dynamic>>? questionsData,
   }) {
     return AgentQuestion(
       id: id,
       conversationId: conversationId,
       streamEventId: streamEventId,
+      requestType: requestType ?? this.requestType,
+      toolName: toolName ?? this.toolName,
+      questionsData: questionsData ?? this.questionsData,
       questionText: questionText,
       answerText: answerText ?? this.answerText,
       answeredByUserId: answeredByUserId ?? this.answeredByUserId,

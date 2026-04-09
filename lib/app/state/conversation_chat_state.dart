@@ -172,7 +172,6 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
   // Question/permission state
   Map<String, dynamic>? _pendingQuestion;
   Map<String, dynamic>? _pendingPermission;
-  List<Map<String, dynamic>>? _pendingOptions;
   bool _isAnswering = false;
 
   // Attachment state — files staged for the next sendMessage call.
@@ -871,7 +870,6 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
     if (response.successful) {
       _pendingQuestion = null;
       _pendingPermission = null;
-      _pendingOptions = null;
     } else {
       _error = response.errorMessage ?? 'Failed to submit answer';
     }
@@ -1156,7 +1154,6 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
     _sessionPhase = null;
     _pendingQuestion = null;
     _pendingPermission = null;
-    _pendingOptions = null;
     _isAnswering = false;
     _streamingTextBuffer = StringBuffer();
     _streamingMessageId = null;
@@ -1201,9 +1198,9 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
 
   /// Handle `.conversation.message` — route by event type.
   ///
-  /// Detects `tool_use` (AskUserQuestion options), `question` (answerable),
-  /// and `permission` events. All other recognized types are appended as
-  /// typed [ChatItem] subclasses to [_chatItems].
+  /// Detects `question` (answerable) and `permission` events. All other
+  /// recognized types are appended as typed [ChatItem] subclasses to
+  /// [_chatItems].
   void _handleMessageEvent(BroadcastEvent wsEvent) {
     final eventType = wsEvent.data['type'] as String?;
     final metadata = wsEvent.data['metadata'] as Map<String, dynamic>?;
@@ -1292,24 +1289,9 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
         }
         return; // refreshUI called by addEvent
 
-      // -- AskUserQuestion tool_use: store options for later question correlation --
       case 'tool_use':
+        // Append to active subagent or top-level
         final toolName = metadata?['toolName'] as String?;
-        if (toolName == 'AskUserQuestion') {
-          final rawInput = metadata?['input'];
-          final input = rawInput is Map
-              ? Map<String, dynamic>.from(rawInput)
-              : null;
-          final questions = input?['questions'] as List<dynamic>?;
-          if (questions != null && questions.isNotEmpty) {
-            final first = questions.first as Map<String, dynamic>;
-            _pendingOptions = (first['options'] as List<dynamic>?)
-                ?.map((o) => Map<String, dynamic>.from(o as Map))
-                .toList();
-          }
-          return;
-        }
-        // Non-AskUserQuestion tool_use → append to active subagent or top-level
         final incomingToolUseId = metadata?['toolUseId'] as String?;
         // Cache agent name for subagent badge resolution — run BEFORE dedup
         // because streaming content_block_start has empty input, but the full
@@ -1528,9 +1510,8 @@ class ConversationChatState extends MagicController with MagicStateMixin<void> {
           _pendingQuestion = {
             'questionId': metadata['questionId'] as String?,
             'message': metadata['message'] as String?,
-            'options': _pendingOptions,
+            'options': metadata['options'] as List<dynamic>?,
           };
-          _pendingOptions = null;
         }
         return;
 

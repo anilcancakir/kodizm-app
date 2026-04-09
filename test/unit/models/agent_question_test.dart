@@ -10,6 +10,11 @@ void main() {
       'id': 'question-uuid-1',
       'conversation_id': 'run-uuid-1',
       'stream_event_id': 'event-uuid-1',
+      'request_type': 'question',
+      'tool_name': 'ask_user',
+      'questions_data': [
+        {'question': 'Should I proceed?', 'header': 'Confirmation'},
+      ],
       'question_text': 'Should I proceed with the refactor?',
       'answer_text': 'Yes, go ahead.',
       'answered_by_user_id': 'user-uuid-1',
@@ -21,6 +26,9 @@ void main() {
       'id': 'question-uuid-2',
       'conversation_id': 'run-uuid-2',
       'stream_event_id': null,
+      'request_type': null,
+      'tool_name': null,
+      'questions_data': null,
       'question_text': 'Which branch should I target?',
       'answer_text': null,
       'answered_by_user_id': null,
@@ -44,6 +52,11 @@ void main() {
         DateTime.parse('2026-03-25T12:00:00.000000Z'),
       );
       expect(question.createdAt, DateTime.parse('2026-03-25T10:00:00.000000Z'));
+      expect(question.requestType, 'question');
+      expect(question.toolName, 'ask_user');
+      expect(question.questionsData, isNotNull);
+      expect(question.questionsData!.length, 1);
+      expect(question.questionsData!.first['question'], 'Should I proceed?');
     });
 
     test('fromMap leaves optional fields null when absent from payload', () {
@@ -53,6 +66,9 @@ void main() {
       expect(question.answerText, isNull);
       expect(question.answeredByUserId, isNull);
       expect(question.answeredAt, isNull);
+      expect(question.requestType, isNull);
+      expect(question.toolName, isNull);
+      expect(question.questionsData, isNull);
     });
 
     test('fromMap parses DateTime fields as UTC', () {
@@ -96,6 +112,9 @@ void main() {
       expect(copy.answerText, original.answerText);
       expect(copy.answeredAt, original.answeredAt);
       expect(copy.answeredByUserId, original.answeredByUserId);
+      expect(copy.requestType, original.requestType);
+      expect(copy.toolName, original.toolName);
+      expect(copy.questionsData, original.questionsData);
     });
   });
 }

@@ -187,42 +187,8 @@ void main() {
     await tester.pump();
   }
 
-  /// Injects a question event via WebSocket.
+  /// Injects a question event via WebSocket (MCP ask-user path).
   void injectQuestionEvent() {
-    // First inject tool_use with AskUserQuestion options
-    state.addEvent(
-      BroadcastEvent(
-        channel: 'private-conversation.$kConversationId',
-        event: '.conversation.message',
-        data: {
-          'conversation_id': kConversationId,
-          'type': 'tool_use',
-          'content': null,
-          'metadata': {
-            'toolName': 'AskUserQuestion',
-            'input': {
-              'questions': [
-                {
-                  'options': [
-                    {
-                      'label': 'Option A',
-                      'description': 'First option description',
-                    },
-                    {
-                      'label': 'Option B',
-                      'description': 'Second option description',
-                    },
-                  ],
-                },
-              ],
-            },
-          },
-        },
-        receivedAt: DateTime.utc(2026, 3, 27, 10, 1),
-      ),
-    );
-
-    // Then inject the question event
     state.addEvent(
       BroadcastEvent(
         channel: 'private-conversation.$kConversationId',
@@ -234,9 +200,13 @@ void main() {
           'metadata': {
             'questionId': 'q-uuid-001',
             'message': 'Which framework do you prefer?',
+            'options': [
+              {'label': 'Option A', 'description': 'First option description'},
+              {'label': 'Option B', 'description': 'Second option description'},
+            ],
           },
         },
-        receivedAt: DateTime.utc(2026, 3, 27, 10, 1, 1),
+        receivedAt: DateTime.utc(2026, 3, 27, 10, 1),
       ),
     );
   }

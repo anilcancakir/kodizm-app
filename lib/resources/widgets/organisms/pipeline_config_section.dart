@@ -96,14 +96,20 @@ class _PipelineConfigSectionState extends State<PipelineConfigSection> {
       final response = await Http.get('/teams/$teamId/agent-roles');
       if (!response.successful) return;
 
-      final data = response.data['data'] as List<dynamic>? ?? [];
-      final roles = data
-          .map((e) => AgentRole.fromMap(e as Map<String, dynamic>))
+      final rawData = response.data['data'];
+      if (rawData is! List) return;
+
+      final roles = rawData
+          .whereType<Map<String, dynamic>>()
+          .map(AgentRole.fromMap)
           .toList();
 
       if (mounted) {
         setState(() => _roles = roles);
       }
+    } catch (_) {
+      // Silently handle fetch failures (network, parse errors).
+      return;
     } finally {
       if (mounted) {
         setState(() => _rolesLoading = false);

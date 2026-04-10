@@ -54,3 +54,4 @@ app.*.map.json
 .ac/
 .mcp.json
 CLAUDE.local.md
+.playwright-cli/

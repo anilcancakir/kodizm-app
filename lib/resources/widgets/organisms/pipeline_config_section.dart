@@ -5,83 +5,14 @@ import '../../../app/models/project.dart';
 import '../../../app/state/project_state.dart';
 
 // ---------------------------------------------------------------------------
-// Stage definition
-// ---------------------------------------------------------------------------
-
-/// Internal model for a single pipeline stage row.
-class _StageConfig {
-  /// Creates a [_StageConfig].
-  const _StageConfig({
-    required this.name,
-    required this.role,
-    required this.labelKey,
-    required this.roleKey,
-  });
-
-  /// The stage identifier sent to the API (e.g. `analysis`).
-  final String name;
-
-  /// The agent role identifier (e.g. `product-manager`).
-  final String role;
-
-  /// The i18n key for the stage display name.
-  final String labelKey;
-
-  /// The i18n key for the role display name.
-  final String roleKey;
-}
-
-/// The four SDLC pipeline stages in execution order.
-const _stages = [
-  _StageConfig(
-    name: 'analysis',
-    role: 'product-manager',
-    labelKey: 'projects.pipeline.stage_analysis',
-    roleKey: 'projects.pipeline.role_product_manager',
-  ),
-  _StageConfig(
-    name: 'planning',
-    role: 'lead-developer',
-    labelKey: 'projects.pipeline.stage_planning',
-    roleKey: 'projects.pipeline.role_lead_developer',
-  ),
-  _StageConfig(
-    name: 'implement',
-    role: 'developer',
-    labelKey: 'projects.pipeline.stage_implement',
-    roleKey: 'projects.pipeline.role_developer',
-  ),
-  _StageConfig(
-    name: 'review',
-    role: 'code-reviewer',
-    labelKey: 'projects.pipeline.stage_review',
-    roleKey: 'projects.pipeline.role_code_reviewer',
-  ),
-];
-
-// ---------------------------------------------------------------------------
-// Agent role color className mapping
-// ---------------------------------------------------------------------------
-
-/// Returns a className pair for the agent role badge.
-String _roleClassName(String role) => switch (role) {
-  'product-manager' => 'bg-indigo-500/10 text-indigo-600',
-  'lead-developer' => 'bg-primary-500/10 text-primary-600',
-  'developer' => 'bg-teal-500/10 text-teal-600',
-  'code-reviewer' => 'bg-violet-500/10 text-violet-600',
-  _ => 'bg-slate-100 text-slate-500',
-};
-
-// ---------------------------------------------------------------------------
 // PipelineConfigSection
 // ---------------------------------------------------------------------------
 
 /// Organism widget that displays pipeline auto-advance configuration for a
 /// project.
 ///
-/// Shows an enable/disable toggle, four SDLC stage rows with auto/pause
-/// switches, a max-retries input, and a save button. Changes are accumulated
-/// locally and persisted via [onSave].
+/// Shows an enable/disable toggle, a max-retries input, and a save button.
+/// Changes are accumulated locally and persisted via [onSave].
 ///
 /// ## Usage
 ///
@@ -111,7 +42,6 @@ class _PipelineConfigSectionState extends State<PipelineConfigSection> {
   // -------------------------------------------------------------------------
 
   late bool _enabled;
-  late Map<String, bool> _stageAuto;
   late int _maxRetries;
   final _retriesController = TextEditingController();
   bool _saving = false;
@@ -147,21 +77,6 @@ class _PipelineConfigSectionState extends State<PipelineConfigSection> {
     _enabled = (config?['enabled'] as bool?) ?? false;
     _maxRetries = (config?['max_retries'] as int?) ?? 3;
     _retriesController.text = _maxRetries.toString();
-
-    final stages = config?['stages'] as List<dynamic>?;
-    _stageAuto = {};
-    for (final stage in _stages) {
-      bool auto = true;
-      if (stages != null) {
-        final match = stages.whereType<Map<String, dynamic>>().where(
-          (s) => s['name'] == stage.name,
-        );
-        if (match.isNotEmpty) {
-          auto = (match.first['auto'] as bool?) ?? true;
-        }
-      }
-      _stageAuto[stage.name] = auto;
-    }
   }
 
   // -------------------------------------------------------------------------
@@ -170,18 +85,7 @@ class _PipelineConfigSectionState extends State<PipelineConfigSection> {
 
   /// Builds the full config map from local state for the API payload.
   Map<String, dynamic> _buildConfig() {
-    return {
-      'enabled': _enabled,
-      'max_retries': _maxRetries,
-      'stages': [
-        for (final stage in _stages)
-          {
-            'name': stage.name,
-            'role': stage.role,
-            'auto': _stageAuto[stage.name] ?? true,
-          },
-      ],
-    };
+    return {'enabled': _enabled, 'max_retries': _maxRetries};
   }
 
   /// Whether local state differs from the project's persisted config.
@@ -192,20 +96,6 @@ class _PipelineConfigSectionState extends State<PipelineConfigSection> {
 
     if (_enabled != currentEnabled) return true;
     if (_maxRetries != currentRetries) return true;
-
-    final stages = config?['stages'] as List<dynamic>?;
-    for (final stage in _stages) {
-      bool originalAuto = true;
-      if (stages != null) {
-        final match = stages.whereType<Map<String, dynamic>>().where(
-          (s) => s['name'] == stage.name,
-        );
-        if (match.isNotEmpty) {
-          originalAuto = (match.first['auto'] as bool?) ?? true;
-        }
-      }
-      if ((_stageAuto[stage.name] ?? true) != originalAuto) return true;
-    }
 
     return false;
   }
@@ -348,7 +238,7 @@ class _PipelineConfigSectionState extends State<PipelineConfigSection> {
         ),
 
         // -------
-        // Stage rows (animated expand)
+        // Max retries row (animated expand when enabled)
         // -------
         AnimatedCrossFade(
           duration: const Duration(milliseconds: 200),
@@ -364,17 +254,14 @@ class _PipelineConfigSectionState extends State<PipelineConfigSection> {
                     'border-b border-slate-200 dark:border-slate-700 mb-1',
               ),
 
-              // Stage rows
-              for (final stage in _stages) _buildStageRow(stage),
+              // Max retries
+              _buildMaxRetriesRow(),
 
               // Divider
               WDiv(
                 className:
                     'border-b border-slate-200 dark:border-slate-700 mt-1',
               ),
-
-              // Max retries
-              _buildMaxRetriesRow(),
             ],
           ),
           secondChild: const WSpacer(className: 'h-0'),
@@ -398,75 +285,6 @@ class _PipelineConfigSectionState extends State<PipelineConfigSection> {
                 disabled:opacity-50
               ''',
               child: WText(trans('projects.pipeline.save')),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  // -------------------------------------------------------------------------
-  // Stage row
-  // -------------------------------------------------------------------------
-
-  /// Builds a single stage configuration row.
-  Widget _buildStageRow(_StageConfig stage) {
-    final isAuto = _stageAuto[stage.name] ?? true;
-
-    return WDiv(
-      className: '''
-        flex flex-row items-center gap-4
-        p-3 rounded-xl
-        bg-slate-50 dark:bg-slate-800/50
-      ''',
-      children: [
-        // Stage name + role badge
-        WDiv(
-          className: 'flex-1 flex flex-col gap-1',
-          children: [
-            WText(
-              trans(stage.labelKey),
-              className:
-                  'text-sm font-medium text-slate-700 dark:text-slate-200',
-            ),
-            WDiv(
-              className: 'flex flex-row items-center gap-2',
-              children: [
-                WDiv(
-                  className:
-                      'px-2 py-0.5 rounded-full ${_roleClassName(stage.role)}',
-                  child: WText(
-                    trans(stage.roleKey),
-                    className: 'text-xs font-medium',
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-
-        // Auto/Pause label + toggle
-        WDiv(
-          className: 'flex flex-row items-center gap-2',
-          children: [
-            WText(
-              isAuto
-                  ? trans('projects.pipeline.auto_advance')
-                  : trans('projects.pipeline.pause_for_approval'),
-              className: isAuto
-                  ? 'text-xs font-medium text-emerald-600'
-                  : 'text-xs font-medium text-amber-600',
-            ),
-            Switch(
-              value: isAuto,
-              onChanged: (value) {
-                setState(() {
-                  _stageAuto[stage.name] = value;
-                });
-              },
-              activeThumbColor: WindTheme.dataOf(
-                context,
-              ).getColor('emerald', 500),
             ),
           ],
         ),

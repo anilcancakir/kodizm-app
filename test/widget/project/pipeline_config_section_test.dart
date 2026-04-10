@@ -30,12 +30,6 @@ Map<String, dynamic> _projectMap({Map<String, dynamic>? pipelineConfig}) => {
 const Map<String, dynamic> kPipelineConfig = {
   'enabled': true,
   'max_retries': 3,
-  'stages': [
-    {'name': 'analysis', 'role': 'product-manager', 'auto': true},
-    {'name': 'planning', 'role': 'lead-developer', 'auto': true},
-    {'name': 'implement', 'role': 'developer', 'auto': false},
-    {'name': 'review', 'role': 'code-reviewer', 'auto': true},
-  ],
 };
 
 // ---------------------------------------------------------------------------
@@ -153,10 +147,10 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // 3. Toggle enables pipeline and shows stage rows
+  // 3. Toggle enables pipeline and shows max retries
   // -------------------------------------------------------------------------
 
-  testWidgets('toggling switch shows stage rows', (tester) async {
+  testWidgets('toggling switch shows max retries', (tester) async {
     final project = Project.fromMap(_projectMap());
 
     await _pumpWidget(tester, project);
@@ -166,78 +160,12 @@ void main() {
     await tester.tap(switchFinder);
     await tester.pumpAndSettle();
 
-    // Now all 4 stage rows should be visible.
-    expect(
-      find.text(trans('projects.pipeline.stage_analysis')),
-      findsOneWidget,
-    );
-    expect(
-      find.text(trans('projects.pipeline.stage_planning')),
-      findsOneWidget,
-    );
-    expect(
-      find.text(trans('projects.pipeline.stage_implement')),
-      findsOneWidget,
-    );
-    expect(find.text(trans('projects.pipeline.stage_review')), findsOneWidget);
+    // Max retries label and input should now be visible.
+    expect(find.text(trans('projects.pipeline.max_retries')), findsOneWidget);
+    expect(find.byType(WFormInput), findsOneWidget);
 
     // Enabled label should now be visible.
     expect(find.text(trans('projects.pipeline.enabled')), findsOneWidget);
-  });
-
-  // -------------------------------------------------------------------------
-  // 4. Renders stage rows with role badges when enabled
-  // -------------------------------------------------------------------------
-
-  testWidgets('renders role badges for each stage', (tester) async {
-    final project = Project.fromMap(
-      _projectMap(pipelineConfig: kPipelineConfig),
-    );
-
-    await _pumpWidget(tester, project);
-
-    // All 4 role badges should be visible.
-    expect(
-      find.text(trans('projects.pipeline.role_product_manager')),
-      findsOneWidget,
-    );
-    expect(
-      find.text(trans('projects.pipeline.role_lead_developer')),
-      findsOneWidget,
-    );
-    expect(
-      find.text(trans('projects.pipeline.role_developer')),
-      findsOneWidget,
-    );
-    expect(
-      find.text(trans('projects.pipeline.role_code_reviewer')),
-      findsOneWidget,
-    );
-  });
-
-  // -------------------------------------------------------------------------
-  // 5. Stage auto/pause toggles reflect config
-  // -------------------------------------------------------------------------
-
-  testWidgets('stage toggles reflect persisted config values', (tester) async {
-    final project = Project.fromMap(
-      _projectMap(pipelineConfig: kPipelineConfig),
-    );
-
-    await _pumpWidget(tester, project);
-
-    // The implement stage has auto=false in the fixture, so "Pause" label
-    // should appear.
-    expect(
-      find.text(trans('projects.pipeline.pause_for_approval')),
-      findsOneWidget,
-    );
-
-    // The other 3 stages should show "Auto".
-    expect(
-      find.text(trans('projects.pipeline.auto_advance')),
-      findsNWidgets(3),
-    );
   });
 
   // -------------------------------------------------------------------------
@@ -280,24 +208,22 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // 8. Save button enabled after toggling a stage
+  // 8. Save button enabled after toggling pipeline
   // -------------------------------------------------------------------------
 
-  testWidgets('save button enabled after toggling a stage', (tester) async {
+  testWidgets('save button enabled after toggling pipeline', (tester) async {
     final project = Project.fromMap(
       _projectMap(pipelineConfig: kPipelineConfig),
     );
 
     await _pumpWidget(tester, project);
 
-    // Toggle the first stage switch (the second Switch widget — first is the
-    // main enable toggle).
+    // Only the main enable toggle exists — no stage toggles.
     final switches = find.byType(Switch);
-    // Main toggle + 4 stage toggles + max-retries doesn't have a switch = 5
-    expect(switches, findsNWidgets(5));
+    expect(switches, findsNWidgets(1));
 
-    // Tap the second switch (analysis stage).
-    await tester.tap(switches.at(1));
+    // Tap the main toggle (fixture has enabled=true, so this turns it off).
+    await tester.tap(switches.first);
     await tester.pumpAndSettle();
 
     // Save button should now be enabled.

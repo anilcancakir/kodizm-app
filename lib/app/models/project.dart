@@ -138,8 +138,8 @@ class Project extends Model with HasTimestamps, InteractsWithPersistence {
 
   /// Get the project-level pipeline configuration map.
   ///
-  /// Contains the auto-pipeline settings including enabled state, stage
-  /// configurations, and retry limits. Returns `null` when not set.
+  /// Contains the auto-pipeline settings including enabled state, agent role,
+  /// and retry limits. Returns `null` when not set.
   Map<String, dynamic>? get pipelineConfig {
     final raw = getAttribute('pipeline_config');
     return raw is Map<String, dynamic> ? raw : null;

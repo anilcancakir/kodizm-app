@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:magic/magic.dart';
 
+import '../../../app/models/agent_role.dart';
 import '../../../app/models/project.dart';
 import '../../../app/state/project_state.dart';
 
@@ -43,8 +44,11 @@ class _PipelineConfigSectionState extends State<PipelineConfigSection> {
 
   late bool _enabled;
   late int _maxRetries;
+  late String _agentRole;
   final _retriesController = TextEditingController();
   bool _saving = false;
+  bool _rolesLoading = false;
+  List<AgentRole> _roles = [];
 
   // -------------------------------------------------------------------------
   // Lifecycle
@@ -54,6 +58,7 @@ class _PipelineConfigSectionState extends State<PipelineConfigSection> {
   void initState() {
     super.initState();
     _syncFromProject();
+    _fetchAgentRoles();
   }
 
   @override
@@ -76,7 +81,34 @@ class _PipelineConfigSectionState extends State<PipelineConfigSection> {
     final config = widget.project.pipelineConfig;
     _enabled = (config?['enabled'] as bool?) ?? false;
     _maxRetries = (config?['max_retries'] as int?) ?? 3;
+    _agentRole = (config?['agent_role'] as String?) ?? 'main-agent';
     _retriesController.text = _maxRetries.toString();
+  }
+
+  /// Fetches available agent roles for the project's team.
+  Future<void> _fetchAgentRoles() async {
+    final teamId = widget.project.teamId;
+    if (teamId == null) return;
+
+    setState(() => _rolesLoading = true);
+
+    try {
+      final response = await Http.get('/teams/$teamId/agent-roles');
+      if (!response.successful) return;
+
+      final data = response.data['data'] as List<dynamic>? ?? [];
+      final roles = data
+          .map((e) => AgentRole.fromMap(e as Map<String, dynamic>))
+          .toList();
+
+      if (mounted) {
+        setState(() => _roles = roles);
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _rolesLoading = false);
+      }
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -85,7 +117,11 @@ class _PipelineConfigSectionState extends State<PipelineConfigSection> {
 
   /// Builds the full config map from local state for the API payload.
   Map<String, dynamic> _buildConfig() {
-    return {'enabled': _enabled, 'max_retries': _maxRetries};
+    return {
+      'enabled': _enabled,
+      'max_retries': _maxRetries,
+      'agent_role': _agentRole,
+    };
   }
 
   /// Whether local state differs from the project's persisted config.
@@ -93,9 +129,11 @@ class _PipelineConfigSectionState extends State<PipelineConfigSection> {
     final config = widget.project.pipelineConfig;
     final currentEnabled = (config?['enabled'] as bool?) ?? false;
     final currentRetries = (config?['max_retries'] as int?) ?? 3;
+    final currentRole = (config?['agent_role'] as String?) ?? 'main-agent';
 
     if (_enabled != currentEnabled) return true;
     if (_maxRetries != currentRetries) return true;
+    if (_agentRole != currentRole) return true;
 
     return false;
   }
@@ -254,6 +292,9 @@ class _PipelineConfigSectionState extends State<PipelineConfigSection> {
                     'border-b border-slate-200 dark:border-slate-700 mb-1',
               ),
 
+              // Agent role
+              _buildAgentRoleRow(),
+
               // Max retries
               _buildMaxRetriesRow(),
 
@@ -288,6 +329,65 @@ class _PipelineConfigSectionState extends State<PipelineConfigSection> {
             ),
           ],
         ),
+      ],
+    );
+  }
+
+  // -------------------------------------------------------------------------
+  // Agent role row
+  // -------------------------------------------------------------------------
+
+  /// Builds the agent role selector row.
+  Widget _buildAgentRoleRow() {
+    return WDiv(
+      className: '''
+        flex flex-row items-center gap-4
+        p-3 rounded-xl
+        bg-slate-50 dark:bg-slate-800/50
+      ''',
+      children: [
+        WIcon(
+          Icons.manage_accounts_outlined,
+          className: 'text-lg text-slate-400',
+        ),
+        WDiv(
+          className: 'flex-1 flex flex-col gap-0.5',
+          children: [
+            WText(
+              trans('projects.pipeline.agent_role'),
+              className:
+                  'text-sm font-medium text-slate-700 dark:text-slate-200',
+            ),
+            WText(
+              trans('projects.pipeline.agent_role_description'),
+              className: 'text-xs text-slate-400',
+            ),
+          ],
+        ),
+        if (_rolesLoading)
+          const SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          )
+        else
+          DropdownButton<String>(
+            value: _roles.any((r) => r.slug == _agentRole) ? _agentRole : null,
+            underline: const SizedBox.shrink(),
+            items: _roles
+                .map(
+                  (r) => DropdownMenuItem<String>(
+                    value: r.slug,
+                    child: Text(r.name),
+                  ),
+                )
+                .toList(),
+            onChanged: (value) {
+              if (value != null) {
+                setState(() => _agentRole = value);
+              }
+            },
+          ),
       ],
     );
   }

@@ -48,7 +48,7 @@ class _ProjectScopedNavViewState extends State<ProjectScopedNavView> {
 
     final projects = ProjectState.instance.rxState;
     if (projects != null && projects.length == 1) {
-      MagicRoute.to('/projects/${projects.first.id}/${widget.targetPath}');
+      MagicRoute.to('/${widget.targetPath}/${projects.first.id}');
     }
     // else: stay on this view — show picker or empty state.
   }
@@ -136,9 +136,8 @@ class _ProjectScopedNavViewState extends State<ProjectScopedNavView> {
             children: [
               for (final project in projects)
                 WAnchor(
-                  onTap: () => MagicRoute.to(
-                    '/projects/${project.id}/${widget.targetPath}',
-                  ),
+                  onTap: () =>
+                      MagicRoute.to('/${widget.targetPath}/${project.id}'),
                   child: WDiv(
                     className: '''
                       flex flex-row items-center gap-3

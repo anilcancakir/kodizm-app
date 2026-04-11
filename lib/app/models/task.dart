@@ -180,10 +180,10 @@ class Task extends Model with HasTimestamps, InteractsWithPersistence {
   }
 
   /// Get the workspace path inside the container (pipeline tasks only).
-  String? get worktreePath => getAttribute('worktree_path') as String?;
+  String? get workspacePath => getAttribute('workspace_path') as String?;
 
   /// Get the workspace branch name (pipeline tasks only).
-  String? get worktreeBranch => getAttribute('worktree_branch') as String?;
+  String? get workspaceBranch => getAttribute('workspace_branch') as String?;
 
   // ---------------------------------------------------------------------------
   // Typed Accessors — detail shape (conditionally present)

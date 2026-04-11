@@ -892,7 +892,7 @@
     "execution_context": "Execution Context",
     "execution_mode": "Execution Mode",
     "container_name": "Container",
-    "worktree_branch": "Worktree Branch",
+    "workspace_branch": "Workspace Branch",
     "mode_native": "Native CLI",
     "mode_sidecar": "Legacy"
   },

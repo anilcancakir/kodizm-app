@@ -153,7 +153,7 @@ class TaskDetailSidebar extends StatelessWidget {
               ),
 
               // Validation result (pipeline tasks only)
-              if (task.worktreeBranch != null &&
+              if (task.workspaceBranch != null &&
                   (task.status == 'failed' ||
                       task.status == 'done' ||
                       task.status == 'review'))

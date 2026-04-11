@@ -354,7 +354,7 @@ class _SessionDetailViewState extends State<SessionDetailView> {
   // Execution context card
   // -----------------------------------------------------------------------
 
-  /// Builds the execution context card showing mode, container, and worktree.
+  /// Builds the execution context card showing mode, container, and workspace.
   ///
   /// Only renders rows for fields that are non-null — legacy sessions
   /// without execution context will render an empty card.
@@ -387,10 +387,10 @@ class _SessionDetailViewState extends State<SessionDetailView> {
               trans('sessions.container_name'),
               session.containerName!,
             ),
-          if (session.worktreeBranch != null)
+          if (session.workspaceBranch != null)
             _buildInfoRow(
-              trans('sessions.worktree_branch'),
-              session.worktreeBranch!,
+              trans('sessions.workspace_branch'),
+              session.workspaceBranch!,
             ),
         ],
       ),

@@ -54,8 +54,8 @@ void main() {
       ],
       'execution_mode': 'native',
       'container_name': 'kodizm-proj-abc123',
-      'worktree_path': '/workspace/feature-branch',
-      'worktree_branch': 'feature/auth-refactor',
+      'workspace_path': '/workspace/feature-branch',
+      'workspace_branch': 'feature/auth-refactor',
       'project_container': {
         'id': 'pc-uuid-1',
         'container_name': 'kodizm-proj-abc123',
@@ -245,11 +245,11 @@ void main() {
       expect(session.containerName, 'kodizm-proj-abc123');
     });
 
-    test('fromMap parses worktreePath and worktreeBranch when present', () {
+    test('fromMap parses workspacePath and workspaceBranch when present', () {
       final session = Session.fromMap(fullFixture);
 
-      expect(session.worktreePath, '/workspace/feature-branch');
-      expect(session.worktreeBranch, 'feature/auth-refactor');
+      expect(session.workspacePath, '/workspace/feature-branch');
+      expect(session.workspaceBranch, 'feature/auth-refactor');
     });
 
     test('fromMap parses nested projectContainer when present', () {
@@ -298,8 +298,8 @@ void main() {
 
       expect(updated.executionMode, session.executionMode);
       expect(updated.containerName, session.containerName);
-      expect(updated.worktreePath, session.worktreePath);
-      expect(updated.worktreeBranch, session.worktreeBranch);
+      expect(updated.workspacePath, session.workspacePath);
+      expect(updated.workspaceBranch, session.workspaceBranch);
       expect(updated.projectContainer, session.projectContainer);
     });
   });

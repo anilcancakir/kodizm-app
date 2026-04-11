@@ -37,8 +37,8 @@ class Session {
     this.completedAt,
     this.executionMode,
     this.containerName,
-    this.worktreePath,
-    this.worktreeBranch,
+    this.workspacePath,
+    this.workspaceBranch,
     this.projectContainer,
   });
 
@@ -110,13 +110,13 @@ class Session {
   /// (e.g. `'kodizm-proj-abc123'`). Null when not running in a container.
   final String? containerName;
 
-  /// The absolute filesystem path to the git worktree used for this session
-  /// (e.g. `'/workspace/feature-branch'`). Null when no worktree is active.
-  final String? worktreePath;
+  /// The absolute filesystem path to the git workspace used for this session
+  /// (e.g. `'/workspace/feature-branch'`). Null when no workspace is active.
+  final String? workspacePath;
 
-  /// The git branch checked out in the worktree for this session
-  /// (e.g. `'feature/auth-refactor'`). Null when no worktree is active.
-  final String? worktreeBranch;
+  /// The git branch checked out in the workspace for this session
+  /// (e.g. `'feature/auth-refactor'`). Null when no workspace is active.
+  final String? workspaceBranch;
 
   /// The [ProjectContainer] associated with this session, loaded via the
   /// `project_container` relation. Null when the relation is not loaded or
@@ -156,8 +156,8 @@ class Session {
           : null,
       executionMode: map['execution_mode'] as String?,
       containerName: map['container_name'] as String?,
-      worktreePath: map['worktree_path'] as String?,
-      worktreeBranch: map['worktree_branch'] as String?,
+      workspacePath: map['workspace_path'] as String?,
+      workspaceBranch: map['workspace_branch'] as String?,
       projectContainer: map['project_container'] != null
           ? ProjectContainer.fromMap(
               map['project_container'] as Map<String, dynamic>,
@@ -200,8 +200,8 @@ class Session {
     List<SessionShare>? shares,
     String? executionMode,
     String? containerName,
-    String? worktreePath,
-    String? worktreeBranch,
+    String? workspacePath,
+    String? workspaceBranch,
     ProjectContainer? projectContainer,
     bool clearProjectContainer = false,
   }) {
@@ -225,8 +225,8 @@ class Session {
       shares: shares ?? this.shares,
       executionMode: executionMode ?? this.executionMode,
       containerName: containerName ?? this.containerName,
-      worktreePath: worktreePath ?? this.worktreePath,
-      worktreeBranch: worktreeBranch ?? this.worktreeBranch,
+      workspacePath: workspacePath ?? this.workspacePath,
+      workspaceBranch: workspaceBranch ?? this.workspaceBranch,
       projectContainer: clearProjectContainer
           ? null
           : (projectContainer ?? this.projectContainer),

@@ -34,8 +34,8 @@ const Map<String, dynamic> kSessionDetail = {
   'completed_at': null,
   'execution_mode': 'native',
   'container_name': 'kodizm-proj-abc123',
-  'worktree_path': '/workspace/feature-branch',
-  'worktree_branch': 'feature/auth-refactor',
+  'workspace_path': '/workspace/feature-branch',
+  'workspace_branch': 'feature/auth-refactor',
   'created_at': '2025-06-10T08:00:00.000Z',
   'updated_at': '2025-06-10T08:30:00.000Z',
   'usage_records': [
@@ -537,19 +537,20 @@ void main() {
   });
 
   // -------------------------------------------------------------------------
-  // 23. Execution context shows container name and worktree branch
+  // 23. Execution context shows container name and workspace branch
   // -------------------------------------------------------------------------
 
-  testWidgets('shows container name and worktree branch in execution context', (
-    tester,
-  ) async {
-    await _pumpView(tester);
+  testWidgets(
+    'shows container name and workspace branch in execution context',
+    (tester) async {
+      await _pumpView(tester);
 
-    // Container name from fixture
-    expect(find.text('kodizm-proj-abc123'), findsOneWidget);
-    // Worktree branch from fixture
-    expect(find.text('feature/auth-refactor'), findsOneWidget);
-  });
+      // Container name from fixture
+      expect(find.text('kodizm-proj-abc123'), findsOneWidget);
+      // Worktree branch from fixture
+      expect(find.text('feature/auth-refactor'), findsOneWidget);
+    },
+  );
 
   // -------------------------------------------------------------------------
   // 24. Execution context hides fields when null

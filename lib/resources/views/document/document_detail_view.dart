@@ -19,7 +19,7 @@ import '../../../app/state/document_state.dart';
 /// ## Usage
 ///
 /// ```dart
-/// MagicRoute.to('/projects/$projectId/documents/$documentId');
+/// MagicRoute.to('/documents/$projectId/$documentId');
 /// ```
 class DocumentDetailView extends StatefulWidget {
   /// Creates a [DocumentDetailView] for the given [projectId] and [documentId].
@@ -180,7 +180,7 @@ class _DocumentDetailViewState extends State<DocumentDetailView> {
     );
 
     if (deleted && mounted) {
-      MagicRoute.to('/projects/${widget.projectId}/documents');
+      MagicRoute.to('/documents/${widget.projectId}');
     }
   }
 

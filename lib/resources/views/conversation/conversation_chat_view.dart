@@ -29,6 +29,8 @@ import '../../widgets/organisms/chat_stream_event_renderer.dart';
 /// ## Usage
 ///
 /// ```dart
+/// MagicRoute.to('/conversations/$projectId');
+/// // or construct directly:
 /// ConversationChatView(projectId: 'proj-uuid-001')
 /// ```
 class ConversationChatView extends StatefulWidget {
@@ -142,7 +144,7 @@ class _ConversationChatViewState extends State<ConversationChatView> {
     if (id == null) return;
 
     try {
-      MagicRoute.replace('/projects/${widget.projectId}/chats/$id');
+      MagicRoute.replace('/conversations/${widget.projectId}/chats/$id');
     } catch (_) {
       // Router may not be available in tests.
     }

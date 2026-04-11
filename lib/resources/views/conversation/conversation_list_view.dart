@@ -15,7 +15,7 @@ import '../../widgets/organisms/agent_role_picker_modal.dart';
 /// ## Usage
 ///
 /// ```dart
-/// MagicRoute.to('/projects/$projectId/conversations');
+/// MagicRoute.to('/conversations/$projectId');
 /// // or construct directly:
 /// ConversationListView(projectId: 'proj-uuid-001')
 /// ```
@@ -77,7 +77,9 @@ class _ConversationListViewState extends State<ConversationListView> {
     );
     if (conversation == null || !mounted) return;
 
-    MagicRoute.to('/projects/${widget.projectId}/chats/${conversation.id}');
+    MagicRoute.to(
+      '/conversations/${widget.projectId}/chats/${conversation.id}',
+    );
   }
 
   // -----------------------------------------------------------------------
@@ -278,7 +280,7 @@ class _ConversationListViewState extends State<ConversationListView> {
 
     return WAnchor(
       onTap: () => MagicRoute.to(
-        '/projects/${widget.projectId}/chats/${conversation.id}',
+        '/conversations/${widget.projectId}/chats/${conversation.id}',
       ),
       child: WDiv(
         className: 'px-4 py-3 flex flex-row items-center gap-3',

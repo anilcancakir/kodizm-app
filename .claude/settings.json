@@ -4,7 +4,7 @@
     "CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD": "1"
   },
   "permissions": {
-    "additionalDirectories": ["../api"]
+    "additionalDirectories": ["../kodizm-api"]
   },
   "hooks": {
     "PostToolUse": [

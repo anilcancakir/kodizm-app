@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:magic/magic.dart';
 import 'package:magic_starter/magic_starter.dart';
 
@@ -62,6 +63,9 @@ class _TaskDetailViewState extends State<TaskDetailView> {
     'failed': 'tasks.transition_mark_failed',
     'draft': 'tasks.transition_reopen',
   };
+
+  /// Whether the markdown was recently copied to clipboard.
+  bool _copied = false;
 
   // -----------------------------------------------------------------------
 
@@ -417,10 +421,23 @@ class _TaskDetailViewState extends State<TaskDetailView> {
 
   Widget _buildDescriptionCard(Task task) {
     return MagicStarterCard(
-      title: trans('tasks.description_label'),
       child: WDiv(
         className: 'flex flex-col gap-4',
         children: [
+          // Header row — title + copy-as-markdown button
+          WDiv(
+            className: 'flex items-center justify-between',
+            children: [
+              WText(
+                trans('tasks.description_label'),
+                className:
+                    'text-base font-semibold text-slate-800 '
+                    'dark:text-slate-100',
+              ),
+              _buildCopyMarkdownButton(task),
+            ],
+          ),
+
           if (task.description?.isNotEmpty ?? false)
             MarkdownViewer(data: task.description!)
           else
@@ -447,6 +464,53 @@ class _TaskDetailViewState extends State<TaskDetailView> {
         ],
       ),
     );
+  }
+
+  /// Builds the ghost icon button that copies task description and acceptance
+  /// criteria as formatted markdown to the clipboard.
+  Widget _buildCopyMarkdownButton(Task task) {
+    return Tooltip(
+      message: _copied
+          ? trans('tasks.copied_to_clipboard')
+          : trans('tasks.copy_as_markdown'),
+      child: WAnchor(
+        onTap: () => _handleCopyMarkdown(task),
+        child: WDiv(
+          className: 'p-1 rounded',
+          child: WIcon(
+            _copied ? Icons.check : Icons.content_copy,
+            className: _copied
+                ? 'text-sm text-green-500'
+                : 'text-sm text-slate-400',
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Copies the task description and acceptance criteria as formatted markdown
+  /// to the clipboard with brief visual feedback.
+  void _handleCopyMarkdown(Task task) {
+    final buffer = StringBuffer();
+
+    if (task.description?.isNotEmpty ?? false) {
+      buffer.writeln('## ${trans('tasks.description_label')}');
+      buffer.writeln();
+      buffer.writeln(task.description);
+    }
+
+    if (task.acceptanceCriteria?.isNotEmpty ?? false) {
+      if (buffer.isNotEmpty) buffer.writeln();
+      buffer.writeln('## ${trans('tasks.acceptance_criteria')}');
+      buffer.writeln();
+      buffer.writeln(task.acceptanceCriteria);
+    }
+
+    Clipboard.setData(ClipboardData(text: buffer.toString().trimRight()));
+    setState(() => _copied = true);
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _copied = false);
+    });
   }
 
   List<Widget> _buildSectionCards(List<TaskSection> sections) {

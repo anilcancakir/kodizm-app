@@ -59,7 +59,7 @@ lib/
 - **Dart SDK**: ^3.11.3
 - **UI**: Wind UI first — never Flutter native equivalents (see Widget Rules)
 - **i18n**: All user-facing strings via `trans('dot.key')` from `assets/lang/en.json` — never hardcode strings in views
-- **Code quality**: English only (code, comments, commits); strict types on every param/return/property; zero `dart analyze` warnings — no suppressions
+- **Code quality**: English only (code, comments, commits, task sections, documents, knowledge base); strict types on every param/return/property; zero `dart analyze` warnings — no suppressions
 - **After every change**: run `dart analyze` (zero warnings) + `dart format lib/ test/` + `flutter test`
 
 ## i18n Rules (STRICT)

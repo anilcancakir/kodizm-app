@@ -55,3 +55,4 @@ app.*.map.json
 .mcp.json
 CLAUDE.local.md
 .playwright-cli/
+GEMINI.md

@@ -20,7 +20,7 @@ import 'package:magic_starter/magic_starter.dart';
 /// ## Usage
 ///
 /// ```dart
-/// MagicRoute.to('/projects/$projectId/tasks');
+/// MagicRoute.to('/tasks/$projectId');
 /// // or construct directly:
 /// TaskListView(projectId: 'proj-uuid-001')
 /// ```
@@ -161,7 +161,7 @@ class _TaskListViewState extends State<TaskListView> {
 
     switch (result) {
       case 'manual':
-        MagicRoute.to('/projects/${widget.projectId}/tasks/create');
+        MagicRoute.to('/tasks/${widget.projectId}/create');
       case 'chat':
         _openChatWithBa();
     }
@@ -182,7 +182,7 @@ class _TaskListViewState extends State<TaskListView> {
     if (!mounted || selected == null) return;
 
     MagicRoute.to(
-      '/projects/${widget.projectId}/chat?agentRoleId=${selected.id}',
+      '/conversations/${widget.projectId}/chat?agentRoleId=${selected.id}',
     );
   }
 
@@ -623,7 +623,7 @@ class _TaskCard extends StatelessWidget {
     final updatedAt = task.updatedAt?.toDateTime;
 
     return WAnchor(
-      onTap: () => MagicRoute.to('/projects/$projectId/tasks/${task.id}'),
+      onTap: () => MagicRoute.to('/tasks/$projectId/${task.id}'),
       child: WDiv(
         className: '''
           rounded-xl bg-white dark:bg-gray-800

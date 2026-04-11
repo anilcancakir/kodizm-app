@@ -26,7 +26,7 @@ import '../../widgets/organisms/task_detail_sidebar.dart';
 /// ## Usage
 ///
 /// ```dart
-/// MagicRoute.to('/projects/$projectId/tasks/$taskId');
+/// MagicRoute.to('/tasks/$projectId/$taskId');
 /// // or construct directly:
 /// TaskDetailView(projectId: 'proj-uuid-001', taskId: 'task-uuid-001')
 /// ```
@@ -198,7 +198,9 @@ class _TaskDetailViewState extends State<TaskDetailView> {
     if (!context.mounted) return;
 
     if (conversation != null) {
-      MagicRoute.to('/projects/${widget.projectId}/chats/${conversation.id}');
+      MagicRoute.to(
+        '/conversations/${widget.projectId}/chats/${conversation.id}',
+      );
     } else {
       ScaffoldMessenger.of(
         context,
@@ -286,7 +288,7 @@ class _TaskDetailViewState extends State<TaskDetailView> {
       subtitle: task.taskId,
       inlineActions: true,
       leading: WAnchor(
-        onTap: () => MagicRoute.to('/projects/${widget.projectId}/tasks'),
+        onTap: () => MagicRoute.to('/tasks/${widget.projectId}'),
         child: WIcon(
           Icons.arrow_back,
           className: 'text-base text-slate-500 dark:text-slate-400',

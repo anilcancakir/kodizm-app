@@ -123,7 +123,7 @@ class _SegmentedControl extends StatelessWidget {
 /// ## Usage
 ///
 /// ```dart
-/// MagicRoute.to('/projects/$projectId/tasks/create');
+/// MagicRoute.to('/tasks/$projectId/create');
 /// ```
 class TaskCreateView extends StatefulWidget {
   /// Creates a [TaskCreateView] for the given [projectId].
@@ -241,7 +241,7 @@ class _TaskCreateViewState extends State<TaskCreateView> {
     if (!mounted) return;
 
     if (task != null) {
-      MagicRoute.to('/projects/${widget.projectId}/tasks/${task.id}');
+      MagicRoute.to('/tasks/${widget.projectId}/${task.id}');
     } else {
       setState(() {
         _submitting = false;

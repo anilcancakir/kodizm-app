@@ -649,7 +649,7 @@ class _QuickActionsSection extends StatelessWidget {
 
     // If only one project, navigate directly.
     if (projects.length == 1) {
-      MagicRoute.to('/projects/${projects.first.id}/tasks/create');
+      MagicRoute.to('/tasks/${projects.first.id}/create');
       return;
     }
 
@@ -666,7 +666,7 @@ class _QuickActionsSection extends StatelessWidget {
             return WAnchor(
               onTap: () {
                 Navigator.of(context).pop();
-                MagicRoute.to('/projects/${project.id}/tasks/create');
+                MagicRoute.to('/tasks/${project.id}/create');
               },
               child: WDiv(
                 className: 'p-3 rounded-lg bg-slate-50 dark:bg-gray-800',

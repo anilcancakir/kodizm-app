@@ -3,7 +3,7 @@
     "short_name": "Kodizm",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#1A2332",
+    "background_color": "#334E68",
     "theme_color": "#334E68",
     "description": "Multi-agent AI development platform",
     "orientation": "portrait-primary",

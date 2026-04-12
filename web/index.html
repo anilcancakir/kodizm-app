@@ -8,14 +8,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="description" content="Multi-agent AI development platform — orchestrate your entire SDLC with intelligent agents.">
 
-  <!-- Theme Color -->
-  <meta name="theme-color" content="#334E68">
+  <!-- Theme Color — media-aware with fallback for older browsers -->
+  <meta name="theme-color" content="#F8FAFC">
+  <meta name="theme-color" content="#F8FAFC" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#1A2332" media="(prefers-color-scheme: dark)">
 
   <!-- iOS PWA -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Kodizm">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 
@@ -42,7 +43,7 @@
     body {
       margin: 0;
       min-height: 100%;
-      background-color: #1A2332;
+      background-color: #F8FAFC;
       background-size: 100% 100%;
     }
     .center {

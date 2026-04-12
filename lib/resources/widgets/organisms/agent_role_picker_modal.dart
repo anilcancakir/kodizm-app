@@ -12,8 +12,8 @@ import '../../../app/models/agent_role.dart';
 ///
 /// Displays a radio-style list of roles — each row shows the role name,
 /// optional description, and a scope colour indicator derived from the
-/// [_scopeClassName] map. The BA role (`slug == 'ba'`) is pre-selected; when
-/// no BA role is present the first role in the list is selected instead.
+/// [_scopeClassName] map. The Product Manager role (`slug == 'product-manager'`)
+/// is pre-selected; when absent the first role in the list is selected instead.
 ///
 /// A single-role list still shows the modal so the user can confirm their
 /// selection.
@@ -89,7 +89,7 @@ class _AgentRolePickerModalState extends State<AgentRolePickerModal> {
   AgentRole? _initialSelection(List<AgentRole> roles) {
     if (roles.isEmpty) return null;
     try {
-      return roles.firstWhere((r) => r.slug == 'ba');
+      return roles.firstWhere((r) => r.slug == 'product-manager');
     } catch (_) {
       return roles.first;
     }
@@ -115,6 +115,8 @@ class _AgentRolePickerModalState extends State<AgentRolePickerModal> {
       'review': 'bg-violet-500/10 text-violet-500',
       'qa': 'bg-emerald-500/10 text-emerald-500',
       'testing': 'bg-emerald-500/10 text-emerald-500',
+      'product-manager': 'bg-amber-500/10 text-amber-500',
+      'pm': 'bg-amber-500/10 text-amber-500',
     };
 
     final key = scope.toLowerCase();

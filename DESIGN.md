@@ -97,6 +97,7 @@ Each SDLC agent role gets a distinct identifying color for avatars, badges, and 
 | Agent | Color | Hex | Why |
 |-------|-------|-----|-----|
 | Business Analyst | Indigo | `#6366F1` | Strategic, analytical |
+| Product Manager | Amber | `#F59E0B` | Warm, approachable, user-facing |
 | Lead Developer | Primary Navy | `#334E68` | Authority, architecture |
 | Developer | Teal | `#14B8A6` | Building, crafting |
 | Code Reviewer | Violet | `#8B5CF6` | Scrutiny, quality |

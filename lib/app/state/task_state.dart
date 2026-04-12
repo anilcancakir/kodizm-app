@@ -109,6 +109,13 @@ class TaskState extends MagicController
   /// The agent roles available for the active team (set by [fetchAgentRoles]).
   List<AgentRole> get agentRoles => _agentRoles;
 
+  /// The main agent role, resolved by slug `main-agent` from [agentRoles].
+  ///
+  /// Returns `null` if agent roles have not been fetched yet or no role with
+  /// slug `main-agent` exists.
+  AgentRole? get mainAgentRole =>
+      _agentRoles.where((r) => r.slug == 'main-agent').firstOrNull;
+
   /// Whether a new run is being dispatched via [startRun].
   bool get startingRun => _startingRun;
 

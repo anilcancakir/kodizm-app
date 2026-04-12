@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:magic/magic.dart';
 import 'package:magic_starter/magic_starter.dart';
 
-import '../../../app/models/agent_role.dart';
 import '../../../app/models/conversation.dart';
 import '../../../app/models/task.dart';
 import '../../../app/models/task_section.dart';
@@ -157,12 +156,16 @@ class _TaskDetailViewState extends State<TaskDetailView> {
 
     if (!context.mounted) return;
 
+    final mainRole = TaskState.instance.mainAgentRole;
+    if (mainRole == null) return;
+
     await showDialog<void>(
       context: context,
-      builder: (dialogContext) => _StartRunDialog(
+      builder: (dialogContext) => _StartRunConfirmDialog(
         projectId: widget.projectId,
         taskId: widget.taskId,
         teamId: teamId,
+        agentRoleId: mainRole.id,
         onRunStarted: (conversationId) {
           if (context.mounted) {
             MagicRoute.to(
@@ -462,19 +465,21 @@ class _TaskDetailViewState extends State<TaskDetailView> {
 }
 
 // ---------------------------------------------------------------------------
-// Start run dialog
+// Start run confirm dialog
 // ---------------------------------------------------------------------------
 
-/// Modal dialog for selecting an agent role and starting a new task run.
+/// Confirm dialog for starting a new autonomous task run with the Main Agent.
 ///
-/// Reads available roles from [TaskState.instance.agentRoles]. On confirm,
-/// calls [TaskState.instance.startRun] and invokes [onRunStarted] on success.
-class _StartRunDialog extends StatefulWidget {
-  /// Creates a [_StartRunDialog].
-  const _StartRunDialog({
+/// Displays a confirmation message and two buttons (Cancel / Start Run).
+/// On confirm, calls [TaskState.instance.startRun] with the pre-resolved
+/// [agentRoleId] and invokes [onRunStarted] on success.
+class _StartRunConfirmDialog extends StatefulWidget {
+  /// Creates a [_StartRunConfirmDialog].
+  const _StartRunConfirmDialog({
     required this.projectId,
     required this.taskId,
     required this.teamId,
+    required this.agentRoleId,
     required this.onRunStarted,
   });
 
@@ -487,27 +492,24 @@ class _StartRunDialog extends StatefulWidget {
   /// The team ID used for the API call.
   final String teamId;
 
-  /// Callback invoked when the run is successfully started, with the new run ID.
-  final void Function(String runId) onRunStarted;
+  /// The pre-resolved main agent role ID.
+  final String agentRoleId;
+
+  /// Callback invoked when the run is successfully started, with the new conversation ID.
+  final void Function(String conversationId) onRunStarted;
 
   @override
-  State<_StartRunDialog> createState() => _StartRunDialogState();
+  State<_StartRunConfirmDialog> createState() => _StartRunConfirmDialogState();
 }
 
-class _StartRunDialogState extends State<_StartRunDialog> {
-  /// The currently selected agent role.
-  AgentRole? _selectedRole;
-
+class _StartRunConfirmDialogState extends State<_StartRunConfirmDialog> {
   /// Submits the run to the API and closes the dialog.
   Future<void> _submit() async {
-    final role = _selectedRole;
-    if (role == null) return;
-
     final conversation = await TaskState.instance.startRun(
       widget.teamId,
       widget.projectId,
       widget.taskId,
-      role.id,
+      widget.agentRoleId,
     );
 
     if (!mounted) return;
@@ -521,82 +523,51 @@ class _StartRunDialogState extends State<_StartRunDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final starting = TaskState.instance.startingRun;
+    return ListenableBuilder(
+      listenable: TaskState.instance,
+      builder: (context, _) {
+        final starting = TaskState.instance.startingRun;
 
-    return MagicStarterDialogShell(
-      title: trans('tasks.select_agent_role'),
-      body: ListenableBuilder(
-        listenable: TaskState.instance,
-        builder: (context, _) {
-          final currentRoles = TaskState.instance.agentRoles;
-
-          return WDiv(
+        return MagicStarterDialogShell(
+          title: trans('tasks.confirm_run_title'),
+          body: WDiv(
             className: 'w-96',
-            child: ListView.separated(
-              shrinkWrap: true,
-              itemCount: currentRoles.length,
-              separatorBuilder: (_, _) => const WSpacer(className: 'h-1'),
-              itemBuilder: (context, index) {
-                final role = currentRoles[index];
-                final isSelected = _selectedRole?.id == role.id;
-
-                return WAnchor(
-                  onTap: () => setState(() => _selectedRole = role),
-                  child: WDiv(
-                    className:
-                        '''
-                      p-3 rounded-lg
-                      ${isSelected ? 'bg-amber-400/10 border border-amber-400' : 'bg-slate-50 dark:bg-gray-800'}
-                    ''',
-                    children: [
-                      WText(
-                        role.name,
-                        className:
-                            '''
-                          text-sm font-medium
-                          ${isSelected ? 'text-amber-600 dark:text-amber-400' : 'text-slate-800 dark:text-slate-200'}
-                        ''',
-                      ),
-                      if (role.description != null)
-                        WText(
-                          role.description!,
-                          className:
-                              'text-xs text-slate-500 dark:text-slate-400 mt-0.5',
-                        ),
-                    ],
+            child: WText(
+              trans('tasks.confirm_run_message'),
+              className: 'text-sm text-slate-600 dark:text-slate-400',
+            ),
+          ),
+          footerBuilder: (dialogContext) => WDiv(
+            className: 'flex flex-row gap-2 w-full justify-end',
+            children: [
+              WAnchor(
+                onTap: () => Navigator.of(dialogContext).pop(),
+                child: WDiv(
+                  className: MagicStarter.modalTheme.secondaryButtonClassName,
+                  child: WText(
+                    trans('common.cancel'),
+                    className: 'text-inherit',
                   ),
-                );
-              },
-            ),
-          );
-        },
-      ),
-      footerBuilder: (dialogContext) => WDiv(
-        className: 'flex flex-row gap-2 w-full justify-end',
-        children: [
-          WAnchor(
-            onTap: () => Navigator.of(dialogContext).pop(),
-            child: WDiv(
-              className: MagicStarter.modalTheme.secondaryButtonClassName,
-              child: WText(trans('common.cancel'), className: 'text-inherit'),
-            ),
-          ),
-          WAnchor(
-            onTap: (_selectedRole != null && !starting) ? _submit : null,
-            child: WDiv(
-              className: (_selectedRole != null && !starting)
-                  ? MagicStarter.modalTheme.primaryButtonClassName
-                  : '${MagicStarter.modalTheme.primaryButtonClassName} opacity-50',
-              child: WText(
-                starting
-                    ? trans('tasks.starting_run')
-                    : trans('tasks.start_run'),
-                className: 'text-inherit',
+                ),
               ),
-            ),
+              WAnchor(
+                onTap: starting ? null : _submit,
+                child: WDiv(
+                  className: starting
+                      ? '${MagicStarter.modalTheme.primaryButtonClassName} opacity-50'
+                      : MagicStarter.modalTheme.primaryButtonClassName,
+                  child: WText(
+                    starting
+                        ? trans('tasks.starting_run')
+                        : trans('tasks.confirm_run_button'),
+                    className: 'text-inherit',
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

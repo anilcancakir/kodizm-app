@@ -162,6 +162,7 @@ class ConversationChatState extends MagicController
   String? _subscribedSessionChannel;
   String? _runningCostUsd;
   String? _sessionPhase;
+  String? _provisioningStep;
 
   // Question/permission state
   Map<String, dynamic>? _pendingQuestion;
@@ -251,6 +252,12 @@ class ConversationChatState extends MagicController
   ///
   /// Updated via `.session.status` WS events on the session channel.
   String? get sessionPhase => _sessionPhase;
+
+  /// The current provisioning step, or `null` if not in the provisioning phase.
+  ///
+  /// Only populated when [sessionPhase] is `'provisioning'`. Cleared automatically
+  /// when the phase transitions away from provisioning.
+  String? get provisioningStep => _provisioningStep;
 
   /// The pending question awaiting a user answer, or `null`.
   ///
@@ -404,6 +411,27 @@ class ConversationChatState extends MagicController
   @visibleForTesting
   void setAwaitingResponseForTest({required bool value}) {
     _awaitingResponse = value;
+    refreshUI();
+  }
+
+  /// Directly set [_sessionPhase] — for widget tests only.
+  ///
+  /// Allows tests to simulate session phase transitions without wiring up WS.
+  @visibleForTesting
+  void setSessionPhaseForTest(String? phase) {
+    _sessionPhase = phase;
+    if (phase != 'provisioning') {
+      _provisioningStep = null;
+    }
+    refreshUI();
+  }
+
+  /// Directly set [_provisioningStep] — for widget tests only.
+  ///
+  /// Allows tests to simulate provisioning step labels without wiring up WS.
+  @visibleForTesting
+  void setProvisioningStepForTest(String? step) {
+    _provisioningStep = step;
     refreshUI();
   }
 
@@ -1154,6 +1182,7 @@ class ConversationChatState extends MagicController
     _sessionId = null;
     _runningCostUsd = null;
     _sessionPhase = null;
+    _provisioningStep = null;
     _pendingQuestion = null;
     _pendingPermission = null;
     _isAnswering = false;
@@ -1544,6 +1573,9 @@ class ConversationChatState extends MagicController
         _runningCostUsd = wsEvent.data['running_total_usd'] as String?;
       case '.session.status':
         _sessionPhase = wsEvent.data['phase'] as String?;
+        _provisioningStep = _sessionPhase == 'provisioning'
+            ? wsEvent.data['provisioning_step'] as String?
+            : null;
     }
 
     refreshUI();

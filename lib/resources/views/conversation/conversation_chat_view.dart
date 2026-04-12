@@ -516,9 +516,18 @@ class _ConversationChatViewState extends State<ConversationChatView> {
               height: 16,
               child: const CircularProgressIndicator(strokeWidth: 2),
             ),
-            WText(
-              _typingStatusLabel(),
-              className: 'text-sm text-slate-500 dark:text-slate-400',
+            Builder(
+              builder: (_) {
+                final label = _typingStatusLabel();
+                return AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  child: WText(
+                    label,
+                    key: ValueKey<String>(label),
+                    className: 'text-sm text-slate-500 dark:text-slate-400',
+                  ),
+                );
+              },
             ),
           ],
         ),
@@ -530,7 +539,10 @@ class _ConversationChatViewState extends State<ConversationChatView> {
   String _typingStatusLabel() {
     final phase = _state.sessionPhase;
     return switch (phase) {
-      'provisioning' => trans('conversation_chat.status_starting'),
+      'provisioning' =>
+        _state.provisioningStep != null
+            ? trans('conversation_chat.provisioning_${_state.provisioningStep}')
+            : trans('conversation_chat.status_starting'),
       'executing' => trans('conversation_chat.status_working'),
       'warm' => trans('conversation_chat.status_thinking'),
       _ =>

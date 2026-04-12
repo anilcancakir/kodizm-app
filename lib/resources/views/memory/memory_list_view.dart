@@ -19,7 +19,7 @@ import '../../../app/state/memory_state.dart';
 /// ## Usage
 ///
 /// ```dart
-/// MagicRoute.to('/projects/$projectId/memories');
+/// MagicRoute.to('/memories/$projectId');
 /// // or construct directly:
 /// MemoryListView(projectId: 'proj-uuid-001')
 /// ```
@@ -108,8 +108,7 @@ class _MemoryListViewState extends State<MemoryListView> {
           subtitle: trans('memories.subtitle'),
           actions: [
             WAnchor(
-              onTap: () =>
-                  MagicRoute.to('/projects/${widget.projectId}/memories/new'),
+              onTap: () => MagicRoute.to('/memories/${widget.projectId}/new'),
               child: WDiv(
                 className: '''
                     flex flex-row items-center gap-2
@@ -332,9 +331,8 @@ class _MemoryList extends StatelessWidget {
           memory: memories[index],
           typeBadgeClassName: typeBadgeClassName,
           typeLabel: typeLabel,
-          onTap: () => MagicRoute.to(
-            '/projects/$projectId/memories/${memories[index].id}',
-          ),
+          onTap: () =>
+              MagicRoute.to('/memories/$projectId/${memories[index].id}'),
         ),
       ),
     );

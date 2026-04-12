@@ -971,7 +971,7 @@ class _ProjectDetailViewState extends State<ProjectDetailView> {
             children: [
               WAnchor(
                 onTap: () => MagicRoute.to(
-                  '/projects/${repo.projectId}/chats/${repo.onboardingConversationId}',
+                  '/conversations/${repo.projectId}/chats/${repo.onboardingConversationId}',
                 ),
                 child: WDiv(
                   className: '''

@@ -15,7 +15,10 @@ import '../../../app/state/conversation_detail_state.dart';
 /// ## Usage
 ///
 /// ```dart
-/// MagicRoute.to('/projects/$projectId/conversations/$conversationId');
+/// const ConversationDetailView(
+///   projectId: 'project-uuid',
+///   conversationId: 'conversation-uuid',
+/// );
 /// ```
 class ConversationDetailView extends StatefulWidget {
   /// Creates the [ConversationDetailView].
@@ -282,8 +285,7 @@ class _ConversationDetailViewState extends State<ConversationDetailView> {
         children: [
           // Back button
           WAnchor(
-            onTap: () =>
-                MagicRoute.to('/projects/${widget.projectId}/conversations'),
+            onTap: () => MagicRoute.to('/conversations/${widget.projectId}'),
             child: WIcon(Icons.arrow_back, className: 'text-lg text-slate-400'),
           ),
           const WSpacer(className: 'w-3'),

@@ -19,7 +19,7 @@ import '../../../app/state/document_state.dart';
 /// ## Usage
 ///
 /// ```dart
-/// MagicRoute.to('/projects/$projectId/documents');
+/// MagicRoute.to('/documents/$projectId');
 /// ```
 class DocumentListView extends StatefulWidget {
   /// Creates the [DocumentListView] for the given [projectId].
@@ -330,9 +330,8 @@ class _DocumentList extends StatelessWidget {
         itemBuilder: (context, index) => _DocumentCard(
           document: documents[index],
           categoryBadgeClassName: categoryBadgeClassName,
-          onTap: () => MagicRoute.to(
-            '/projects/$projectId/documents/${documents[index].id}',
-          ),
+          onTap: () =>
+              MagicRoute.to('/documents/$projectId/${documents[index].id}'),
         ),
       ),
     );

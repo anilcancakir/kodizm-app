@@ -57,6 +57,21 @@ void registerAppRoutes() {
         (String id) => ProjectDetailView(projectId: id),
       ).title('Project');
       MagicRoute.page(
+        '/tasks/:projectId',
+        (String projectId) => TaskListView(projectId: projectId),
+      ).title('Tasks');
+      MagicRoute.page(
+        '/tasks/:projectId/create',
+        (String projectId) => TaskCreateView(projectId: projectId),
+      ).title('New Task');
+      MagicRoute.page(
+        '/tasks/:projectId/:taskId',
+        (String projectId, String taskId) =>
+            TaskDetailView(projectId: projectId, taskId: taskId),
+      ).title('Task');
+      // Legacy routes — redirect old `/projects/:id/{section}` URLs to
+      // new `/{section}/:id` structure so bookmarks and deep-links survive.
+      MagicRoute.page(
         '/projects/:projectId/tasks',
         (String projectId) => TaskListView(projectId: projectId),
       ).title('Tasks');
@@ -69,6 +84,29 @@ void registerAppRoutes() {
         (String projectId, String taskId) =>
             TaskDetailView(projectId: projectId, taskId: taskId),
       ).title('Task');
+      MagicRoute.page(
+        '/projects/:projectId/conversations',
+        (String projectId) => ConversationListView(projectId: projectId),
+      ).title('Conversations');
+      MagicRoute.page(
+        '/projects/:projectId/documents',
+        (String projectId) => DocumentListView(projectId: projectId),
+      ).title('Documents');
+      MagicRoute.page(
+        '/projects/:projectId/documents/:documentId',
+        (String projectId, String documentId) =>
+            DocumentDetailView(projectId: projectId, documentId: documentId),
+      ).title('Document');
+      MagicRoute.page(
+        '/projects/:projectId/memories',
+        (String projectId) => MemoryListView(projectId: projectId),
+      ).title('Memories');
+      MagicRoute.page(
+        '/projects/:projectId/memories/:memoryId',
+        (String projectId, String memoryId) =>
+            MemoryDetailView(projectId: projectId, memoryId: memoryId),
+      ).title('Memory');
+
       // Top-level nav redirects — check current project and redirect.
       MagicRoute.page(
         '/tasks',
@@ -119,7 +157,7 @@ void registerAppRoutes() {
 
       // Project-scoped conversation routes.
       MagicRoute.page(
-        '/projects/:projectId/conversations',
+        '/conversations/:projectId',
         (String projectId) => ConversationListView(projectId: projectId),
       ).title('Conversations');
 
@@ -135,27 +173,27 @@ void registerAppRoutes() {
 
       // Project-scoped document routes.
       MagicRoute.page(
-        '/projects/:projectId/documents',
+        '/documents/:projectId',
         (String projectId) => DocumentListView(projectId: projectId),
       ).title('Documents');
       MagicRoute.page(
-        '/projects/:projectId/documents/:documentId',
+        '/documents/:projectId/:documentId',
         (String projectId, String documentId) =>
             DocumentDetailView(projectId: projectId, documentId: documentId),
       ).title('Document');
 
       // Project-scoped memory routes.
       MagicRoute.page(
-        '/projects/:projectId/memories',
+        '/memories/:projectId',
         (String projectId) => MemoryListView(projectId: projectId),
       ).title('Memories');
       MagicRoute.page(
-        '/projects/:projectId/memories/new',
+        '/memories/:projectId/new',
         (String projectId) =>
             MemoryDetailView(projectId: projectId, isCreateMode: true),
       ).title('New Memory');
       MagicRoute.page(
-        '/projects/:projectId/memories/:memoryId',
+        '/memories/:projectId/:memoryId',
         (String projectId, String memoryId) =>
             MemoryDetailView(projectId: projectId, memoryId: memoryId),
       ).title('Memory');
@@ -173,14 +211,14 @@ void registerAppRoutes() {
     layoutId: 'app.chat',
     routes: () {
       MagicRoute.page(
-        '/projects/:projectId/chats/:conversationId',
+        '/conversations/:projectId/chats/:conversationId',
         (String projectId, String conversationId) => ConversationChatView(
           projectId: projectId,
           conversationId: conversationId,
         ),
       ).title('Chat');
       MagicRoute.page(
-        '/projects/:projectId/chat',
+        '/conversations/:projectId/chat',
         (String projectId) => ConversationChatView(projectId: projectId),
       ).title('Chat');
     },

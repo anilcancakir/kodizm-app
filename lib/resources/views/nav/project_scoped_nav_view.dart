@@ -8,10 +8,10 @@ import 'package:magic_starter/magic_starter.dart';
 
 /// Thin redirect view for top-level sidebar nav items that need project context.
 ///
-/// Checks the user's projects and redirects to the project-scoped route:
-/// - 0 projects → empty state with link to create project
-/// - 1 project → immediate redirect to `/projects/{id}/{targetPath}`
-/// - N projects → project picker list
+/// Checks the user's projects and redirects to the section-prefixed route:
+/// - 0 projects: empty state with link to create project
+/// - 1 project: immediate redirect to `/{targetPath}/{id}`
+/// - N projects: project picker list
 ///
 /// ## Usage
 ///
@@ -23,7 +23,7 @@ class ProjectScopedNavView extends StatefulWidget {
   /// Creates a [ProjectScopedNavView] that will redirect to the given [targetPath].
   const ProjectScopedNavView({super.key, required this.targetPath});
 
-  /// The path segment to append after the project ID (e.g., `'tasks'`, `'knowledge'`).
+  /// The section prefix for the route (e.g., `'tasks'` resolves to `/tasks/{id}`).
   final String targetPath;
 
   @override
@@ -48,7 +48,7 @@ class _ProjectScopedNavViewState extends State<ProjectScopedNavView> {
 
     final projects = ProjectState.instance.rxState;
     if (projects != null && projects.length == 1) {
-      MagicRoute.to('/projects/${projects.first.id}/${widget.targetPath}');
+      MagicRoute.to('/${widget.targetPath}/${projects.first.id}');
     }
     // else: stay on this view — show picker or empty state.
   }
@@ -136,9 +136,8 @@ class _ProjectScopedNavViewState extends State<ProjectScopedNavView> {
             children: [
               for (final project in projects)
                 WAnchor(
-                  onTap: () => MagicRoute.to(
-                    '/projects/${project.id}/${widget.targetPath}',
-                  ),
+                  onTap: () =>
+                      MagicRoute.to('/${widget.targetPath}/${project.id}'),
                   child: WDiv(
                     className: '''
                       flex flex-row items-center gap-3

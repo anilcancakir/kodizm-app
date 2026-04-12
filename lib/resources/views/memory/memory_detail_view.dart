@@ -21,7 +21,7 @@ import '../../../app/state/memory_state.dart';
 ///
 /// ```dart
 /// // View / edit existing memory:
-/// MagicRoute.to('/projects/$projectId/memories/$memoryId');
+/// MagicRoute.to('/memories/$projectId/$memoryId');
 ///
 /// // Create new memory:
 /// MemoryDetailView(projectId: 'proj-uuid', isCreateMode: true)
@@ -198,7 +198,7 @@ class _MemoryDetailViewState extends State<MemoryDetailView> {
       setState(() => _saving = false);
 
       if (created != null) {
-        MagicRoute.to('/projects/${widget.projectId}/memories/${created.id}');
+        MagicRoute.to('/memories/${widget.projectId}/${created.id}');
       }
     } else {
       final updated = await state.updateMemory(
@@ -265,7 +265,7 @@ class _MemoryDetailViewState extends State<MemoryDetailView> {
     );
 
     if (deleted) {
-      MagicRoute.to('/projects/${widget.projectId}/memories');
+      MagicRoute.to('/memories/${widget.projectId}');
     }
   }
 

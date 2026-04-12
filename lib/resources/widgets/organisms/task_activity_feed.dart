@@ -247,7 +247,7 @@ class _TaskActivityFeedState extends State<TaskActivityFeed> {
 
     return WAnchor(
       onTap: () =>
-          MagicRoute.to('/projects/${widget.projectId}/chats/${conv.id}'),
+          MagicRoute.to('/conversations/${widget.projectId}/chats/${conv.id}'),
       child: WDiv(
         className:
             '''flex flex-row gap-3 items-center p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800''',

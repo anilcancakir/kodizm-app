@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:magic/magic.dart';
@@ -67,6 +69,9 @@ class _TaskDetailViewState extends State<TaskDetailView> {
   /// Whether the markdown was recently copied to clipboard.
   bool _copied = false;
 
+  /// Timer for resetting the copy feedback icon.
+  Timer? _copyResetTimer;
+
   // -----------------------------------------------------------------------
 
   @override
@@ -77,6 +82,7 @@ class _TaskDetailViewState extends State<TaskDetailView> {
 
   @override
   void dispose() {
+    _copyResetTimer?.cancel();
     TaskState.instance.unsubscribePipelineEvents();
     super.dispose();
   }
@@ -202,7 +208,9 @@ class _TaskDetailViewState extends State<TaskDetailView> {
     if (!context.mounted) return;
 
     if (conversation != null) {
-      MagicRoute.to('/projects/${widget.projectId}/chats/${conversation.id}');
+      MagicRoute.to(
+        '/conversations/${widget.projectId}/chats/${conversation.id}',
+      );
     } else {
       ScaffoldMessenger.of(
         context,
@@ -508,7 +516,8 @@ class _TaskDetailViewState extends State<TaskDetailView> {
 
     Clipboard.setData(ClipboardData(text: buffer.toString().trimRight()));
     setState(() => _copied = true);
-    Future.delayed(const Duration(seconds: 2), () {
+    _copyResetTimer?.cancel();
+    _copyResetTimer = Timer(const Duration(seconds: 2), () {
       if (mounted) setState(() => _copied = false);
     });
   }

@@ -327,12 +327,18 @@ void main() {
         SystemChannels.platform,
         (MethodCall call) async {
           if (call.method == 'Clipboard.setData') {
-            final args = call.arguments as Map<String, dynamic>;
+            final args = Map<String, dynamic>.from(call.arguments as Map);
             clipboardContent = args['text'] as String?;
           }
           return null;
         },
       );
+      addTearDown(() {
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        );
+      });
 
       // Tap the copy button.
       await tester.tap(find.byIcon(Icons.content_copy));

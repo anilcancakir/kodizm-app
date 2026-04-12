@@ -301,4 +301,70 @@ void main() {
     expect(find.text(trans('tasks.created_by')), findsOneWidget);
     expect(find.text('Anilcan'), findsOneWidget);
   });
+
+  // -------------------------------------------------------------------------
+  // 8. Copy as Markdown
+  // -------------------------------------------------------------------------
+
+  group('copy as markdown', () {
+    testWidgets('renders copy as markdown button in description card', (
+      tester,
+    ) async {
+      await pumpWithData(tester);
+
+      // The copy icon should be visible in the description card.
+      expect(find.byIcon(Icons.content_copy), findsOneWidget);
+    });
+
+    testWidgets('copies formatted markdown to clipboard on tap', (
+      tester,
+    ) async {
+      await pumpWithData(tester);
+
+      // Set up clipboard mock to capture the copied text.
+      String? clipboardContent;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (MethodCall call) async {
+          if (call.method == 'Clipboard.setData') {
+            final args = Map<String, dynamic>.from(call.arguments as Map);
+            clipboardContent = args['text'] as String?;
+          }
+          return null;
+        },
+      );
+      addTearDown(() {
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        );
+      });
+
+      // Tap the copy button.
+      await tester.tap(find.byIcon(Icons.content_copy));
+      await tester.pump();
+
+      // Verify clipboard received formatted markdown with section headers.
+      expect(clipboardContent, isNotNull);
+      expect(
+        clipboardContent,
+        contains('## ${trans('tasks.description_label')}'),
+      );
+      expect(clipboardContent, contains('Build the login screen'));
+      expect(
+        clipboardContent,
+        contains('## ${trans('tasks.acceptance_criteria')}'),
+      );
+      expect(clipboardContent, contains('User can sign in'));
+
+      // Icon should change to check mark as visual feedback.
+      expect(find.byIcon(Icons.check), findsOneWidget);
+      expect(find.byIcon(Icons.content_copy), findsNothing);
+
+      // After 2 seconds, icon resets back.
+      await tester.pump(const Duration(seconds: 2));
+      expect(find.byIcon(Icons.content_copy), findsOneWidget);
+      expect(find.byIcon(Icons.check), findsNothing);
+    });
+  });
 }

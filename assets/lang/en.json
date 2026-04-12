@@ -1019,7 +1019,9 @@
     "validation_has_uncommitted_detail": "The developer agent left uncommitted changes. The task was marked as failed.",
     "validation_no_changes_detail": "The developer agent made no file changes. The task was marked as failed.",
     "validation_has_commits_detail": "Changes were committed and pushed successfully.",
-    "reopen_task": "Reopen Task"
+    "reopen_task": "Reopen Task",
+    "copy_as_markdown": "Copy as Markdown",
+    "copied_to_clipboard": "Copied to clipboard"
   },
   "usage": {
     "title": "Usage History",

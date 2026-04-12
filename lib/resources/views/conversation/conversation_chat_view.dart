@@ -784,6 +784,7 @@ class _ConversationChatViewState extends State<ConversationChatView> {
       'dev' => 'bg-teal-500',
       'reviewer' => 'bg-violet-500',
       'qa' => 'bg-emerald-500',
+      'product-manager' => 'bg-blue-500',
       _ => 'bg-slate-500',
     };
   }

@@ -976,6 +976,7 @@
     "starting_run": "Starting...",
     "confirm_run": "Run Task",
     "confirm_run_description": "This will start an autonomous agent run for this task. The agent will plan, implement, and deliver the changes.",
+    "start_run_failed": "Failed to start the run. Please try again.",
     "transition_start_analysis": "Start Analysis",
     "transition_start_planning": "Start Planning",
     "transition_start_development": "Start Development",

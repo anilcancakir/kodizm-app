@@ -199,6 +199,10 @@ class _TaskDetailViewState extends State<TaskDetailView> {
 
     if (conversation != null) {
       MagicRoute.to('/projects/${widget.projectId}/chats/${conversation.id}');
+    } else {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(trans('tasks.start_run_failed'))));
     }
   }
 

@@ -801,4 +801,139 @@ void main() {
       expect(find.byType(ChatToolUseCard), findsOneWidget);
     },
   );
+
+  // -----------------------------------------------------------------------
+  // 21. Provisioning phase with no step shows fallback "Starting..."
+  // -----------------------------------------------------------------------
+
+  testWidgets('provisioning phase with no step shows fallback Starting label', (
+    tester,
+  ) async {
+    await pumpWithConversation(tester);
+
+    state.setAwaitingResponseForTest(value: true);
+    state.setSessionPhaseForTest('provisioning');
+    state.setProvisioningStepForTest(null);
+    await tester.pump();
+
+    expect(
+      find.text(trans('conversation_chat.status_starting')),
+      findsOneWidget,
+    );
+  });
+
+  // -----------------------------------------------------------------------
+  // 22. Provisioning phase with container_starting step shows label
+  // -----------------------------------------------------------------------
+
+  testWidgets(
+    'provisioning phase with container_starting step shows correct label',
+    (tester) async {
+      await pumpWithConversation(tester);
+
+      state.setAwaitingResponseForTest(value: true);
+      state.setSessionPhaseForTest('provisioning');
+      state.setProvisioningStepForTest('container_starting');
+      await tester.pump();
+
+      expect(
+        find.text(trans('conversation_chat.provisioning_container_starting')),
+        findsOneWidget,
+      );
+    },
+  );
+
+  // -----------------------------------------------------------------------
+  // 23. Provisioning phase with skills_loading step shows label
+  // -----------------------------------------------------------------------
+
+  testWidgets(
+    'provisioning phase with skills_loading step shows correct label',
+    (tester) async {
+      await pumpWithConversation(tester);
+
+      state.setAwaitingResponseForTest(value: true);
+      state.setSessionPhaseForTest('provisioning');
+      state.setProvisioningStepForTest('skills_loading');
+      await tester.pump();
+
+      expect(
+        find.text(trans('conversation_chat.provisioning_skills_loading')),
+        findsOneWidget,
+      );
+    },
+  );
+
+  // -----------------------------------------------------------------------
+  // 24. Step label updates when provisioning step changes (AnimatedSwitcher)
+  // -----------------------------------------------------------------------
+
+  testWidgets('step label updates when provisioning step changes', (
+    tester,
+  ) async {
+    await pumpWithConversation(tester);
+
+    state.setAwaitingResponseForTest(value: true);
+    state.setSessionPhaseForTest('provisioning');
+    state.setProvisioningStepForTest('container_starting');
+    await tester.pump();
+
+    expect(
+      find.text(trans('conversation_chat.provisioning_container_starting')),
+      findsOneWidget,
+    );
+    expect(
+      find.text(trans('conversation_chat.provisioning_skills_loading')),
+      findsNothing,
+    );
+
+    // Transition to next step.
+    state.setProvisioningStepForTest('skills_loading');
+    await tester.pump();
+
+    // AnimatedSwitcher: new label is present.
+    expect(
+      find.text(trans('conversation_chat.provisioning_skills_loading')),
+      findsOneWidget,
+    );
+  });
+
+  // -----------------------------------------------------------------------
+  // 25. Executing phase clears provisioning step indicator
+  // -----------------------------------------------------------------------
+
+  testWidgets(
+    'executing phase clears provisioning step and shows working label',
+    (tester) async {
+      await pumpWithConversation(tester);
+
+      // Start in provisioning with a step set.
+      state.setAwaitingResponseForTest(value: true);
+      state.setSessionPhaseForTest('provisioning');
+      state.setProvisioningStepForTest('skills_loading');
+      await tester.pump();
+
+      expect(
+        find.text(trans('conversation_chat.provisioning_skills_loading')),
+        findsOneWidget,
+      );
+
+      // Transition to executing phase — provisioning step must not be shown.
+      state.setSessionPhaseForTest('executing');
+      state.setProvisioningStepForTest(null);
+      // Pump twice to flush the state change and advance AnimatedSwitcher past
+      // its 200ms fade duration.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(
+        find.text(trans('conversation_chat.provisioning_skills_loading')),
+        findsNothing,
+      );
+      expect(
+        find.text(trans('conversation_chat.status_working')),
+        findsOneWidget,
+      );
+    },
+  );
 }

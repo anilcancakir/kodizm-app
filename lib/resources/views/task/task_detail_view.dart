@@ -11,6 +11,7 @@ import '../../../app/state/project_state.dart';
 import '../../../app/state/task_state.dart';
 import '../../widgets/atoms/collapsible_section.dart';
 import '../../widgets/atoms/status_badge.dart';
+import '../../widgets/organisms/agent_role_picker_modal.dart';
 import '../../widgets/organisms/markdown_viewer.dart';
 import '../../widgets/organisms/task_activity_feed.dart';
 import '../../widgets/organisms/task_detail_sidebar.dart';
@@ -157,21 +158,48 @@ class _TaskDetailViewState extends State<TaskDetailView> {
 
     if (!context.mounted) return;
 
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => _StartRunDialog(
-        projectId: widget.projectId,
-        taskId: widget.taskId,
-        teamId: teamId,
-        onRunStarted: (conversationId) {
-          if (context.mounted) {
-            MagicRoute.to(
-              '/projects/${widget.projectId}/chats/$conversationId',
-            );
-          }
-        },
-      ),
+    final roles = TaskState.instance.agentRoles;
+    final mainAgent = roles.cast<AgentRole?>().firstWhere(
+      (r) => r?.slug == 'main-agent',
+      orElse: () => null,
     );
+
+    // Fallback: if main-agent not found, show full picker.
+    if (mainAgent == null) {
+      final selected = await AgentRolePickerModal.show(context, roles);
+      if (selected == null || !context.mounted) return;
+      await _startRunWithRole(context, teamId, selected.id);
+      return;
+    }
+
+    // Show confirm dialog.
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => const _RunConfirmDialog(),
+    );
+
+    if (confirmed != true || !context.mounted) return;
+    await _startRunWithRole(context, teamId, mainAgent.id);
+  }
+
+  /// Starts a run with the given [roleId] and navigates to the conversation.
+  Future<void> _startRunWithRole(
+    BuildContext context,
+    String teamId,
+    String roleId,
+  ) async {
+    final conversation = await TaskState.instance.startRun(
+      teamId,
+      widget.projectId,
+      widget.taskId,
+      roleId,
+    );
+
+    if (!context.mounted) return;
+
+    if (conversation != null) {
+      MagicRoute.to('/projects/${widget.projectId}/chats/${conversation.id}');
+    }
   }
 
   // -----------------------------------------------------------------------
@@ -462,137 +490,44 @@ class _TaskDetailViewState extends State<TaskDetailView> {
 }
 
 // ---------------------------------------------------------------------------
-// Start run dialog
+// Run confirm dialog
 // ---------------------------------------------------------------------------
 
-/// Modal dialog for selecting an agent role and starting a new task run.
+/// Simple confirm dialog that initiates a task run with the main agent.
 ///
-/// Reads available roles from [TaskState.instance.agentRoles]. On confirm,
-/// calls [TaskState.instance.startRun] and invokes [onRunStarted] on success.
-class _StartRunDialog extends StatefulWidget {
-  /// Creates a [_StartRunDialog].
-  const _StartRunDialog({
-    required this.projectId,
-    required this.taskId,
-    required this.teamId,
-    required this.onRunStarted,
-  });
-
-  /// The project ID.
-  final String projectId;
-
-  /// The task ID.
-  final String taskId;
-
-  /// The team ID used for the API call.
-  final String teamId;
-
-  /// Callback invoked when the run is successfully started, with the new run ID.
-  final void Function(String runId) onRunStarted;
-
-  @override
-  State<_StartRunDialog> createState() => _StartRunDialogState();
-}
-
-class _StartRunDialogState extends State<_StartRunDialog> {
-  /// The currently selected agent role.
-  AgentRole? _selectedRole;
-
-  /// Submits the run to the API and closes the dialog.
-  Future<void> _submit() async {
-    final role = _selectedRole;
-    if (role == null) return;
-
-    final conversation = await TaskState.instance.startRun(
-      widget.teamId,
-      widget.projectId,
-      widget.taskId,
-      role.id,
-    );
-
-    if (!mounted) return;
-
-    Navigator.of(context).pop();
-
-    if (conversation != null) {
-      widget.onRunStarted(conversation.id);
-    }
-  }
+/// Returns `true` when the user confirms, `false` or `null` when cancelled.
+class _RunConfirmDialog extends StatelessWidget {
+  /// Creates a [_RunConfirmDialog].
+  const _RunConfirmDialog();
 
   @override
   Widget build(BuildContext context) {
-    final starting = TaskState.instance.startingRun;
-
+    final theme = MagicStarter.modalTheme;
     return MagicStarterDialogShell(
-      title: trans('tasks.select_agent_role'),
-      body: ListenableBuilder(
-        listenable: TaskState.instance,
-        builder: (context, _) {
-          final currentRoles = TaskState.instance.agentRoles;
-
-          return WDiv(
-            className: 'w-96',
-            child: ListView.separated(
-              shrinkWrap: true,
-              itemCount: currentRoles.length,
-              separatorBuilder: (_, _) => const WSpacer(className: 'h-1'),
-              itemBuilder: (context, index) {
-                final role = currentRoles[index];
-                final isSelected = _selectedRole?.id == role.id;
-
-                return WAnchor(
-                  onTap: () => setState(() => _selectedRole = role),
-                  child: WDiv(
-                    className:
-                        '''
-                      p-3 rounded-lg
-                      ${isSelected ? 'bg-amber-400/10 border border-amber-400' : 'bg-slate-50 dark:bg-gray-800'}
-                    ''',
-                    children: [
-                      WText(
-                        role.name,
-                        className:
-                            '''
-                          text-sm font-medium
-                          ${isSelected ? 'text-amber-600 dark:text-amber-400' : 'text-slate-800 dark:text-slate-200'}
-                        ''',
-                      ),
-                      if (role.description != null)
-                        WText(
-                          role.description!,
-                          className:
-                              'text-xs text-slate-500 dark:text-slate-400 mt-0.5',
-                        ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          );
-        },
+      title: trans('tasks.confirm_run'),
+      body: WDiv(
+        className: 'w-full flex flex-col gap-3',
+        child: WText(
+          trans('tasks.confirm_run_description'),
+          className:
+              'text-sm text-slate-600 dark:text-slate-300 leading-relaxed',
+        ),
       ),
       footerBuilder: (dialogContext) => WDiv(
         className: 'flex flex-row gap-2 w-full justify-end',
         children: [
           WAnchor(
-            onTap: () => Navigator.of(dialogContext).pop(),
+            onTap: () => Navigator.of(dialogContext).pop(false),
             child: WDiv(
-              className: MagicStarter.modalTheme.secondaryButtonClassName,
+              className: theme.secondaryButtonClassName,
               child: WText(trans('common.cancel'), className: 'text-inherit'),
             ),
           ),
           WAnchor(
-            onTap: (_selectedRole != null && !starting) ? _submit : null,
+            onTap: () => Navigator.of(dialogContext).pop(true),
             child: WDiv(
-              className: (_selectedRole != null && !starting)
-                  ? MagicStarter.modalTheme.primaryButtonClassName
-                  : '${MagicStarter.modalTheme.primaryButtonClassName} opacity-50',
-              child: WText(
-                starting
-                    ? trans('tasks.starting_run')
-                    : trans('tasks.start_run'),
-                className: 'text-inherit',
-              ),
+              className: theme.primaryButtonClassName,
+              child: WText(trans('tasks.run_agent'), className: 'text-inherit'),
             ),
           ),
         ],

@@ -974,6 +974,8 @@
     "select_agent_role": "Select Agent Role",
     "start_run": "Start Run",
     "starting_run": "Starting...",
+    "confirm_run": "Run Task",
+    "confirm_run_description": "This will start an autonomous agent run for this task. The agent will plan, implement, and deliver the changes.",
     "transition_start_analysis": "Start Analysis",
     "transition_start_planning": "Start Planning",
     "transition_start_development": "Start Development",

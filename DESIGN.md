@@ -101,6 +101,7 @@ Each SDLC agent role gets a distinct identifying color for avatars, badges, and 
 | Developer | Teal | `#14B8A6` | Building, crafting |
 | Code Reviewer | Violet | `#8B5CF6` | Scrutiny, quality |
 | QA Engineer | Emerald | `#10B981` | Verification, green-light |
+| Product Manager | Blue | `#3B82F6` | Product vision, task management |
 
 #### Task Status Colors
 

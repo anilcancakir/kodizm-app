@@ -12,8 +12,7 @@ import '../../../app/models/agent_role.dart';
 ///
 /// Displays a radio-style list of roles — each row shows the role name,
 /// optional description, and a scope colour indicator derived from the
-/// [_scopeClassName] map. The BA role (`slug == 'ba'`) is pre-selected; when
-/// no BA role is present the first role in the list is selected instead.
+/// [_scopeClassName] map. The PM role (`slug == 'product-manager'`) is pre-selected; falls back to BA, then first role.
 ///
 /// A single-role list still shows the modal so the user can confirm their
 /// selection.
@@ -84,25 +83,30 @@ class _AgentRolePickerModalState extends State<AgentRolePickerModal> {
   // Helpers
   // -----------------------------------------------------------------------
 
-  /// Returns the BA role when present, otherwise the first role, or `null`
-  /// when [roles] is empty.
+  /// Returns the PM role when present, falls back to BA, then first role, or
+  /// `null` when [roles] is empty.
   AgentRole? _initialSelection(List<AgentRole> roles) {
     if (roles.isEmpty) return null;
     try {
-      return roles.firstWhere((r) => r.slug == 'ba');
+      return roles.firstWhere((r) => r.slug == 'product-manager');
     } catch (_) {
-      return roles.first;
+      try {
+        return roles.firstWhere((r) => r.slug == 'ba');
+      } catch (_) {
+        return roles.first;
+      }
     }
   }
 
   /// Returns a Tailwind className pair for a given [scope] slug.
   ///
   /// Colours follow DESIGN.md agent role palette:
-  /// - BA / analysis  → Indigo  (`#6366F1`)
-  /// - lead           → Navy    (`#334E68`)
-  /// - dev            → Teal    (`#14B8A6`)
-  /// - reviewer       → Violet  (`#8B5CF6`)
-  /// - qa             → Emerald (`#10B981`)
+  /// - BA / analysis      → Indigo  (`#6366F1`)
+  /// - lead               → Navy    (`#334E68`)
+  /// - dev                → Teal    (`#14B8A6`)
+  /// - reviewer           → Violet  (`#8B5CF6`)
+  /// - qa                 → Emerald (`#10B981`)
+  /// - pm / product-manager → Blue  (`#3B82F6`)
   String _scopeClassName(String scope) {
     const Map<String, String> scopeMap = {
       'ba': 'bg-indigo-500/10 text-indigo-500',
@@ -115,6 +119,9 @@ class _AgentRolePickerModalState extends State<AgentRolePickerModal> {
       'review': 'bg-violet-500/10 text-violet-500',
       'qa': 'bg-emerald-500/10 text-emerald-500',
       'testing': 'bg-emerald-500/10 text-emerald-500',
+      'pm': 'bg-blue-500/10 text-blue-500',
+      'product-manager': 'bg-blue-500/10 text-blue-500',
+      'product': 'bg-blue-500/10 text-blue-500',
     };
 
     final key = scope.toLowerCase();

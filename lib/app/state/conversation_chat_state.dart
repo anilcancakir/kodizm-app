@@ -1543,6 +1543,11 @@ class ConversationChatState extends MagicController
 
     _warmUntil = wsEvent.data['warm_until'] as String?;
 
+    // Extract provisioning_step from conversation status events when in provisioning phase.
+    _provisioningStep = phase == 'provisioning'
+        ? wsEvent.data['provisioning_step'] as String?
+        : null;
+
     // Subscribe to session WS channel on first encounter.
     final incomingSessionId = wsEvent.data['session_id'] as String?;
     if (incomingSessionId != null && _sessionId != incomingSessionId) {

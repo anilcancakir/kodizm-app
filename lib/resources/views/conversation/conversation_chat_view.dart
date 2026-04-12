@@ -514,13 +514,18 @@ class _ConversationChatViewState extends State<ConversationChatView> {
               height: 16,
               child: const CircularProgressIndicator(strokeWidth: 2),
             ),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              child: WText(
-                _typingStatusLabel(),
-                key: ValueKey<String>(_typingStatusLabel()),
-                className: 'text-sm text-slate-500 dark:text-slate-400',
-              ),
+            Builder(
+              builder: (_) {
+                final label = _typingStatusLabel();
+                return AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  child: WText(
+                    label,
+                    key: ValueKey<String>(label),
+                    className: 'text-sm text-slate-500 dark:text-slate-400',
+                  ),
+                );
+              },
             ),
           ],
         ),

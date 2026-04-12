@@ -420,6 +420,9 @@ class ConversationChatState extends MagicController
   @visibleForTesting
   void setSessionPhaseForTest(String? phase) {
     _sessionPhase = phase;
+    if (phase != 'provisioning') {
+      _provisioningStep = null;
+    }
     refreshUI();
   }
 

@@ -162,8 +162,12 @@ class _TaskListViewState extends State<TaskListView> {
     switch (result) {
       case 'manual':
         MagicRoute.to('/tasks/${widget.projectId}/create');
+        return;
       case 'chat':
-        _openChatWithBa();
+        await _openChatWithBa();
+        return;
+      default:
+        return;
     }
   }
 

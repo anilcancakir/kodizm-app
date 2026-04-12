@@ -69,6 +69,44 @@ void registerAppRoutes() {
         (String projectId, String taskId) =>
             TaskDetailView(projectId: projectId, taskId: taskId),
       ).title('Task');
+      // Legacy routes — redirect old `/projects/:id/{section}` URLs to
+      // new `/{section}/:id` structure so bookmarks and deep-links survive.
+      MagicRoute.page(
+        '/projects/:projectId/tasks',
+        (String projectId) => TaskListView(projectId: projectId),
+      ).title('Tasks');
+      MagicRoute.page(
+        '/projects/:projectId/tasks/create',
+        (String projectId) => TaskCreateView(projectId: projectId),
+      ).title('New Task');
+      MagicRoute.page(
+        '/projects/:projectId/tasks/:taskId',
+        (String projectId, String taskId) =>
+            TaskDetailView(projectId: projectId, taskId: taskId),
+      ).title('Task');
+      MagicRoute.page(
+        '/projects/:projectId/conversations',
+        (String projectId) => ConversationListView(projectId: projectId),
+      ).title('Conversations');
+      MagicRoute.page(
+        '/projects/:projectId/documents',
+        (String projectId) => DocumentListView(projectId: projectId),
+      ).title('Documents');
+      MagicRoute.page(
+        '/projects/:projectId/documents/:documentId',
+        (String projectId, String documentId) =>
+            DocumentDetailView(projectId: projectId, documentId: documentId),
+      ).title('Document');
+      MagicRoute.page(
+        '/projects/:projectId/memories',
+        (String projectId) => MemoryListView(projectId: projectId),
+      ).title('Memories');
+      MagicRoute.page(
+        '/projects/:projectId/memories/:memoryId',
+        (String projectId, String memoryId) =>
+            MemoryDetailView(projectId: projectId, memoryId: memoryId),
+      ).title('Memory');
+
       // Top-level nav redirects — check current project and redirect.
       MagicRoute.page(
         '/tasks',

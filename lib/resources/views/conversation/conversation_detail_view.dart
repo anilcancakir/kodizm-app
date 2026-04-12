@@ -15,7 +15,10 @@ import '../../../app/state/conversation_detail_state.dart';
 /// ## Usage
 ///
 /// ```dart
-/// MagicRoute.to('/conversations/$projectId/$conversationId');
+/// const ConversationDetailView(
+///   projectId: 'project-uuid',
+///   conversationId: 'conversation-uuid',
+/// );
 /// ```
 class ConversationDetailView extends StatefulWidget {
   /// Creates the [ConversationDetailView].

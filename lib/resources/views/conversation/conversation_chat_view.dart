@@ -29,9 +29,9 @@ import '../../widgets/organisms/chat_stream_event_renderer.dart';
 /// ## Usage
 ///
 /// ```dart
-/// MagicRoute.to('/conversations/$projectId');
-/// // or construct directly:
-/// ConversationChatView(projectId: 'proj-uuid-001')
+/// MagicRoute.to('/conversations/$projectId/chat');
+/// // or open an existing conversation:
+/// MagicRoute.to('/conversations/$projectId/chats/$conversationId');
 /// ```
 class ConversationChatView extends StatefulWidget {
   const ConversationChatView({

@@ -7,6 +7,7 @@ import 'package:magic_starter/magic_starter.dart';
 
 import '../../../app/models/agent_role.dart';
 import '../../../app/models/conversation.dart';
+import '../../../app/models/message_attachment.dart';
 import '../../../app/models/task.dart';
 import '../../../app/models/task_section.dart';
 import '../../../app/models/user.dart';
@@ -19,6 +20,7 @@ import '../../widgets/organisms/markdown_viewer.dart';
 import '../../widgets/molecules/task_comment_input.dart';
 import '../../widgets/organisms/task_activity_feed.dart';
 import '../../widgets/organisms/task_detail_sidebar.dart';
+import '../../widgets/atoms/attachment_thumbnail.dart';
 
 /// Task detail view — Jira-style two-column layout with mobile-first responsive
 /// design. Desktop (>=1024px) shows main content left, sidebar right. Mobile
@@ -361,6 +363,7 @@ class _TaskDetailViewState extends State<TaskDetailView> {
               className: 'flex-1 flex flex-col gap-6',
               children: [
                 _buildDescriptionCard(task),
+                _buildAttachmentsCard(task),
                 ..._buildSectionCards(sections),
               ],
             ),
@@ -427,6 +430,9 @@ class _TaskDetailViewState extends State<TaskDetailView> {
 
         // Description
         _buildDescriptionCard(task),
+
+        // Attachments
+        _buildAttachmentsCard(task),
 
         // Sections — each as its own card
         ..._buildSectionCards(sections),
@@ -509,6 +515,60 @@ class _TaskDetailViewState extends State<TaskDetailView> {
                 MarkdownViewer(data: task.acceptanceCriteria!),
               ],
             ),
+        ],
+      ),
+    );
+  }
+
+  /// Builds the attachments card — shows thumbnail grid for task attachments.
+  ///
+  /// Renders image attachments as [AttachmentThumbnail] widgets and non-image
+  /// attachments (PDFs, documents) as a file tile with filename and size.
+  /// Returns an empty [SizedBox.shrink] when the task has no attachments.
+  Widget _buildAttachmentsCard(Task task) {
+    if (task.attachments.isEmpty) return const SizedBox.shrink();
+
+    return MagicStarterCard(
+      child: WDiv(
+        className: 'flex flex-col gap-4',
+        children: [
+          WText(
+            trans('tasks.attachments_title'),
+            className:
+                'text-base font-semibold text-slate-800 dark:text-slate-100',
+          ),
+          WDiv(
+            className: 'flex flex-row flex-wrap gap-3',
+            children: [
+              for (final attachment in task.attachments)
+                if (attachment.isImage)
+                  AttachmentThumbnail(attachment: attachment)
+                else
+                  _buildFileTile(attachment),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Builds a compact file tile for non-image attachments (PDFs, documents).
+  Widget _buildFileTile(MessageAttachment attachment) {
+    return WAnchor(
+      onTap: () => Launch.url(attachment.url),
+      child: WDiv(
+        className:
+            '''w-48 h-48 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center gap-2 p-3''',
+        children: [
+          WIcon(
+            attachment.isPdf ? Icons.picture_as_pdf : Icons.insert_drive_file,
+            className: 'text-2xl text-slate-400',
+          ),
+          WText(
+            attachment.filename,
+            className: 'text-xs text-slate-600 dark:text-slate-300 text-center',
+          ),
+          WText(attachment.sizeFormatted, className: 'text-xs text-slate-400'),
         ],
       ),
     );

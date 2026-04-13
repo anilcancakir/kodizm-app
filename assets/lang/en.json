@@ -1030,7 +1030,13 @@
     "copied_to_clipboard": "Copied to clipboard",
     "comment_placeholder": "Write instructions for the agent…",
     "comment_send": "Send",
-    "comment_select_role": "Agent Role"
+    "comment_select_role": "Agent Role",
+    "attachments_title": "Attachments",
+    "attach_file": "Attach file",
+    "attachment_limit_count": "Maximum :max files per task",
+    "attachment_limit_size": "File must be under :max MB",
+    "attachment_uploading": "Uploading...",
+    "attachment_upload_failed": "Failed to upload :filename"
   },
   "usage": {
     "title": "Usage History",

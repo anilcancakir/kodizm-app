@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:magic/magic.dart';
 
+import 'message_attachment.dart';
+
 /// Task model.
 ///
 /// Represents a Kodizm task within a project. Extends the Magic ORM [Model]
@@ -233,6 +235,21 @@ class Task extends Model with HasTimestamps, InteractsWithPersistence {
     final data = getAttribute('pull_requests');
     if (data is List) {
       return data.cast<Map<String, dynamic>>();
+    }
+    return [];
+  }
+
+  /// File attachments linked to this task (detail view only).
+  ///
+  /// Returns an empty list when the `attachments` relation was not loaded
+  /// in the API response.
+  List<MessageAttachment> get attachments {
+    final data = getAttribute('attachments');
+    if (data is List) {
+      return data
+          .cast<Map<String, dynamic>>()
+          .map(MessageAttachment.fromMap)
+          .toList();
     }
     return [];
   }

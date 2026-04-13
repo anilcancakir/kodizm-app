@@ -340,32 +340,43 @@ class TaskState extends MagicController
   ///
   /// Sets [startingRun] to `true` during the request. Returns the created
   /// [Conversation] on success, or `null` on failure.
+  ///
+  /// When [prompt] is provided, it is sent as the agent's working prompt
+  /// instead of the default task description.
   Future<Conversation?> startRun(
     String teamId,
     String projectId,
     String taskId,
-    String agentRoleId,
-  ) async {
+    String agentRoleId, {
+    String? prompt,
+  }) async {
     _startingRun = true;
     refreshUI();
 
-    final response = await Http.post(
-      '/teams/$teamId/projects/$projectId/tasks/$taskId/run',
-      data: {'agent_role_id': agentRoleId},
-    );
-
-    _startingRun = false;
-
-    if (response.successful) {
-      final Map<String, dynamic> convData =
-          (response.data as Map<String, dynamic>)['data']
-              as Map<String, dynamic>;
-      refreshUI();
-      return Conversation.fromMap(convData);
+    final Map<String, dynamic> body = {'agent_role_id': agentRoleId};
+    final String? trimmedPrompt = prompt?.trim();
+    if (trimmedPrompt != null && trimmedPrompt.isNotEmpty) {
+      body['prompt'] = trimmedPrompt;
     }
 
-    refreshUI();
-    return null;
+    try {
+      final response = await Http.post(
+        '/teams/$teamId/projects/$projectId/tasks/$taskId/run',
+        data: body,
+      );
+
+      if (response.successful) {
+        final Map<String, dynamic> convData =
+            (response.data as Map<String, dynamic>)['data']
+                as Map<String, dynamic>;
+        return Conversation.fromMap(convData);
+      }
+
+      return null;
+    } finally {
+      _startingRun = false;
+      refreshUI();
+    }
   }
 
   // ---------------------------------------------------------------------------

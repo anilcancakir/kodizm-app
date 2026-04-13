@@ -252,13 +252,22 @@ class _TaskActivityFeedState extends State<TaskActivityFeed> {
         className:
             '''flex flex-row gap-3 items-center p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800''',
         children: [
-          // Agent role name
+          // Agent role name + optional prompt subtitle
           WDiv(
-            className: 'flex-1',
-            child: WText(
-              conv.agentRoleName ?? '--',
-              className: 'text-sm font-medium text-primary-700 dark:text-white',
-            ),
+            className: 'flex-1 flex flex-col',
+            children: [
+              WText(
+                conv.agentRoleName ?? '--',
+                className:
+                    'text-sm font-medium text-primary-700 dark:text-white',
+              ),
+              if (conv.prompt != null && conv.prompt!.isNotEmpty)
+                WText(
+                  conv.prompt!,
+                  className:
+                      'text-xs text-slate-500 dark:text-slate-400 truncate',
+                ),
+            ],
           ),
           // Status badge
           StatusBadge(status: conv.status),

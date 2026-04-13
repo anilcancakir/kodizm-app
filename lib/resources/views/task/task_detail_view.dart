@@ -16,6 +16,7 @@ import '../../widgets/atoms/collapsible_section.dart';
 import '../../widgets/atoms/status_badge.dart';
 import '../../widgets/organisms/agent_role_picker_modal.dart';
 import '../../widgets/organisms/markdown_viewer.dart';
+import '../../widgets/molecules/task_comment_input.dart';
 import '../../widgets/organisms/task_activity_feed.dart';
 import '../../widgets/organisms/task_detail_sidebar.dart';
 
@@ -87,8 +88,9 @@ class _TaskDetailViewState extends State<TaskDetailView> {
     super.dispose();
   }
 
-  /// Fetches task, sections, and runs in parallel, then subscribes to
-  /// real-time pipeline events if the project has pipeline enabled.
+  /// Fetches task, sections, runs, and agent roles in parallel, then
+  /// subscribes to real-time pipeline events if the project has pipeline
+  /// enabled.
   Future<void> _fetchAll() async {
     final teamId = Auth.user<User>()?.currentTeam?.id;
     if (teamId == null) return;
@@ -101,6 +103,7 @@ class _TaskDetailViewState extends State<TaskDetailView> {
         widget.projectId,
         widget.taskId,
       ),
+      TaskState.instance.fetchAgentRoles(teamId),
       ProjectState.instance.fetchProject(teamId, widget.projectId),
     ]);
 
@@ -193,21 +196,35 @@ class _TaskDetailViewState extends State<TaskDetailView> {
   }
 
   /// Starts a run with the given [roleId] and navigates to the conversation.
+  ///
+  /// When [prompt] is provided it is forwarded to the backend so the agent
+  /// uses it as its working instructions instead of the task description.
   Future<void> _startRunWithRole(
     BuildContext context,
     String teamId,
-    String roleId,
-  ) async {
+    String roleId, {
+    String? prompt,
+  }) async {
     final conversation = await TaskState.instance.startRun(
       teamId,
       widget.projectId,
       widget.taskId,
       roleId,
+      prompt: prompt,
     );
 
     if (!context.mounted) return;
 
     if (conversation != null) {
+      // Refresh the activity feed so the new run appears immediately.
+      unawaited(
+        TaskState.instance.fetchConversations(
+          teamId,
+          widget.projectId,
+          widget.taskId,
+        ),
+      );
+
       MagicRoute.to('/conversations/${widget.projectId}/${conversation.id}');
     } else {
       ScaffoldMessenger.of(
@@ -377,6 +394,9 @@ class _TaskDetailViewState extends State<TaskDetailView> {
           conversations: runs,
           projectId: widget.projectId,
         ),
+
+        // Comment input for custom agent runs
+        _buildCommentInput(runs),
       ],
     );
   }
@@ -417,7 +437,29 @@ class _TaskDetailViewState extends State<TaskDetailView> {
           conversations: runs,
           projectId: widget.projectId,
         ),
+
+        // Comment input for custom agent runs
+        _buildCommentInput(runs),
       ],
+    );
+  }
+
+  // -----------------------------------------------------------------------
+  // Comment input
+  // -----------------------------------------------------------------------
+
+  /// Builds the comment input widget for custom agent run prompts.
+  Widget _buildCommentInput(List<Conversation> runs) {
+    return TaskCommentInput(
+      roles: TaskState.instance.agentRoles,
+      enabled: !_hasActiveRun(runs),
+      onSubmit: (String prompt, String agentRoleId) async {
+        final teamId = Auth.user<User>()?.currentTeam?.id;
+        if (teamId == null) return;
+
+        if (!mounted) return;
+        await _startRunWithRole(context, teamId, agentRoleId, prompt: prompt);
+      },
     );
   }
 

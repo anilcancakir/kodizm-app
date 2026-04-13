@@ -77,9 +77,7 @@ class _ConversationListViewState extends State<ConversationListView> {
     );
     if (conversation == null || !mounted) return;
 
-    MagicRoute.to(
-      '/conversations/${widget.projectId}/chats/${conversation.id}',
-    );
+    MagicRoute.to('/conversations/${widget.projectId}/${conversation.id}');
   }
 
   // -----------------------------------------------------------------------
@@ -280,7 +278,7 @@ class _ConversationListViewState extends State<ConversationListView> {
 
     return WAnchor(
       onTap: () => MagicRoute.to(
-        '/conversations/${widget.projectId}/chats/${conversation.id}',
+        '/conversations/${widget.projectId}/${conversation.id}',
       ),
       child: WDiv(
         className: 'px-4 py-3 flex flex-row items-center gap-3',

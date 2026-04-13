@@ -31,7 +31,7 @@ import '../../widgets/organisms/chat_stream_event_renderer.dart';
 /// ```dart
 /// MagicRoute.to('/conversations/$projectId/chat');
 /// // or open an existing conversation:
-/// MagicRoute.to('/conversations/$projectId/chats/$conversationId');
+/// MagicRoute.to('/conversations/$projectId/$conversationId');
 /// ```
 class ConversationChatView extends StatefulWidget {
   const ConversationChatView({
@@ -95,7 +95,7 @@ class _ConversationChatViewState extends State<ConversationChatView> {
   }
 
   void _maybeLoadConversation() {
-    // Path-param conversation ID takes priority (e.g. /chats/:conversationId).
+    // Path-param conversation ID takes priority (e.g. /:conversationId).
     final conversationId = widget.conversationId;
     if (conversationId != null && conversationId.isNotEmpty) {
       // Same conversation (e.g. browser refresh) — skip refetch, just
@@ -144,7 +144,7 @@ class _ConversationChatViewState extends State<ConversationChatView> {
     if (id == null) return;
 
     try {
-      MagicRoute.replace('/conversations/${widget.projectId}/chats/$id');
+      MagicRoute.replace('/conversations/${widget.projectId}/$id');
     } catch (_) {
       // Router may not be available in tests.
     }

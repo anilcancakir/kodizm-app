@@ -94,7 +94,7 @@ class _AgentProgressOverlayState extends State<AgentProgressOverlay> {
 
     return WAnchor(
       onTap: () => MagicRoute.to(
-        '/conversations/${item.projectId}/chats/${item.conversationId}',
+        '/conversations/${item.projectId}/${item.conversationId}',
       ),
       child: WDiv(
         className: containerClass,

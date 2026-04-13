@@ -208,9 +208,7 @@ class _TaskDetailViewState extends State<TaskDetailView> {
     if (!context.mounted) return;
 
     if (conversation != null) {
-      MagicRoute.to(
-        '/conversations/${widget.projectId}/chats/${conversation.id}',
-      );
+      MagicRoute.to('/conversations/${widget.projectId}/${conversation.id}');
     } else {
       ScaffoldMessenger.of(
         context,

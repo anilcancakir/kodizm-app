@@ -1025,7 +1025,10 @@
     "validation_has_commits_detail": "Changes were committed and pushed successfully.",
     "reopen_task": "Reopen Task",
     "copy_as_markdown": "Copy as Markdown",
-    "copied_to_clipboard": "Copied to clipboard"
+    "copied_to_clipboard": "Copied to clipboard",
+    "comment_placeholder": "Write instructions for the agent…",
+    "comment_send": "Send",
+    "comment_select_role": "Agent Role"
   },
   "usage": {
     "title": "Usage History",

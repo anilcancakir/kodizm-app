@@ -291,7 +291,9 @@
     "status_queued": "Queued",
     "status_delivering": "Delivering",
     "status_cancelled": "Cancelled",
-    "status_failed_delivery": "Delivery Failed"
+    "status_failed_delivery": "Delivery Failed",
+    "system_dispatch_title": "Initial dispatch",
+    "system_dispatch_subtitle": "Phase-by-phase task instructions sent to the agent."
   },
   "conversations": {
     "autonomous": "Autonomous",

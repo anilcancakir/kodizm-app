@@ -96,7 +96,25 @@ jobs:
         run: flutter pub get
 
       - name: Write .env
-        run: echo "${{ secrets.APP_ENV_FILE }}" > .env
+        run: envsubst < .env.ci.tmpl > .env
+        env:
+          APP_NAME: ${{ vars.APP_NAME || 'Kodizm' }}
+          APP_ENV: ${{ vars.APP_ENV || 'development' }}
+          APP_DEBUG: ${{ vars.APP_DEBUG || 'false' }}
+          APP_KEY: ${{ secrets.APP_KEY }}
+          API_URL: ${{ vars.API_URL }}
+          BROADCAST_DRIVER: ${{ vars.BROADCAST_DRIVER || 'reverb' }}
+          REVERB_HOST: ${{ vars.REVERB_HOST }}
+          REVERB_PORT: ${{ vars.REVERB_PORT || '443' }}
+          REVERB_SCHEME: ${{ vars.REVERB_SCHEME || 'wss' }}
+          REVERB_APP_KEY: ${{ secrets.REVERB_APP_KEY }}
+          ONESIGNAL_APP_ID: ${{ vars.ONESIGNAL_APP_ID }}
+          ONESIGNAL_SAFARI_WEB_ID: ${{ vars.ONESIGNAL_SAFARI_WEB_ID }}
+          SENTRY_DSN: ${{ secrets.SENTRY_DSN }}
+          SENTRY_TRACES_SAMPLE_RATE: ${{ vars.SENTRY_TRACES_SAMPLE_RATE || '1.0' }}
+          SENTRY_PROFILES_SAMPLE_RATE: ${{ vars.SENTRY_PROFILES_SAMPLE_RATE || '1.0' }}
+          SENTRY_REPLAY_SESSION_RATE: ${{ vars.SENTRY_REPLAY_SESSION_RATE || '1.0' }}
+          SENTRY_REPLAY_ERROR_RATE: ${{ vars.SENTRY_REPLAY_ERROR_RATE || '1.0' }}
 
       - name: Inject build metadata
         run: |

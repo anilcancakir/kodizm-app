@@ -190,3 +190,21 @@ jobs:
           done
           echo "All 5 attempts failed"
           exit 1
+
+      - name: Notify deployment success
+        if: success()
+        run: |
+          curl -fsS -X POST \
+            -H "Authorization: Bearer ${{ secrets.DEPLOYMENT_WEBHOOK_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"app\":\"app\",\"status\":\"success\",\"commit_sha\":\"${{ github.sha }}\",\"ref\":\"${{ github.ref_name }}\",\"actor\":\"${{ github.actor }}\"}" \
+            ${{ vars.DEPLOYMENT_WEBHOOK_URL }} || true
+
+      - name: Notify deployment failure
+        if: failure()
+        run: |
+          curl -fsS -X POST \
+            -H "Authorization: Bearer ${{ secrets.DEPLOYMENT_WEBHOOK_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"app\":\"app\",\"status\":\"failure\",\"commit_sha\":\"${{ github.sha }}\",\"ref\":\"${{ github.ref_name }}\",\"actor\":\"${{ github.actor }}\"}" \
+            ${{ vars.DEPLOYMENT_WEBHOOK_URL }} || true

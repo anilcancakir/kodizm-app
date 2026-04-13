@@ -29,5 +29,15 @@ final Map<String, dynamic> notificationsConfig = {
     // Database (In-App) Notifications
     // -------------------------------------------------------------------------
     'database': {'enabled': true, 'polling_interval': 30},
+
+    // -------------------------------------------------------------------------
+    // Soft Prompt (Pre-OS Permission Dialog)
+    // -------------------------------------------------------------------------
+    'soft_prompt': {
+      'enabled': true,
+      'title': 'Enable Notifications',
+      'message':
+          'Stay updated with task results, agent questions, and pipeline progress.',
+    },
   },
 };

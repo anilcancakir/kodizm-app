@@ -153,7 +153,8 @@ void main() {
   testWidgets('validates empty title on submit', (tester) async {
     await _pumpForm(tester);
 
-    // Tap the primary button without entering a title.
+    // Scroll the submit button into view, then tap without entering a title.
+    await tester.ensureVisible(find.byKey(const ValueKey('btn_create_task')));
     await tester.tap(find.byKey(const ValueKey('btn_create_task')));
     await tester.pump();
 

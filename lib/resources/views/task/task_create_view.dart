@@ -1,7 +1,14 @@
+import 'dart:convert';
+import 'dart:io' show File;
+import 'dart:isolate';
+import 'dart:typed_data';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:magic/magic.dart';
 import 'package:magic_starter/magic_starter.dart';
 
+import '../../../app/models/message_attachment.dart';
 import '../../../app/models/user.dart';
 import '../../../app/state/task_state.dart';
 
@@ -163,6 +170,13 @@ class _TaskCreateViewState extends State<TaskCreateView> {
   String? _submitError;
 
   // ---------------------------------------------------------------------------
+  // Attachment state
+  // ---------------------------------------------------------------------------
+
+  final List<MessageAttachment> _uploadedAttachments = [];
+  bool _isUploadingAttachments = false;
+
+  // ---------------------------------------------------------------------------
   // Segment option definitions
   // ---------------------------------------------------------------------------
 
@@ -200,6 +214,166 @@ class _TaskCreateViewState extends State<TaskCreateView> {
   }
 
   // ---------------------------------------------------------------------------
+  // Attachment handling
+  // ---------------------------------------------------------------------------
+
+  /// Maximum number of file attachments per task.
+  static const int _maxAttachments = 4;
+
+  /// Maximum file size in bytes (5 MB).
+  static const int _maxFileSize = 5 * 1024 * 1024;
+
+  /// Pick and upload files via the global project-scoped attachment endpoint.
+  Future<void> _pickAndUploadFiles() async {
+    if (_isUploadingAttachments ||
+        _uploadedAttachments.length >= _maxAttachments) {
+      return;
+    }
+
+    final remaining = _maxAttachments - _uploadedAttachments.length;
+
+    final result = await FilePicker.pickFiles(
+      allowMultiple: true,
+      type: FileType.custom,
+      allowedExtensions: ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf'],
+      withData: true,
+    );
+
+    if (result == null || result.files.isEmpty) return;
+
+    // Validate count.
+    if (result.files.length > remaining) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            trans('tasks.attachment_limit_count', {
+              'max': _maxAttachments.toString(),
+            }),
+          ),
+        ),
+      );
+      return;
+    }
+
+    // Validate size.
+    for (final file in result.files) {
+      if (file.size > _maxFileSize) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(trans('tasks.attachment_limit_size', {'max': '5'})),
+          ),
+        );
+        return;
+      }
+    }
+
+    setState(() => _isUploadingAttachments = true);
+
+    final teamId = User.current.currentTeam?.id;
+    if (teamId == null) {
+      setState(() => _isUploadingAttachments = false);
+      return;
+    }
+
+    for (final file in result.files) {
+      final attachment = await _uploadSingleFile(file, teamId);
+      if (attachment != null && mounted) {
+        setState(() => _uploadedAttachments.add(attachment));
+      }
+    }
+
+    if (mounted) {
+      setState(() => _isUploadingAttachments = false);
+    }
+  }
+
+  /// Upload a single file to the project-scoped attachment endpoint.
+  Future<MessageAttachment?> _uploadSingleFile(
+    PlatformFile file,
+    String teamId,
+  ) async {
+    try {
+      final Uint8List bytes;
+      if (file.bytes != null) {
+        bytes = file.bytes!;
+      } else if (file.path != null) {
+        bytes = await File(file.path!).readAsBytes();
+      } else {
+        return null;
+      }
+
+      final String encoded;
+      if (kIsWeb) {
+        encoded = base64Encode(bytes);
+      } else {
+        encoded = await Isolate.run(() => base64Encode(bytes));
+      }
+
+      final response = await Http.post(
+        '/teams/$teamId/projects/${widget.projectId}/attachments',
+        data: {
+          'filename': file.name,
+          'data': encoded,
+          'mime_type': _guessMimeType(file.name),
+        },
+      );
+
+      if (!response.successful) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                trans('tasks.attachment_upload_failed', {
+                  'filename': file.name,
+                }),
+              ),
+            ),
+          );
+        }
+        return null;
+      }
+
+      final data =
+          (response.data as Map<String, dynamic>?)?['data']
+              as Map<String, dynamic>?;
+      if (data == null) return null;
+      return MessageAttachment.fromMap(data);
+    } catch (e) {
+      Log.error('Attachment upload failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              trans('tasks.attachment_upload_failed', {'filename': file.name}),
+            ),
+          ),
+        );
+      }
+      return null;
+    }
+  }
+
+  /// Guess MIME type from file extension.
+  String _guessMimeType(String filename) {
+    final ext = filename.split('.').last.toLowerCase();
+    return switch (ext) {
+      'jpg' || 'jpeg' => 'image/jpeg',
+      'png' => 'image/png',
+      'gif' => 'image/gif',
+      'webp' => 'image/webp',
+      'pdf' => 'application/pdf',
+      _ => 'application/octet-stream',
+    };
+  }
+
+  /// Remove an uploaded attachment by index.
+  void _removeAttachment(int index) {
+    setState(() => _uploadedAttachments.removeAt(index));
+  }
+
+  // ---------------------------------------------------------------------------
   // Submit handler
   // ---------------------------------------------------------------------------
 
@@ -230,6 +404,8 @@ class _TaskCreateViewState extends State<TaskCreateView> {
         'acceptance_criteria': acceptanceCriteria,
       if (_complexity != null && _complexity != 'none')
         'estimated_complexity': _complexity,
+      if (_uploadedAttachments.isNotEmpty)
+        'attachment_ids': _uploadedAttachments.map((a) => a.id).toList(),
     };
 
     final task = await TaskState.instance.createTask(
@@ -317,6 +493,9 @@ class _TaskCreateViewState extends State<TaskCreateView> {
                       setState(() => _complexity = (v == 'none') ? null : v),
                 ),
 
+                // Attachment picker section.
+                _buildAttachmentSection(),
+
                 // Inline error banner.
                 if (_submitError != null)
                   WDiv(
@@ -402,6 +581,114 @@ class _TaskCreateViewState extends State<TaskCreateView> {
         focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20
       ''',
       errorClassName: 'text-red-500 text-xs mt-1',
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Attachment section builders
+  // ---------------------------------------------------------------------------
+
+  /// Builds the attachment picker with upload button and preview thumbnails.
+  Widget _buildAttachmentSection() {
+    return WDiv(
+      className: 'flex flex-col gap-3',
+      children: [
+        // Header row with label and attach button.
+        WDiv(
+          className: 'flex flex-row items-center justify-between',
+          children: [
+            WText(
+              trans('tasks.attachments_title'),
+              className:
+                  'text-sm font-medium text-slate-600 dark:text-slate-300',
+            ),
+            if (_uploadedAttachments.length < _maxAttachments)
+              WAnchor(
+                onTap: _isUploadingAttachments ? null : _pickAndUploadFiles,
+                child: WDiv(
+                  className: '''
+                    flex flex-row items-center gap-1.5
+                    px-3 py-1.5 rounded-lg
+                    border border-slate-200 dark:border-slate-600
+                    bg-white dark:bg-gray-800
+                  ''',
+                  children: [
+                    if (_isUploadingAttachments)
+                      SizedBox(
+                        width: 14,
+                        height: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            WindTheme.dataOf(context).getColor('slate', 400)!,
+                          ),
+                        ),
+                      )
+                    else
+                      WIcon(
+                        Icons.attach_file,
+                        className: 'text-sm text-slate-500',
+                      ),
+                    WText(
+                      _isUploadingAttachments
+                          ? trans('tasks.attachment_uploading')
+                          : trans('tasks.attach_file'),
+                      className: 'text-sm text-slate-500',
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+
+        // Thumbnail previews.
+        if (_uploadedAttachments.isNotEmpty)
+          WDiv(
+            className: 'flex flex-row flex-wrap gap-3',
+            children: [
+              for (var i = 0; i < _uploadedAttachments.length; i++)
+                _buildAttachmentPreview(i),
+            ],
+          ),
+      ],
+    );
+  }
+
+  /// Builds a single attachment preview thumbnail with a remove button.
+  Widget _buildAttachmentPreview(int index) {
+    final attachment = _uploadedAttachments[index];
+    final previewUrl = attachment.thumbnailUrl ?? attachment.url;
+
+    return WDiv(
+      className: 'relative',
+      children: [
+        WDiv(
+          className:
+              'w-24 h-24 rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-800',
+          child: attachment.isImage && previewUrl.isNotEmpty
+              ? Image.network(previewUrl, fit: BoxFit.cover)
+              : WDiv(
+                  className: 'w-full h-full flex items-center justify-center',
+                  child: WIcon(
+                    Icons.insert_drive_file,
+                    className: 'text-2xl text-slate-400',
+                  ),
+                ),
+        ),
+        // Remove button — positioned top-right.
+        Positioned(
+          top: -4,
+          right: -4,
+          child: WAnchor(
+            onTap: () => _removeAttachment(index),
+            child: WDiv(
+              className:
+                  'w-5 h-5 rounded-full bg-red-500 flex items-center justify-center',
+              child: WIcon(Icons.close, className: 'text-xs text-white'),
+            ),
+          ),
+        ),
+      ],
     );
   }
 

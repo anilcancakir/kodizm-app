@@ -354,27 +354,29 @@ class TaskState extends MagicController
     refreshUI();
 
     final Map<String, dynamic> body = {'agent_role_id': agentRoleId};
-    if (prompt != null && prompt.isNotEmpty) {
-      body['prompt'] = prompt;
+    final String? trimmedPrompt = prompt?.trim();
+    if (trimmedPrompt != null && trimmedPrompt.isNotEmpty) {
+      body['prompt'] = trimmedPrompt;
     }
 
-    final response = await Http.post(
-      '/teams/$teamId/projects/$projectId/tasks/$taskId/run',
-      data: body,
-    );
+    try {
+      final response = await Http.post(
+        '/teams/$teamId/projects/$projectId/tasks/$taskId/run',
+        data: body,
+      );
 
-    _startingRun = false;
+      if (response.successful) {
+        final Map<String, dynamic> convData =
+            (response.data as Map<String, dynamic>)['data']
+                as Map<String, dynamic>;
+        return Conversation.fromMap(convData);
+      }
 
-    if (response.successful) {
-      final Map<String, dynamic> convData =
-          (response.data as Map<String, dynamic>)['data']
-              as Map<String, dynamic>;
+      return null;
+    } finally {
+      _startingRun = false;
       refreshUI();
-      return Conversation.fromMap(convData);
     }
-
-    refreshUI();
-    return null;
   }
 
   // ---------------------------------------------------------------------------

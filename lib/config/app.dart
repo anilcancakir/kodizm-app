@@ -1,4 +1,5 @@
 import 'package:magic/magic.dart';
+import 'package:magic_notifications/magic_notifications.dart';
 import 'package:magic_starter/magic_starter.dart';
 import '../app/providers/app_service_provider.dart';
 import '../app/providers/route_service_provider.dart';
@@ -19,6 +20,7 @@ Map<String, dynamic> get appConfig => {
       (app) => NetworkServiceProvider(app),
       (app) => VaultServiceProvider(app),
       (app) => BroadcastServiceProvider(app),
+      (app) => NotificationServiceProvider(app),
       (app) => AppServiceProvider(app),
       (app) => AuthServiceProvider(app),
       (app) => MagicStarterServiceProvider(app),

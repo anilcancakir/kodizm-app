@@ -1280,6 +1280,25 @@ class ConversationChatState extends MagicController
       return;
     }
 
+    // -- message_created: append a newly-broadcast ConversationMessage --
+    if (eventType == 'message_created') {
+      final messageData = metadata?['message'];
+      if (messageData is Map<String, dynamic>) {
+        final message = ConversationMessage.fromMap(messageData);
+        final alreadyPresent = _chatItems.any(
+          (item) => item is ChatMessageItem && item.message.id == message.id,
+        );
+        if (!alreadyPresent) {
+          _chatItems = [
+            ..._chatItems,
+            ChatMessageItem.fromConversationMessage(message),
+          ];
+          refreshUI();
+        }
+      }
+      return;
+    }
+
     switch (eventType) {
       case 'tool_use':
         // Append to active subagent or top-level

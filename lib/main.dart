@@ -14,6 +14,7 @@ import 'config/database.dart';
 import 'config/logging.dart';
 import 'config/magic_starter.dart';
 import 'config/network.dart';
+import 'config/notifications.dart';
 import 'config/routing.dart';
 import 'config/sentry.dart';
 
@@ -53,6 +54,7 @@ void main() async {
       () => cacheConfig,
       () => loggingConfig,
       () => magicStarterConfig,
+      () => notificationsConfig,
       () => routingConfig,
       () => sentryConfig,
     ],

@@ -5,6 +5,7 @@ import 'package:magic/magic.dart';
 import '../../../app/models/conversation_message.dart';
 import '../../../app/models/message_attachment.dart';
 import '../atoms/attachment_thumbnail.dart';
+import '../atoms/collapsible_section.dart';
 import '../atoms/pdf_file_card.dart';
 import 'markdown_viewer.dart';
 
@@ -74,8 +75,52 @@ class _ChatMessageBubbleState extends State<ChatMessageBubble> {
   @override
   Widget build(BuildContext context) {
     final bool isUser = widget.message.role == 'user';
-
+    if (isUser && widget.message.metadata?['kind'] == 'system_dispatch') {
+      return _buildSystemDispatchCard();
+    }
     return isUser ? _buildUserBubble() : _buildAssistantBubble();
+  }
+
+  // -----------------------------------------------------------------------
+  // System dispatch card
+  // -----------------------------------------------------------------------
+
+  /// Renders an autonomous initial-prompt user message as a collapsed card.
+  ///
+  /// System dispatch messages carry the phase-by-phase task instructions sent
+  /// to the agent at run start. They are visually distinct from regular user
+  /// bubbles to make the run-kickoff context legible without dominating the
+  /// timeline.
+  Widget _buildSystemDispatchCard() {
+    return WDiv(
+      className:
+          'w-full mb-3 px-3.5 py-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700',
+      children: [
+        CollapsibleSection(
+          title: trans('conversation_chat.system_dispatch_title'),
+          initiallyExpanded: false,
+          child: WDiv(
+            className: 'flex flex-col gap-2 pt-1',
+            children: [
+              WText(
+                trans('conversation_chat.system_dispatch_subtitle'),
+                className: 'text-xs text-slate-500 dark:text-slate-400',
+              ),
+              MarkdownViewer(data: widget.message.content ?? ''),
+            ],
+          ),
+        ),
+        WDiv(
+          className: 'flex flex-row justify-end mt-1',
+          children: [
+            WText(
+              _formatTimeAgo(widget.message.createdAt),
+              className: 'text-[10px] text-slate-400',
+            ),
+          ],
+        ),
+      ],
+    );
   }
 
   // -----------------------------------------------------------------------

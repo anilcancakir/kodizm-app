@@ -178,7 +178,8 @@ class _TaskCommentInputState extends State<TaskCommentInput> {
               child: TextField(
                 controller: _controller,
                 focusNode: _focusNode,
-                readOnly: !widget.enabled || _submitting,
+                readOnly:
+                    !widget.enabled || _submitting || widget.roles.isEmpty,
                 keyboardType: TextInputType.multiline,
                 minLines: 1,
                 maxLines: 4,
@@ -202,33 +203,41 @@ class _TaskCommentInputState extends State<TaskCommentInput> {
             ),
 
             // Send button
-            WAnchor(
-              onTap: _canSend ? _handleSubmit : null,
-              child: WDiv(
-                className: _canSend
-                    ? '''
-                      w-10 h-10 rounded-full bg-amber-400
-                      flex items-center justify-center
-                    '''
-                    : '''
-                      w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700
-                      flex items-center justify-center
-                    ''',
-                child: _submitting
-                    ? SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: isDark ? Colors.white : Colors.black87,
-                        ),
-                      )
-                    : WIcon(
-                        Icons.send,
-                        className: _canSend
-                            ? 'text-base text-primary-900'
-                            : 'text-base text-slate-400',
-                      ),
+            Tooltip(
+              message: trans('tasks.comment_send'),
+              child: Semantics(
+                button: true,
+                enabled: _canSend,
+                label: trans('tasks.comment_send'),
+                child: WAnchor(
+                  onTap: _canSend ? _handleSubmit : null,
+                  child: WDiv(
+                    className: _canSend
+                        ? '''
+                          w-10 h-10 rounded-full bg-amber-400
+                          flex items-center justify-center
+                        '''
+                        : '''
+                          w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700
+                          flex items-center justify-center
+                        ''',
+                    child: _submitting
+                        ? SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: isDark ? Colors.white : Colors.black87,
+                            ),
+                          )
+                        : WIcon(
+                            Icons.send,
+                            className: _canSend
+                                ? 'text-base text-primary-900'
+                                : 'text-base text-slate-400',
+                          ),
+                  ),
+                ),
               ),
             ),
           ],

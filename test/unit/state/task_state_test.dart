@@ -495,6 +495,55 @@ void main() {
     );
 
     // -----------------------------------------------------------------------
+    // 13b. startRun — includes prompt in request body when provided
+    // -----------------------------------------------------------------------
+
+    test('startRun includes prompt in request body when provided', () async {
+      final fake = Http.fake(
+        (MagicRequest req) =>
+            MagicResponse(data: {'data': kConversationA}, statusCode: 201),
+      );
+
+      await state.startRun(
+        'team-uuid-001',
+        'proj-uuid-001',
+        'task-uuid-001',
+        'role-uuid-001',
+        prompt: 'Review auth middleware for security issues',
+      );
+
+      final req = fake.recorded.first.$1;
+      final body = req.data as Map<String, dynamic>;
+      expect(body['agent_role_id'], equals('role-uuid-001'));
+      expect(
+        body['prompt'],
+        equals('Review auth middleware for security issues'),
+      );
+    });
+
+    // -----------------------------------------------------------------------
+    // 13c. startRun — omits prompt key when prompt is null
+    // -----------------------------------------------------------------------
+
+    test('startRun omits prompt key when prompt is null', () async {
+      final fake = Http.fake(
+        (MagicRequest req) =>
+            MagicResponse(data: {'data': kConversationA}, statusCode: 201),
+      );
+
+      await state.startRun(
+        'team-uuid-001',
+        'proj-uuid-001',
+        'task-uuid-001',
+        'role-uuid-001',
+      );
+
+      final req = fake.recorded.first.$1;
+      final body = req.data as Map<String, dynamic>;
+      expect(body.containsKey('prompt'), isFalse);
+    });
+
+    // -----------------------------------------------------------------------
     // 14. fetchAgentRoles — populates agentRoles list
     // -----------------------------------------------------------------------
 

@@ -340,18 +340,27 @@ class TaskState extends MagicController
   ///
   /// Sets [startingRun] to `true` during the request. Returns the created
   /// [Conversation] on success, or `null` on failure.
+  ///
+  /// When [prompt] is provided, it is sent as the agent's working prompt
+  /// instead of the default task description.
   Future<Conversation?> startRun(
     String teamId,
     String projectId,
     String taskId,
-    String agentRoleId,
-  ) async {
+    String agentRoleId, {
+    String? prompt,
+  }) async {
     _startingRun = true;
     refreshUI();
 
+    final Map<String, dynamic> body = {'agent_role_id': agentRoleId};
+    if (prompt != null && prompt.isNotEmpty) {
+      body['prompt'] = prompt;
+    }
+
     final response = await Http.post(
       '/teams/$teamId/projects/$projectId/tasks/$taskId/run',
-      data: {'agent_role_id': agentRoleId},
+      data: body,
     );
 
     _startingRun = false;

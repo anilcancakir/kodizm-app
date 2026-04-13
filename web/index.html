@@ -40,6 +40,19 @@
   <!-- OneSignal Web Push SDK -->
   <script>
     window.OneSignalDeferred = window.OneSignalDeferred || [];
+    // After Dart-side init runs (pushed earlier in the queue), trigger the
+    // Slidedown soft-prompt. Native Notifications.requestPermission requires
+    // a user gesture in modern browsers, so we use OneSignal's own overlay —
+    // its "Allow" click satisfies the gesture requirement.
+    window.OneSignalDeferred.push(async function (OneSignal) {
+      try {
+        // Give the Dart-side init() callback time to finish, then prompt.
+        await new Promise(function (r) { setTimeout(r, 1500); });
+        if (OneSignal && OneSignal.Notifications && !OneSignal.Notifications.permission) {
+          await OneSignal.Slidedown.promptPush({ force: true });
+        }
+      } catch (_) { /* user dismissed or SDK unavailable */ }
+    });
   </script>
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
 

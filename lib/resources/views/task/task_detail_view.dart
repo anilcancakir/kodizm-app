@@ -7,6 +7,7 @@ import 'package:magic_starter/magic_starter.dart';
 
 import '../../../app/models/agent_role.dart';
 import '../../../app/models/conversation.dart';
+import '../../../app/models/message_attachment.dart';
 import '../../../app/models/task.dart';
 import '../../../app/models/task_section.dart';
 import '../../../app/models/user.dart';
@@ -521,6 +522,8 @@ class _TaskDetailViewState extends State<TaskDetailView> {
 
   /// Builds the attachments card — shows thumbnail grid for task attachments.
   ///
+  /// Renders image attachments as [AttachmentThumbnail] widgets and non-image
+  /// attachments (PDFs, documents) as a file tile with filename and size.
   /// Returns an empty [SizedBox.shrink] when the task has no attachments.
   Widget _buildAttachmentsCard(Task task) {
     if (task.attachments.isEmpty) return const SizedBox.shrink();
@@ -539,9 +542,33 @@ class _TaskDetailViewState extends State<TaskDetailView> {
             children: [
               for (final attachment in task.attachments)
                 if (attachment.isImage)
-                  AttachmentThumbnail(attachment: attachment),
+                  AttachmentThumbnail(attachment: attachment)
+                else
+                  _buildFileTile(attachment),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  /// Builds a compact file tile for non-image attachments (PDFs, documents).
+  Widget _buildFileTile(MessageAttachment attachment) {
+    return WAnchor(
+      onTap: () => Launch.url(attachment.url),
+      child: WDiv(
+        className:
+            '''w-48 h-48 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center gap-2 p-3''',
+        children: [
+          WIcon(
+            attachment.isPdf ? Icons.picture_as_pdf : Icons.insert_drive_file,
+            className: 'text-2xl text-slate-400',
+          ),
+          WText(
+            attachment.filename,
+            className: 'text-xs text-slate-600 dark:text-slate-300 text-center',
+          ),
+          WText(attachment.sizeFormatted, className: 'text-xs text-slate-400'),
         ],
       ),
     );

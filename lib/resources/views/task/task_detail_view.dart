@@ -19,6 +19,7 @@ import '../../widgets/organisms/markdown_viewer.dart';
 import '../../widgets/molecules/task_comment_input.dart';
 import '../../widgets/organisms/task_activity_feed.dart';
 import '../../widgets/organisms/task_detail_sidebar.dart';
+import '../../widgets/atoms/attachment_thumbnail.dart';
 
 /// Task detail view — Jira-style two-column layout with mobile-first responsive
 /// design. Desktop (>=1024px) shows main content left, sidebar right. Mobile
@@ -361,6 +362,7 @@ class _TaskDetailViewState extends State<TaskDetailView> {
               className: 'flex-1 flex flex-col gap-6',
               children: [
                 _buildDescriptionCard(task),
+                _buildAttachmentsCard(task),
                 ..._buildSectionCards(sections),
               ],
             ),
@@ -427,6 +429,9 @@ class _TaskDetailViewState extends State<TaskDetailView> {
 
         // Description
         _buildDescriptionCard(task),
+
+        // Attachments
+        _buildAttachmentsCard(task),
 
         // Sections — each as its own card
         ..._buildSectionCards(sections),
@@ -509,6 +514,34 @@ class _TaskDetailViewState extends State<TaskDetailView> {
                 MarkdownViewer(data: task.acceptanceCriteria!),
               ],
             ),
+        ],
+      ),
+    );
+  }
+
+  /// Builds the attachments card — shows thumbnail grid for task attachments.
+  ///
+  /// Returns an empty [SizedBox.shrink] when the task has no attachments.
+  Widget _buildAttachmentsCard(Task task) {
+    if (task.attachments.isEmpty) return const SizedBox.shrink();
+
+    return MagicStarterCard(
+      child: WDiv(
+        className: 'flex flex-col gap-4',
+        children: [
+          WText(
+            trans('tasks.attachments_title'),
+            className:
+                'text-base font-semibold text-slate-800 dark:text-slate-100',
+          ),
+          WDiv(
+            className: 'flex flex-row flex-wrap gap-3',
+            children: [
+              for (final attachment in task.attachments)
+                if (attachment.isImage)
+                  AttachmentThumbnail(attachment: attachment),
+            ],
+          ),
         ],
       ),
     );

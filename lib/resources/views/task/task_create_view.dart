@@ -240,6 +240,7 @@ class _TaskCreateViewState extends State<TaskCreateView> {
     );
 
     if (result == null || result.files.isEmpty) return;
+    if (!mounted) return;
 
     // Validate count.
     if (result.files.length > remaining) {
@@ -269,10 +270,12 @@ class _TaskCreateViewState extends State<TaskCreateView> {
       }
     }
 
+    if (!mounted) return;
     setState(() => _isUploadingAttachments = true);
 
     final teamId = User.current.currentTeam?.id;
     if (teamId == null) {
+      if (!mounted) return;
       setState(() => _isUploadingAttachments = false);
       return;
     }

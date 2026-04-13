@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:magic/magic.dart';
+import 'package:magic_notifications/magic_notifications.dart';
 import 'package:magic_starter/magic_starter.dart';
 import 'package:sentry_dio/sentry_dio.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
@@ -153,6 +154,8 @@ class AppServiceProvider extends ServiceProvider {
 
     // Magic Starter: Logout callback.
     MagicStarter.useLogout(() async {
+      Notify.stopPolling();
+      await Notify.logoutPush();
       await Sentry.configureScope((scope) => scope.clear());
       await Echo.disconnect();
       await Auth.logout();
@@ -179,6 +182,55 @@ class AppServiceProvider extends ServiceProvider {
         });
       });
     }
+
+    // Push notifications: initialize OneSignal with external user ID on
+    // session restore. Fresh login is covered by next app restart or hot
+    // restart, since magic_starter's auth controller navigates after login
+    // and the layout starts polling on mount.
+    if (Auth.check()) {
+      try {
+        await Notify.initializePush('user_${Auth.id()}');
+        await Notify.requestPushPermission();
+      } catch (e) {
+        Log.error('[AppServiceProvider.boot] Push init failed: $e');
+      }
+    }
+
+    // Push notification click handler: navigate to deep link URL from
+    // notification payload (set by API's toOneSignal data).
+    try {
+      Notify.manager.pushDriver.onNotificationClicked.listen((event) {
+        final url = event.data['url'];
+        if (url is String && url.isNotEmpty) {
+          MagicRoute.to(url);
+        }
+      });
+    } catch (_) {
+      // Push driver not configured yet (no-op on platforms without push).
+    }
+
+    // Magic Starter: Notification type icons and colors for the dropdown.
+    MagicStarter.useNotificationTypeMapper(
+      (String type) => switch (type) {
+        'agent_question_asked' => (
+          icon: Icons.help_outline,
+          colorClass: 'text-indigo-500',
+        ),
+        'task_completed' => (
+          icon: Icons.check_circle_outline,
+          colorClass: 'text-green-500',
+        ),
+        'task_failed' => (
+          icon: Icons.error_outline,
+          colorClass: 'text-red-500',
+        ),
+        'pipeline_stage_waiting' => (
+          icon: Icons.schedule,
+          colorClass: 'text-amber-500',
+        ),
+        _ => (icon: Icons.notifications_outlined, colorClass: 'text-slate-400'),
+      },
+    );
 
     // Sentry Dio integration — automatic HTTP performance spans, detailed
     // breadcrumbs (method, URL, status code, duration), and error capture.

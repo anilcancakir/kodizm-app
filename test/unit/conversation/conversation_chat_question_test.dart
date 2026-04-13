@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
 import 'package:magic/testing.dart';
 
+import 'package:app/app/realtime/realtime_channel_manager.dart';
 import 'package:app/app/state/conversation_chat_state.dart';
 
 // ---------------------------------------------------------------------------
@@ -38,35 +39,6 @@ const Map<String, dynamic> kConversationResponse = {
     'updated_at': '2026-03-27T10:00:00.000Z',
   },
 };
-
-// ---------------------------------------------------------------------------
-// Fake WebSocket service
-// ---------------------------------------------------------------------------
-
-class _FakeWebSocketService implements ConversationChatWebSocket {
-  final List<String> subscribedChannels = [];
-  final List<String> unsubscribedChannels = [];
-  final Map<String, void Function(BroadcastEvent)> callbacks = {};
-
-  @override
-  Stream<void> get onReconnect => const Stream.empty();
-
-  @override
-  void subscribe(String channel, void Function(BroadcastEvent) onEvent) {
-    subscribedChannels.add(channel);
-    callbacks[channel] = onEvent;
-  }
-
-  @override
-  void unsubscribe(String channel) {
-    unsubscribedChannels.add(channel);
-    callbacks.remove(channel);
-  }
-
-  void simulateEvent(String channel, BroadcastEvent event) {
-    callbacks[channel]?.call(event);
-  }
-}
 
 // ---------------------------------------------------------------------------
 // WebSocket event fixtures
@@ -129,14 +101,14 @@ BroadcastEvent _nonAskToolUseEvent() => BroadcastEvent(
 
 Future<ConversationChatState> _setupWithConversation(
   FakeNetworkDriver driver,
-  _FakeWebSocketService ws,
+  RealtimeChannelManager manager,
 ) async {
   driver.stub('*/agent-roles*', Http.response(kAgentRolesResponse));
   driver.stub('*/answer', Http.response({}));
   driver.stub('*/messages', Http.response({}, 202));
   driver.stub('*/conversations*', Http.response(kConversationResponse, 201));
 
-  final state = ConversationChatState(webSocket: ws);
+  final state = ConversationChatState(manager: manager);
   await state.createConversation(
     'team-uuid-001',
     'proj-uuid-001',
@@ -156,13 +128,15 @@ void main() {
 
   group('ConversationChatState – question/permission detection', () {
     late FakeNetworkDriver driver;
-    late _FakeWebSocketService ws;
+    late FakeBroadcastManager fake;
+    late RealtimeChannelManager manager;
     late ConversationChatState state;
 
     setUp(() async {
       driver = Http.fake();
-      ws = _FakeWebSocketService();
-      state = await _setupWithConversation(driver, ws);
+      fake = Echo.fake();
+      manager = RealtimeChannelManager(broadcaster: fake);
+      state = await _setupWithConversation(driver, manager);
     });
 
     tearDown(() {
@@ -288,7 +262,7 @@ void main() {
     // -----------------------------------------------------------------------
 
     test('answerQuestion does nothing without a conversation', () async {
-      final noConvState = ConversationChatState(webSocket: ws);
+      final noConvState = ConversationChatState(manager: manager);
 
       await noConvState.answerQuestion('q-uuid-001', 'Flutter');
 

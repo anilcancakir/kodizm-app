@@ -6,50 +6,9 @@ import '../concerns/sentry_state_mixin.dart';
 import '../models/session.dart';
 import '../models/session_usage_record.dart';
 import '../models/stream_event.dart';
-
-// ---------------------------------------------------------------------------
-// Broadcast abstraction for testability
-// ---------------------------------------------------------------------------
-
-/// Thin interface over broadcast subscribe/unsubscribe for testability.
-///
-/// In production the default [_EchoSessionBroadcast] delegates to the [Echo]
-/// facade. Tests inject a fake.
-abstract class SessionWebSocket {
-  /// Subscribe to a private [channel] with an event callback.
-  ///
-  /// [channel] is the bare channel name without the `private-` prefix
-  /// (e.g. `session.abc`).
-  void subscribe(String channel, void Function(BroadcastEvent) onEvent);
-
-  /// Unsubscribe from [channel] (bare name, no `private-` prefix).
-  void unsubscribe(String channel);
-
-  /// Stream that emits after a successful WebSocket reconnection.
-  Stream<void> get onReconnect;
-}
-
-/// Default production [SessionWebSocket] backed by the [Echo] facade.
-class _EchoSessionBroadcast implements SessionWebSocket {
-  /// Active stream subscriptions keyed by channel name.
-  final Map<String, StreamSubscription<BroadcastEvent>> _subscriptions = {};
-
-  @override
-  void subscribe(String channel, void Function(BroadcastEvent) onEvent) {
-    _subscriptions[channel]?.cancel();
-    _subscriptions[channel] = Echo.private(channel).events.listen(onEvent);
-  }
-
-  @override
-  void unsubscribe(String channel) {
-    _subscriptions[channel]?.cancel();
-    _subscriptions.remove(channel);
-    Echo.leave(channel);
-  }
-
-  @override
-  Stream<void> get onReconnect => Echo.onReconnect;
-}
+import '../realtime/channel_handle.dart';
+import '../realtime/channel_names.dart';
+import '../realtime/realtime_channel_manager.dart';
 
 // ---------------------------------------------------------------------------
 // SessionState controller
@@ -86,10 +45,12 @@ class SessionState extends MagicController
     with MagicStateMixin<void>, SentryStateMixin<void> {
   /// Creates a [SessionState] with optional injectable dependencies for testing.
   ///
-  /// When [webSocket] is `null`, [_EchoSessionBroadcast] delegates to the
-  /// [Echo] facade.
-  SessionState({SessionWebSocket? webSocket})
-    : _ws = webSocket ?? _EchoSessionBroadcast();
+  /// When [manager] is `null`, the default [RealtimeChannelManager] is
+  /// resolved via [Magic.findOrPut].
+  SessionState({RealtimeChannelManager? manager})
+    : _manager =
+          manager ??
+          Magic.findOrPut<RealtimeChannelManager>(RealtimeChannelManager.new);
 
   /// Lazy singleton accessor.
   ///
@@ -97,7 +58,7 @@ class SessionState extends MagicController
   /// the application.
   static SessionState get instance => Magic.findOrPut(SessionState.new);
 
-  final SessionWebSocket _ws;
+  final RealtimeChannelManager _manager;
 
   // ---------------------------------------------------------------------------
   // State fields
@@ -117,6 +78,7 @@ class SessionState extends MagicController
   // -- WebSocket state --
   String? _activeChannel;
   Map<String, dynamic>? _pendingQuestion;
+  ChannelHandle? _channelHandle;
   StreamSubscription<void>? _reconnectSubscription;
 
   // ---------------------------------------------------------------------------
@@ -316,16 +278,19 @@ class SessionState extends MagicController
 
   /// Subscribe to the `session.{sessionId}` broadcast channel.
   ///
-  /// Registers [handleWebSocketEvent] as the listener on the channel.
+  /// Registers [handleWebSocketEvent] as the listener on the channel via
+  /// [RealtimeChannelManager]. Stores the [ChannelHandle] for later cleanup.
   /// Stores the channel name in [activeChannel] for later cleanup.
   void subscribeToSession(String sessionId) {
-    final channel = 'session.$sessionId';
-    _activeChannel = channel;
+    final channelName = ChannelName.session(sessionId);
+    _activeChannel = channelName.key;
 
-    _ws.subscribe(channel, handleWebSocketEvent);
+    _channelHandle?.dispose();
+    _channelHandle = _manager.channel(channelName)
+      ..onEvent(handleWebSocketEvent);
 
     _reconnectSubscription?.cancel();
-    _reconnectSubscription = _ws.onReconnect.listen((_) {
+    _reconnectSubscription = _manager.onReconnect.listen((_) {
       _catchUpAfterReconnect();
     });
 
@@ -353,12 +318,13 @@ class SessionState extends MagicController
 
   /// Unsubscribe from the currently active session channel.
   ///
-  /// Leaves the broadcast channel and clears [activeChannel].
+  /// Disposes the [ChannelHandle] and clears [activeChannel].
   /// No-op when [activeChannel] is `null`.
   void unsubscribeFromSession() {
     if (_activeChannel == null) return;
 
-    _ws.unsubscribe(_activeChannel!);
+    _channelHandle?.dispose();
+    _channelHandle = null;
 
     _reconnectSubscription?.cancel();
     _reconnectSubscription = null;

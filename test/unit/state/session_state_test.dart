@@ -1,9 +1,9 @@
-import 'dart:async';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
 import 'package:magic/testing.dart';
 
+import 'package:app/app/realtime/channel_names.dart';
+import 'package:app/app/realtime/realtime_channel_manager.dart';
 import 'package:app/app/state/session_state.dart';
 
 // ---------------------------------------------------------------------------
@@ -91,34 +91,6 @@ const Map<String, dynamic> kStreamEventFixture = {
 };
 
 // ---------------------------------------------------------------------------
-// Fake WebSocket client
-// ---------------------------------------------------------------------------
-
-/// Injectable WebSocket client for testing [SessionState] WS behaviour
-/// without a real connection. Records subscribe/unsubscribe calls.
-class _FakeSessionWebSocket implements SessionWebSocket {
-  final List<String> subscribed = [];
-  final List<String> unsubscribed = [];
-  void Function(BroadcastEvent)? lastHandler;
-  final StreamController<void> _reconnectController =
-      StreamController<void>.broadcast();
-
-  @override
-  void subscribe(String channel, void Function(BroadcastEvent) onEvent) {
-    subscribed.add(channel);
-    lastHandler = onEvent;
-  }
-
-  @override
-  void unsubscribe(String channel) {
-    unsubscribed.add(channel);
-  }
-
-  @override
-  Stream<void> get onReconnect => _reconnectController.stream;
-}
-
-// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -127,17 +99,23 @@ void main() {
 
   group('SessionState', () {
     late FakeNetworkDriver driver;
-    late _FakeSessionWebSocket ws;
+    late FakeBroadcastManager fake;
+    late RealtimeChannelManager manager;
     late SessionState state;
 
     setUp(() {
+      MagicApp.reset();
+      Magic.flush();
       driver = Http.fake();
-      ws = _FakeSessionWebSocket();
-      state = SessionState(webSocket: ws);
+      fake = Echo.fake();
+      manager = RealtimeChannelManager(broadcaster: fake);
+      state = SessionState(manager: manager);
     });
 
     tearDown(() {
+      manager.dispose();
       state.dispose();
+      Echo.unfake();
     });
 
     // -----------------------------------------------------------------------
@@ -657,17 +635,20 @@ void main() {
     });
 
     // -----------------------------------------------------------------------
-    // 24. subscribeToSession sets active channel name
+    // 24. subscribeToSession sets active channel name and subscribes via Echo
     // -----------------------------------------------------------------------
 
     test('subscribeToSession registers correct channel name', () {
       state.subscribeToSession('session-uuid-001');
 
       expect(state.activeChannel, equals('session.session-uuid-001'));
+      fake.assertSubscribed(
+        'private-${ChannelName.session('session-uuid-001').key}',
+      );
     });
 
     // -----------------------------------------------------------------------
-    // 25. unsubscribeFromSession clears active channel
+    // 25. unsubscribeFromSession clears active channel and leaves Echo channel
     // -----------------------------------------------------------------------
 
     test('unsubscribeFromSession clears active channel', () {
@@ -677,6 +658,9 @@ void main() {
       state.unsubscribeFromSession();
 
       expect(state.activeChannel, isNull);
+      fake.assertNotSubscribed(
+        'private-${ChannelName.session('session-uuid-001').key}',
+      );
     });
 
     // -----------------------------------------------------------------------

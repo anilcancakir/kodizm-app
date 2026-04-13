@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
 import 'package:magic/testing.dart';
 
+import 'package:app/app/realtime/channel_names.dart';
+import 'package:app/app/realtime/realtime_channel_manager.dart';
 import 'package:app/app/state/task_state.dart';
 
 // ---------------------------------------------------------------------------
@@ -644,5 +646,45 @@ void main() {
 
       expect(state.selectedTask, isNull);
     });
+  });
+
+  // -------------------------------------------------------------------------
+  // RealtimeChannelManager integration
+  // -------------------------------------------------------------------------
+
+  group('TaskState — RealtimeChannelManager integration', () {
+    late FakeBroadcastManager fake;
+    late TaskState realtimeState;
+
+    setUp(() {
+      fake = Echo.fake();
+      realtimeState = TaskState(
+        manager: RealtimeChannelManager(broadcaster: fake),
+      );
+    });
+
+    tearDown(() {
+      realtimeState.dispose();
+      Echo.unfake();
+      Http.unfake();
+    });
+
+    // -----------------------------------------------------------------------
+    // 18. subscribeToProjectEvents registers the project channel with manager
+    // -----------------------------------------------------------------------
+
+    test(
+      'test_subscribe_to_project_events_registers_project_channel_with_manager',
+      () {
+        realtimeState.subscribeToProjectEvents(
+          'team-uuid-001',
+          'proj-uuid-001',
+        );
+
+        fake.assertSubscribed(
+          'private-${ChannelName.project('proj-uuid-001').key}',
+        );
+      },
+    );
   });
 }

@@ -4,6 +4,8 @@ import 'package:magic/testing.dart';
 
 import 'package:app/app/models/agent_role.dart';
 import 'package:app/app/models/chat_item.dart';
+import 'package:app/app/realtime/channel_names.dart';
+import 'package:app/app/realtime/realtime_channel_manager.dart';
 import 'package:app/app/state/conversation_chat_state.dart';
 
 // ---------------------------------------------------------------------------
@@ -79,37 +81,6 @@ const Map<String, dynamic> kMessagesResponse = {
 };
 
 // ---------------------------------------------------------------------------
-// Fake WebSocket service
-// ---------------------------------------------------------------------------
-
-/// Records subscribe/unsubscribe calls for testing.
-class _FakeWebSocketService implements ConversationChatWebSocket {
-  final List<String> subscribedChannels = [];
-  final List<String> unsubscribedChannels = [];
-  final Map<String, void Function(BroadcastEvent)> callbacks = {};
-
-  @override
-  Stream<void> get onReconnect => const Stream.empty();
-
-  @override
-  void subscribe(String channel, void Function(BroadcastEvent) onEvent) {
-    subscribedChannels.add(channel);
-    callbacks[channel] = onEvent;
-  }
-
-  @override
-  void unsubscribe(String channel) {
-    unsubscribedChannels.add(channel);
-    callbacks.remove(channel);
-  }
-
-  /// Simulate an incoming event on a channel.
-  void simulateEvent(String channel, BroadcastEvent event) {
-    callbacks[channel]?.call(event);
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -118,17 +89,21 @@ void main() {
 
   group('ConversationChatState', () {
     late FakeNetworkDriver driver;
-    late _FakeWebSocketService ws;
+    late FakeBroadcastManager fake;
+    late RealtimeChannelManager manager;
     late ConversationChatState state;
 
     setUp(() {
       driver = Http.fake();
-      ws = _FakeWebSocketService();
-      state = ConversationChatState(webSocket: ws);
+      fake = Echo.fake();
+      manager = RealtimeChannelManager(broadcaster: fake);
+      state = ConversationChatState(manager: manager);
     });
 
     tearDown(() {
       state.dispose();
+      manager.dispose();
+      Echo.unfake();
     });
 
     // -----------------------------------------------------------------------
@@ -181,7 +156,9 @@ void main() {
         );
 
         // Verify WS subscription.
-        expect(ws.subscribedChannels, contains('conversation.conv-uuid-001'));
+        fake.assertSubscribed(
+          'private-${ChannelName.conversation('conv-uuid-001').key}',
+        );
       },
     );
 
@@ -518,7 +495,9 @@ void main() {
       expect(state.isSending, isFalse);
       expect(state.error, isNull);
       expect(state.warmUntil, isNull);
-      expect(ws.unsubscribedChannels, contains('conversation.conv-uuid-001'));
+      fake.assertNotSubscribed(
+        'private-${ChannelName.conversation('conv-uuid-001').key}',
+      );
     });
 
     // -----------------------------------------------------------------------
@@ -539,8 +518,7 @@ void main() {
       );
 
       // Simulate WS event via the fake service.
-      ws.simulateEvent(
-        'conversation.conv-uuid-001',
+      state.addEvent(
         BroadcastEvent(
           channel: 'conversation.conv-uuid-001',
           event: '.conversation.message',
@@ -650,7 +628,9 @@ void main() {
         );
 
         // WS subscription to conversation channel.
-        expect(ws.subscribedChannels, contains('conversation.conv-uuid-001'));
+        fake.assertSubscribed(
+          'private-${ChannelName.conversation('conv-uuid-001').key}',
+        );
       },
     );
 
@@ -712,7 +692,9 @@ void main() {
         expect(state.sessionId, equals('sess-uuid-001'));
 
         // Session WS channel subscribed.
-        expect(ws.subscribedChannels, contains('session.sess-uuid-001'));
+        fake.assertSubscribed(
+          'private-${ChannelName.session('sess-uuid-001').key}',
+        );
       },
     );
 
@@ -751,8 +733,7 @@ void main() {
       expect(state.sessionId, equals('sess-uuid-001'));
 
       // Simulate .session.cost event.
-      ws.simulateEvent(
-        'session.sess-uuid-001',
+      state.addEvent(
         BroadcastEvent(
           channel: 'session.sess-uuid-001',
           event: '.session.cost',
@@ -764,8 +745,7 @@ void main() {
       expect(state.runningCostUsd, equals('0.0042'));
 
       // Simulate .session.status event.
-      ws.simulateEvent(
-        'session.sess-uuid-001',
+      state.addEvent(
         BroadcastEvent(
           channel: 'session.sess-uuid-001',
           event: '.session.status',
@@ -817,7 +797,9 @@ void main() {
         expect(state.sessionId, isNull);
         expect(state.runningCostUsd, isNull);
         expect(state.sessionPhase, isNull);
-        expect(ws.unsubscribedChannels, contains('session.sess-uuid-001'));
+        fake.assertNotSubscribed(
+          'private-${ChannelName.session('sess-uuid-001').key}',
+        );
       },
     );
 
@@ -837,8 +819,7 @@ void main() {
         agentRoleId: 'role-uuid-001',
       );
 
-      ws.simulateEvent(
-        'conversation.conv-uuid-001',
+      state.addEvent(
         BroadcastEvent(
           channel: 'conversation.conv-uuid-001',
           event: '.conversation.message',
@@ -878,8 +859,7 @@ void main() {
         agentRoleId: 'role-uuid-001',
       );
 
-      ws.simulateEvent(
-        'conversation.conv-uuid-001',
+      state.addEvent(
         BroadcastEvent(
           channel: 'conversation.conv-uuid-001',
           event: '.conversation.message',
@@ -919,8 +899,7 @@ void main() {
         );
 
         // Start
-        ws.simulateEvent(
-          'conversation.conv-uuid-001',
+        state.addEvent(
           BroadcastEvent(
             channel: 'conversation.conv-uuid-001',
             event: '.conversation.message',
@@ -940,8 +919,7 @@ void main() {
         final startIndex = state.chatItems.length - 1;
 
         // Stop
-        ws.simulateEvent(
-          'conversation.conv-uuid-001',
+        state.addEvent(
           BroadcastEvent(
             channel: 'conversation.conv-uuid-001',
             event: '.conversation.message',
@@ -982,8 +960,7 @@ void main() {
         agentRoleId: 'role-uuid-001',
       );
 
-      ws.simulateEvent(
-        'conversation.conv-uuid-001',
+      state.addEvent(
         BroadcastEvent(
           channel: 'conversation.conv-uuid-001',
           event: '.conversation.message',
@@ -1027,8 +1004,7 @@ void main() {
         agentRoleId: 'role-uuid-001',
       );
 
-      ws.simulateEvent(
-        'conversation.conv-uuid-001',
+      state.addEvent(
         BroadcastEvent(
           channel: 'conversation.conv-uuid-001',
           event: '.conversation.message',
@@ -1065,8 +1041,7 @@ void main() {
         agentRoleId: 'role-uuid-001',
       );
 
-      ws.simulateEvent(
-        'conversation.conv-uuid-001',
+      state.addEvent(
         BroadcastEvent(
           channel: 'conversation.conv-uuid-001',
           event: '.conversation.message',
@@ -1187,8 +1162,7 @@ void main() {
         agentRoleId: 'role-uuid-001',
       );
 
-      ws.simulateEvent(
-        'conversation.conv-uuid-001',
+      state.addEvent(
         BroadcastEvent(
           channel: 'conversation.conv-uuid-001',
           event: '.conversation.message',
@@ -1364,8 +1338,7 @@ void main() {
         agentRoleId: 'role-uuid-001',
       );
 
-      ws.simulateEvent(
-        'conversation.conv-uuid-001',
+      state.addEvent(
         BroadcastEvent(
           channel: 'conversation.conv-uuid-001',
           event: '.conversation.message',
@@ -1408,8 +1381,7 @@ void main() {
         );
 
         // First: emit the tool_use that creates the card.
-        ws.simulateEvent(
-          'conversation.conv-uuid-001',
+        state.addEvent(
           BroadcastEvent(
             channel: 'conversation.conv-uuid-001',
             event: '.conversation.message',
@@ -1433,8 +1405,7 @@ void main() {
         expect(before.result, isNull);
 
         // Then: emit the tool_result that should populate the card.
-        ws.simulateEvent(
-          'conversation.conv-uuid-001',
+        state.addEvent(
           BroadcastEvent(
             channel: 'conversation.conv-uuid-001',
             event: '.conversation.message',
@@ -1475,8 +1446,7 @@ void main() {
 
         final lengthBefore = state.chatItems.length;
 
-        ws.simulateEvent(
-          'conversation.conv-uuid-001',
+        state.addEvent(
           BroadcastEvent(
             channel: 'conversation.conv-uuid-001',
             event: '.conversation.message',

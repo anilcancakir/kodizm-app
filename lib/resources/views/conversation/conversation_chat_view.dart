@@ -109,6 +109,8 @@ class _ConversationChatViewState extends State<ConversationChatView> {
       // Different conversation — full reset before loading.
       _state.reset();
       _isLoadingExisting = true;
+      // Subscribe eagerly BEFORE the async load so buffered events are captured.
+      _state.prepareConversation(_teamId, widget.projectId, conversationId);
       _state.loadConversation(_teamId, widget.projectId, conversationId);
       return;
     }

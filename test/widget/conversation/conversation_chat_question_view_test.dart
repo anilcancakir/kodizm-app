@@ -6,33 +6,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
 import 'package:magic/testing.dart';
 
+import 'package:app/app/realtime/realtime_channel_manager.dart';
 import 'package:app/app/state/conversation_chat_state.dart';
 import 'package:app/resources/views/conversation/conversation_chat_view.dart';
-
-// ---------------------------------------------------------------------------
-// Fake WebSocket
-// ---------------------------------------------------------------------------
-
-class _FakeWebSocket implements ConversationChatWebSocket {
-  final List<String> subscribedChannels = [];
-  final List<String> unsubscribedChannels = [];
-
-  void Function(BroadcastEvent)? lastCallback;
-
-  @override
-  void subscribe(String channel, void Function(BroadcastEvent) onEvent) {
-    subscribedChannels.add(channel);
-    lastCallback = onEvent;
-  }
-
-  @override
-  void unsubscribe(String channel) {
-    unsubscribedChannels.add(channel);
-  }
-
-  @override
-  Stream<void> get onReconnect => const Stream.empty();
-}
 
 // ---------------------------------------------------------------------------
 // Translation loader
@@ -123,7 +99,8 @@ void main() {
   MagicTest.init();
 
   late FakeNetworkDriver driver;
-  late _FakeWebSocket ws;
+  late FakeBroadcastManager fake;
+  late RealtimeChannelManager manager;
   late ConversationChatState state;
 
   setUpAll(() async {
@@ -137,8 +114,9 @@ void main() {
     driver = Http.fake();
     driver.stub('*', Http.response(<String, dynamic>{}, 404));
 
-    ws = _FakeWebSocket();
-    state = ConversationChatState(webSocket: ws);
+    fake = Echo.fake();
+    manager = RealtimeChannelManager(broadcaster: fake);
+    state = ConversationChatState(manager: manager);
     Magic.put<ConversationChatState>(state);
   });
 

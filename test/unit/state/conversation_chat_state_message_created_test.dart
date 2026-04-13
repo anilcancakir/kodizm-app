@@ -1,42 +1,10 @@
-import 'dart:async';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
 import 'package:magic/testing.dart';
 
 import 'package:app/app/models/chat_item.dart';
+import 'package:app/app/realtime/realtime_channel_manager.dart';
 import 'package:app/app/state/conversation_chat_state.dart';
-
-// ---------------------------------------------------------------------------
-// Fake WebSocket
-// ---------------------------------------------------------------------------
-
-class _FakeWebSocket implements ConversationChatWebSocket {
-  final List<String> subscribedChannels = [];
-  final List<String> unsubscribedChannels = [];
-  final Map<String, void Function(BroadcastEvent)> _callbacks = {};
-  final StreamController<void> _reconnectController =
-      StreamController<void>.broadcast();
-
-  @override
-  Stream<void> get onReconnect => _reconnectController.stream;
-
-  @override
-  void subscribe(String channel, void Function(BroadcastEvent) onEvent) {
-    subscribedChannels.add(channel);
-    _callbacks[channel] = onEvent;
-  }
-
-  @override
-  void unsubscribe(String channel) {
-    unsubscribedChannels.add(channel);
-    _callbacks.remove(channel);
-  }
-
-  void emit(String channel, BroadcastEvent event) {
-    _callbacks[channel]?.call(event);
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -120,13 +88,15 @@ void main() {
   MagicTest.init();
 
   late FakeNetworkDriver driver;
-  late _FakeWebSocket ws;
+  late FakeBroadcastManager fake;
+  late RealtimeChannelManager manager;
   late ConversationChatState state;
 
   setUp(() {
     driver = Http.fake();
-    ws = _FakeWebSocket();
-    state = ConversationChatState(webSocket: ws);
+    fake = Echo.fake();
+    manager = RealtimeChannelManager(broadcaster: fake);
+    state = ConversationChatState(manager: manager);
   });
 
   Future<void> loadConversation() async {
@@ -144,8 +114,7 @@ void main() {
       await loadConversation();
       expect(state.chatItems, isEmpty);
 
-      final channel = 'conversation.$kConversationId';
-      ws.emit(channel, _messageCreatedEvent());
+      state.addEvent(_messageCreatedEvent());
 
       final messageItems = state.chatItems.whereType<ChatMessageItem>();
       expect(messageItems.length, equals(1));
@@ -164,9 +133,8 @@ void main() {
       () async {
         await loadConversation();
 
-        final channel = 'conversation.$kConversationId';
-        ws.emit(channel, _messageCreatedEvent());
-        ws.emit(channel, _messageCreatedEvent());
+        state.addEvent(_messageCreatedEvent());
+        state.addEvent(_messageCreatedEvent());
 
         final messageItems = state.chatItems.whereType<ChatMessageItem>();
         expect(messageItems.length, equals(1));
@@ -182,14 +150,12 @@ void main() {
       () async {
         await loadConversation();
 
-        final channel = 'conversation.$kConversationId';
-
         // First dispatch seeds the item.
-        ws.emit(channel, _messageCreatedEvent(messageId: kMessageId));
+        state.addEvent(_messageCreatedEvent(messageId: kMessageId));
         expect(state.chatItems.whereType<ChatMessageItem>().length, equals(1));
 
         // Second dispatch with same id must not add a duplicate.
-        ws.emit(channel, _messageCreatedEvent(messageId: kMessageId));
+        state.addEvent(_messageCreatedEvent(messageId: kMessageId));
         expect(state.chatItems.whereType<ChatMessageItem>().length, equals(1));
       },
     );

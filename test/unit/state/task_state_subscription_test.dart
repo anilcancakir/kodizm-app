@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
 import 'package:magic/testing.dart';
 
+import 'package:app/app/realtime/realtime_channel_manager.dart';
 import 'package:app/app/state/task_state.dart';
 
 // ---------------------------------------------------------------------------
@@ -164,13 +165,16 @@ void main() {
   MagicTest.init();
 
   late _TestBroadcastDriver driver;
+  late _TestBroadcastManager broadcastManager;
+  late RealtimeChannelManager channelManager;
   late TaskState state;
 
   setUp(() {
     driver = _TestBroadcastDriver();
-    Magic.app.setInstance('broadcasting', _TestBroadcastManager(driver));
+    broadcastManager = _TestBroadcastManager(driver);
+    channelManager = RealtimeChannelManager(broadcaster: broadcastManager);
     Magic.app.setInstance('log', FakeLogManager());
-    state = TaskState();
+    state = TaskState(manager: channelManager);
 
     // Default HTTP stub so fetchTasks inside event handlers does not throw.
     Http.fake(
@@ -185,8 +189,8 @@ void main() {
     state.unsubscribeFromProjectEvents();
     state.unsubscribePipelineEvents();
     state.dispose();
+    channelManager.dispose();
     driver.disposeAll();
-    Magic.app.removeInstance('broadcasting');
     Magic.app.removeInstance('log');
     Http.unfake();
   });

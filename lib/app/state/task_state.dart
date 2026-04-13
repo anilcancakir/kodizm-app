@@ -7,6 +7,9 @@ import '../models/agent_role.dart';
 import '../models/conversation.dart';
 import '../models/task.dart';
 import '../models/task_section.dart';
+import '../realtime/channel_handle.dart';
+import '../realtime/channel_names.dart';
+import '../realtime/realtime_channel_manager.dart';
 
 // ---------------------------------------------------------------------------
 // Sort support
@@ -66,13 +69,25 @@ enum TaskSortField {
 class TaskState extends MagicController
     with MagicStateMixin<List<Task>>, SentryStateMixin<List<Task>> {
   /// Creates a [TaskState].
-  TaskState();
+  ///
+  /// Accepts an optional [manager] for testability; defaults to resolving or
+  /// creating a [RealtimeChannelManager] via the IoC container.
+  TaskState({RealtimeChannelManager? manager})
+    : _manager =
+          manager ??
+          Magic.findOrPut<RealtimeChannelManager>(RealtimeChannelManager.new);
 
   /// Lazy singleton accessor.
   ///
   /// Uses [Magic.findOrPut] to ensure a single instance is shared across
   /// the application.
   static TaskState get instance => Magic.findOrPut(TaskState.new);
+
+  // ---------------------------------------------------------------------------
+  // Realtime channel manager
+  // ---------------------------------------------------------------------------
+
+  final RealtimeChannelManager _manager;
 
   // ---------------------------------------------------------------------------
   // Secondary state
@@ -85,17 +100,16 @@ class TaskState extends MagicController
   bool _startingRun = false;
 
   // Pipeline subscription state
-  StreamSubscription<BroadcastEvent>? _projectPipelineSubscription;
-  StreamSubscription<BroadcastEvent>? _taskStatusSubscription;
+  ChannelHandle? _projectHandle;
+  ChannelHandle? _taskHandle;
+  StreamSubscription<void>? _pipelineReconnectSub;
   String? _pipelineProjectId;
   String? _pipelineTaskId;
   String? _pipelineTeamId;
-  StreamSubscription<void>? _reconnectSubscription;
 
   // Project list subscription state
-  StreamSubscription<BroadcastEvent>? _projectListSubscription;
-  StreamSubscription<void>? _listReconnectSubscription;
-  String? _listProjectId;
+  ChannelHandle? _listProjectHandle;
+  StreamSubscription<void>? _listReconnectSub;
 
   /// The currently selected task (set by [fetchTask]).
   Task? get selectedTask => _selectedTask;
@@ -119,10 +133,10 @@ class TaskState extends MagicController
   /// Fetch all tasks for the given [teamId] and [projectId].
   ///
   /// Optional filter and sort query parameters:
-  /// - [statusFilter] — comma-separated status slugs (e.g. `['draft', 'in_progress']`)
-  /// - [typeFilter] — comma-separated type slugs (e.g. `['bug', 'feature']`)
-  /// - [priorityFilter] — comma-separated priority slugs (e.g. `['high', 'critical']`)
-  /// - [sort] — API sort token (e.g. `'-updated_at'`)
+  /// - [statusFilter]: comma-separated status slugs (e.g. `['draft', 'in_progress']`)
+  /// - [typeFilter]: comma-separated type slugs (e.g. `['bug', 'feature']`)
+  /// - [priorityFilter]: comma-separated priority slugs (e.g. `['high', 'critical']`)
+  /// - [sort]: API sort token (e.g. `'-updated_at'`)
   ///
   /// Sets loading, then populates `rxState` with the parsed task list on
   /// success, or transitions to error on failure.
@@ -409,9 +423,9 @@ class TaskState extends MagicController
   /// Subscribe to real-time pipeline events for [taskId] in [projectId].
   ///
   /// Subscribes to two private Echo channels:
-  /// - `project.$projectId` — listens for `.pipeline.stage.waiting` to refresh
+  /// - `project.$projectId`: listens for `.pipeline.stage.waiting` to refresh
   ///   task detail when a pipeline stage needs user action.
-  /// - `task.$taskId` — listens for `.task.status.changed` to refresh task
+  /// - `task.$taskId`: listens for `.task.status.changed` to refresh task
   ///   detail and conversations when the task status transitions.
   ///
   /// Any prior subscription for the same task is cancelled before re-subscribing.
@@ -427,29 +441,27 @@ class TaskState extends MagicController
     _pipelineTaskId = taskId;
     _pipelineTeamId = teamId;
 
-    _projectPipelineSubscription = Echo.private('project.$projectId').events
-        .listen((BroadcastEvent event) {
-          if (event.event == '.pipeline.stage.waiting') {
-            Log.debug('Pipeline stage waiting — refreshing task $taskId');
-            fetchTask(teamId, projectId, taskId);
-          } else if (event.event == '.conversation.status') {
-            Log.debug('Conversation status changed — refreshing conversations');
-            fetchConversations(teamId, projectId, taskId);
-          }
-        });
+    _projectHandle = _manager.channel(ChannelName.project(projectId));
+    _projectHandle!.onEvent((BroadcastEvent event) {
+      if (event.event == '.pipeline.stage.waiting') {
+        Log.debug('Pipeline stage waiting, refreshing task $taskId');
+        fetchTask(teamId, projectId, taskId);
+      } else if (event.event == '.conversation.status') {
+        Log.debug('Conversation status changed, refreshing conversations');
+        fetchConversations(teamId, projectId, taskId);
+      }
+    });
 
-    _taskStatusSubscription = Echo.private('task.$taskId').events.listen((
-      BroadcastEvent event,
-    ) {
+    _taskHandle = _manager.channel(ChannelName.task(taskId));
+    _taskHandle!.onEvent((BroadcastEvent event) {
       if (event.event == '.task.status.changed') {
-        Log.debug('Task status changed — refreshing task $taskId');
+        Log.debug('Task status changed, refreshing task $taskId');
         fetchTask(teamId, projectId, taskId);
         fetchConversations(teamId, projectId, taskId);
       }
     });
 
-    _reconnectSubscription?.cancel();
-    _reconnectSubscription = Echo.onReconnect.listen((_) {
+    _pipelineReconnectSub = _manager.onReconnect.listen((_) {
       _catchUpAfterReconnect();
     });
   }
@@ -478,21 +490,14 @@ class TaskState extends MagicController
   /// Should be called from `dispose()` of the task detail screen or when
   /// navigating away from a task.
   void unsubscribePipelineEvents() {
-    _projectPipelineSubscription?.cancel();
-    _projectPipelineSubscription = null;
+    _pipelineReconnectSub?.cancel();
+    _pipelineReconnectSub = null;
 
-    _taskStatusSubscription?.cancel();
-    _taskStatusSubscription = null;
+    _projectHandle?.dispose();
+    _projectHandle = null;
 
-    _reconnectSubscription?.cancel();
-    _reconnectSubscription = null;
-
-    if (_pipelineProjectId != null) {
-      Echo.leave('project.$_pipelineProjectId');
-    }
-    if (_pipelineTaskId != null) {
-      Echo.leave('task.$_pipelineTaskId');
-    }
+    _taskHandle?.dispose();
+    _taskHandle = null;
 
     _pipelineProjectId = null;
     _pipelineTaskId = null;
@@ -535,17 +540,14 @@ class TaskState extends MagicController
   void subscribeToProjectEvents(String teamId, String projectId) {
     unsubscribeFromProjectEvents();
 
-    _listProjectId = projectId;
+    _listProjectHandle = _manager.channel(ChannelName.project(projectId));
+    _listProjectHandle!.onEvent((BroadcastEvent event) {
+      if (event.event == '.task.status.changed') {
+        fetchTasks(teamId, projectId);
+      }
+    });
 
-    _projectListSubscription = Echo.private('project.$projectId').events.listen(
-      (BroadcastEvent event) {
-        if (event.event == '.task.status.changed') {
-          fetchTasks(teamId, projectId);
-        }
-      },
-    );
-
-    _listReconnectSubscription = Echo.onReconnect.listen((_) {
+    _listReconnectSub = _manager.onReconnect.listen((_) {
       fetchTasks(teamId, projectId);
     });
   }
@@ -555,17 +557,11 @@ class TaskState extends MagicController
   /// Should be called from `dispose()` of the task list screen or when
   /// navigating away from a project.
   void unsubscribeFromProjectEvents() {
-    _projectListSubscription?.cancel();
-    _projectListSubscription = null;
+    _listReconnectSub?.cancel();
+    _listReconnectSub = null;
 
-    _listReconnectSubscription?.cancel();
-    _listReconnectSubscription = null;
-
-    if (_listProjectId != null) {
-      Echo.leave('project.$_listProjectId');
-    }
-
-    _listProjectId = null;
+    _listProjectHandle?.dispose();
+    _listProjectHandle = null;
   }
 
   // ---------------------------------------------------------------------------

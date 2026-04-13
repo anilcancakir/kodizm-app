@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -7,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
 import 'package:magic/testing.dart';
 
+import 'package:app/app/realtime/realtime_channel_manager.dart';
 import 'package:app/app/state/session_state.dart';
 import 'package:app/resources/views/session/session_detail_view.dart';
 import 'package:app/resources/widgets/molecules/model_cost_breakdown.dart';
@@ -123,26 +123,6 @@ const List<Map<String, dynamic>> kEvents = [
 // Fake WebSocket
 // ---------------------------------------------------------------------------
 
-class _FakeSessionWebSocket implements SessionWebSocket {
-  final List<String> subscribedChannels = [];
-  final List<String> unsubscribedChannels = [];
-  final StreamController<void> _reconnectController =
-      StreamController<void>.broadcast();
-
-  @override
-  void subscribe(String channel, void Function(BroadcastEvent) onEvent) {
-    subscribedChannels.add(channel);
-  }
-
-  @override
-  void unsubscribe(String channel) {
-    unsubscribedChannels.add(channel);
-  }
-
-  @override
-  Stream<void> get onReconnect => _reconnectController.stream;
-}
-
 // ---------------------------------------------------------------------------
 // Test-safe translation loader
 // ---------------------------------------------------------------------------
@@ -243,7 +223,8 @@ void main() {
   MagicTest.init();
 
   late FakeNetworkDriver driver;
-  late _FakeSessionWebSocket ws;
+  late FakeBroadcastManager fake;
+  late RealtimeChannelManager channelManager;
   late SessionState state;
 
   setUpAll(() async {
@@ -257,8 +238,9 @@ void main() {
     driver.stub('*', Http.response({'data': kSessionDetail}));
     driver.stub('*/events*', Http.response({'data': kEvents}));
 
-    ws = _FakeSessionWebSocket();
-    state = SessionState(webSocket: ws);
+    fake = Echo.fake();
+    channelManager = RealtimeChannelManager(broadcaster: fake);
+    state = SessionState(manager: channelManager);
     Magic.put<SessionState>(state);
   });
 
@@ -418,7 +400,7 @@ void main() {
   testWidgets('subscribes to session WebSocket channel', (tester) async {
     await _pumpView(tester);
 
-    expect(ws.subscribedChannels, contains('session.$kSessionId'));
+    fake.assertSubscribed('private-session.$kSessionId');
   });
 
   // -------------------------------------------------------------------------

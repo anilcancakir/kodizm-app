@@ -1,28 +1,10 @@
-import 'dart:async';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
 import 'package:magic/testing.dart';
 
 import 'package:app/app/models/chat_item.dart';
+import 'package:app/app/realtime/realtime_channel_manager.dart';
 import 'package:app/app/state/conversation_chat_state.dart';
-
-// ---------------------------------------------------------------------------
-// Minimal fake WebSocket (no-op — not needed for _parsePendingEvents tests)
-// ---------------------------------------------------------------------------
-
-class _FakeWebSocket implements ConversationChatWebSocket {
-  final StreamController<void> _reconnect = StreamController<void>.broadcast();
-
-  @override
-  Stream<void> get onReconnect => _reconnect.stream;
-
-  @override
-  void subscribe(String channel, void Function(BroadcastEvent) onEvent) {}
-
-  @override
-  void unsubscribe(String channel) {}
-}
 
 // ---------------------------------------------------------------------------
 // Helpers — build event maps in StreamEventResource format
@@ -134,10 +116,14 @@ Map<String, dynamic> _thinkingEvent({
 void main() {
   MagicTest.init();
 
+  late FakeBroadcastManager fake;
+  late RealtimeChannelManager manager;
   late ConversationChatState state;
 
   setUp(() {
-    state = ConversationChatState(webSocket: _FakeWebSocket());
+    fake = Echo.fake();
+    manager = RealtimeChannelManager(broadcaster: fake);
+    state = ConversationChatState(manager: manager);
   });
 
   tearDown(() {

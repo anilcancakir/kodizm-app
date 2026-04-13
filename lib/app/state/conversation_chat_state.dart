@@ -12,50 +12,9 @@ import '../models/chat_item.dart';
 import '../models/conversation.dart';
 import '../models/conversation_message.dart';
 import '../models/message_attachment.dart';
-
-// ---------------------------------------------------------------------------
-// Broadcast abstraction for testability
-// ---------------------------------------------------------------------------
-
-/// Thin interface over broadcast subscribe/unsubscribe for testing.
-///
-/// In production the default [EchoChatBroadcast] delegates to the [Echo]
-/// facade. Tests inject a fake.
-abstract class ConversationChatWebSocket {
-  /// Subscribe to a private [channel] with an event callback.
-  ///
-  /// [channel] is the bare channel name without the `private-` prefix
-  /// (e.g. `conversation.abc`). The implementation adds the prefix as needed.
-  void subscribe(String channel, void Function(BroadcastEvent) onEvent);
-
-  /// Unsubscribe from [channel] (bare name, no `private-` prefix).
-  void unsubscribe(String channel);
-
-  /// Stream that emits after each successful reconnection.
-  Stream<void> get onReconnect;
-}
-
-/// Default production [ConversationChatWebSocket] backed by the [Echo] facade.
-class EchoChatBroadcast implements ConversationChatWebSocket {
-  /// Active stream subscriptions keyed by channel name.
-  final Map<String, StreamSubscription<BroadcastEvent>> _subscriptions = {};
-
-  @override
-  void subscribe(String channel, void Function(BroadcastEvent) onEvent) {
-    _subscriptions[channel]?.cancel();
-    _subscriptions[channel] = Echo.private(channel).events.listen(onEvent);
-  }
-
-  @override
-  void unsubscribe(String channel) {
-    _subscriptions[channel]?.cancel();
-    _subscriptions.remove(channel);
-    Echo.leave(channel);
-  }
-
-  @override
-  Stream<void> get onReconnect => Echo.onReconnect;
-}
+import '../realtime/channel_handle.dart';
+import '../realtime/channel_names.dart';
+import '../realtime/realtime_channel_manager.dart';
 
 // ---------------------------------------------------------------------------
 // ConversationChatState controller
@@ -103,10 +62,12 @@ class ConversationChatState extends MagicController
   /// Creates a [ConversationChatState] with optional injectable
   /// dependencies for testing.
   ///
-  /// When [webSocket] is `null`, the default [EchoChatBroadcast] is used
-  /// which delegates to the [Echo] facade.
-  ConversationChatState({ConversationChatWebSocket? webSocket})
-    : _ws = webSocket ?? EchoChatBroadcast();
+  /// When [manager] is `null`, the default [RealtimeChannelManager] is
+  /// resolved via [Magic.findOrPut].
+  ConversationChatState({RealtimeChannelManager? manager})
+    : _manager =
+          manager ??
+          Magic.findOrPut<RealtimeChannelManager>(RealtimeChannelManager.new);
 
   /// Lazy singleton accessor.
   ///
@@ -115,7 +76,7 @@ class ConversationChatState extends MagicController
   static ConversationChatState get instance =>
       Magic.findOrPut(ConversationChatState.new);
 
-  final ConversationChatWebSocket _ws;
+  final RealtimeChannelManager _manager;
 
   // ---------------------------------------------------------------------------
   // State fields
@@ -147,19 +108,22 @@ class ConversationChatState extends MagicController
   String? _warmUntil;
   String _teamId = '';
   String _projectId = '';
-  String? _subscribedChannel;
-
   // View attachment tracking — used by deferred dispose cleanup.
   // Counter (not bool) because dispose(old) fires AFTER initState(new)
   // on route changes — both can be alive simultaneously for one frame.
   int _activeViewCount = 0;
 
-  /// Subscription to [ConversationChatWebSocket.onReconnect].
+  /// Handle for the conversation broadcast channel.
+  ChannelHandle? _conversationHandle;
+
+  /// Handle for the session broadcast channel.
+  ChannelHandle? _sessionHandle;
+
+  /// Subscription to [RealtimeChannelManager.onReconnect].
   StreamSubscription<void>? _reconnectSubscription;
 
   // Session state
   String? _sessionId;
-  String? _subscribedSessionChannel;
   String? _runningCostUsd;
   String? _sessionPhase;
   String? _provisioningStep;
@@ -448,6 +412,37 @@ class ConversationChatState extends MagicController
   }
 
   // ---------------------------------------------------------------------------
+  // prepareConversation
+  // ---------------------------------------------------------------------------
+
+  /// Eagerly subscribe to the conversation broadcast channel before any HTTP.
+  ///
+  /// Creates a [ChannelHandle] that buffers incoming events. The handle's
+  /// consumer callback is NOT registered yet; call [loadConversation] which
+  /// will flush the buffer through [addEvent] after [_seenEventIds] is
+  /// populated (closing the subscribe-before-load race).
+  void prepareConversation(
+    String teamId,
+    String projectId,
+    String conversationId,
+  ) {
+    _teamId = teamId;
+    _projectId = projectId;
+
+    // Dispose any existing handle before creating a new one.
+    _conversationHandle?.dispose();
+    _conversationHandle = _manager.channel(
+      ChannelName.conversation(conversationId),
+    );
+
+    // Start listening for reconnects immediately.
+    _reconnectSubscription?.cancel();
+    _reconnectSubscription = _manager.onReconnect.listen((_) {
+      _catchUpAfterReconnect();
+    });
+  }
+
+  // ---------------------------------------------------------------------------
   // createConversation
   // ---------------------------------------------------------------------------
 
@@ -483,10 +478,9 @@ class ConversationChatState extends MagicController
         (response.data as Map<String, dynamic>)['data'] as Map<String, dynamic>;
     _conversation = Conversation.fromMap(data);
 
-    // -- Subscribe to WS channel --
-    final channel = 'conversation.${_conversation!.id}';
-    _subscribedChannel = channel;
-    _ws.subscribe(channel, addEvent);
+    // -- Subscribe to WS channel (post-POST, no race for manual create) --
+    prepareConversation(teamId, projectId, _conversation!.id);
+    _conversationHandle!.onEvent(addEvent);
 
     refreshUI();
   }
@@ -571,16 +565,15 @@ class ConversationChatState extends MagicController
       }
     }
 
-    // -- Subscribe to conversation WS channel --
-    final channel = 'conversation.${_conversation!.id}';
-    _subscribedChannel = channel;
-    _ws.subscribe(channel, addEvent);
-
-    // -- Listen for WS reconnects to catch up on missed events --
-    _reconnectSubscription?.cancel();
-    _reconnectSubscription = _ws.onReconnect.listen((_) {
-      _catchUpAfterReconnect();
-    });
+    // -- Activate the conversation handle (flush buffered events) --
+    // prepareConversation() was called by the view before this method,
+    // so _conversationHandle is already subscribed and buffering. Now that
+    // _seenEventIds is populated, flush through addEvent which dedups.
+    if (_conversationHandle == null) {
+      // Fallback: if prepareConversation was not called, subscribe now.
+      prepareConversation(teamId, projectId, conversationId);
+    }
+    _conversationHandle!.onEvent(addEvent);
 
     refreshUI();
   }
@@ -834,6 +827,8 @@ class ConversationChatState extends MagicController
         _handleStatusEvent(wsEvent);
       case '.conversation.title':
         _handleTitleEvent(wsEvent);
+      case '.session.cost' || '.session.status':
+        _handleSessionEvent(wsEvent);
     }
 
     refreshUI();
@@ -1130,37 +1125,50 @@ class ConversationChatState extends MagicController
   /// widget rebuilds (e.g. browser refresh). A full [reset] is only called
   /// when navigating to a *different* conversation.
   void unsubscribeChannels() {
-    if (_subscribedChannel != null) {
-      _ws.unsubscribe(_subscribedChannel!);
-      _subscribedChannel = null;
-    }
+    _conversationHandle?.dispose();
+    _conversationHandle = null;
 
-    if (_subscribedSessionChannel != null) {
-      _ws.unsubscribe(_subscribedSessionChannel!);
-      _subscribedSessionChannel = null;
-    }
+    _sessionHandle?.dispose();
+    _sessionHandle = null;
   }
 
   /// Re-subscribe to WS channels for the current conversation.
   ///
   /// Called after a browser refresh when the singleton still holds conversation
   /// data but the old widget's `dispose()` cleared the WS subscriptions.
+  /// Creates fresh handles and immediately registers event handlers (state is
+  /// already hydrated, so buffered events flush through dedup).
   void resubscribe() {
     if (_conversation == null) return;
 
-    final channel = 'conversation.${_conversation!.id}';
-    _subscribedChannel = channel;
-    _ws.subscribe(channel, addEvent);
+    _conversationHandle?.dispose();
+    _conversationHandle = _manager.channel(
+      ChannelName.conversation(_conversation!.id),
+    );
+    _conversationHandle!.onEvent(addEvent);
 
     if (_sessionId != null) {
-      final sessionChannel = 'session.$_sessionId';
-      _subscribedSessionChannel = sessionChannel;
-      _ws.subscribe(sessionChannel, _handleSessionEvent);
+      _sessionHandle?.dispose();
+      _sessionHandle = _manager.channel(ChannelName.session(_sessionId!));
+      _sessionHandle!.onEvent(_handleSessionEvent);
     }
+
+    // Ensure reconnect listener is active.
+    _reconnectSubscription?.cancel();
+    _reconnectSubscription = _manager.onReconnect.listen((_) {
+      _catchUpAfterReconnect();
+    });
   }
 
+  /// Reset all state and dispose channel handles.
+  ///
+  /// Disposes conversation and session handles (decrementing refcounts in
+  /// the manager) and clears all internal state fields.
   void reset() {
-    unsubscribeChannels();
+    _conversationHandle?.dispose();
+    _conversationHandle = null;
+    _sessionHandle?.dispose();
+    _sessionHandle = null;
     _reconnectSubscription?.cancel();
     _reconnectSubscription = null;
 
@@ -1571,9 +1579,9 @@ class ConversationChatState extends MagicController
     final incomingSessionId = wsEvent.data['session_id'] as String?;
     if (incomingSessionId != null && _sessionId != incomingSessionId) {
       _sessionId = incomingSessionId;
-      final sessionChannel = 'session.$_sessionId';
-      _subscribedSessionChannel = sessionChannel;
-      _ws.subscribe(sessionChannel, _handleSessionEvent);
+      _sessionHandle?.dispose();
+      _sessionHandle = _manager.channel(ChannelName.session(_sessionId!));
+      _sessionHandle!.onEvent(_handleSessionEvent);
     }
   }
 

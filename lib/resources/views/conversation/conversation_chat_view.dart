@@ -166,9 +166,24 @@ class _ConversationChatViewState extends State<ConversationChatView> {
     }
   }
 
-  void _scrollToBottom() {
+  void _scrollToBottom([int remainingRetries = 5]) {
+    // Guard against callbacks firing after dispose — the scroll controller
+    // would then be used-after-disposed and trip an assertion.
+    if (!mounted) return;
     if (!_scrollController.hasClients) return;
-    if (!_scrollController.position.hasContentDimensions) return;
+
+    // Layout may take multiple frames for long message lists — retry until
+    // content dimensions are available instead of silently bailing out.
+    if (!_scrollController.position.hasContentDimensions) {
+      if (remainingRetries > 0) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _scrollToBottom(remainingRetries - 1);
+        });
+      }
+      return;
+    }
+
     _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
   }
 

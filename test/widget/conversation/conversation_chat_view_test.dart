@@ -372,6 +372,52 @@ void main() {
   });
 
   // -----------------------------------------------------------------------
+  // 9b. Auto-scroll retries across frames until list is scrolled to bottom
+  // -----------------------------------------------------------------------
+
+  testWidgets('auto-scroll settles at bottom after multi-frame layout', (
+    tester,
+  ) async {
+    await pumpWithConversation(tester);
+
+    // Push enough messages to make the list overflow the viewport so that
+    // `position.hasContentDimensions` / `maxScrollExtent` only resolve after
+    // layout completes — exercises the retry path in _scrollToBottom().
+    for (int i = 0; i < 40; i++) {
+      state.addEvent(
+        BroadcastEvent(
+          channel: 'private-conversation.$kConversationId',
+          event: '.conversation.message',
+          data: {
+            'conversation_id': kConversationId,
+            'type': 'assistant',
+            'content':
+                'Filler message #$i — '
+                '${'long content ' * 20}',
+            'metadata': null,
+            'occurred_at':
+                '2026-03-27T10:${i.toString().padLeft(2, '0')}:00.000Z',
+          },
+          receivedAt: DateTime.utc(2026, 3, 27, 10, i),
+        ),
+      );
+    }
+
+    // Pump several frames to let the retry chain resolve.
+    await tester.pumpAndSettle();
+
+    // Locate the Scrollable backing the chat list and verify it is scrolled
+    // to (or near) the bottom — the retry loop should have caught up.
+    final Scrollable scrollable = tester
+        .widgetList<Scrollable>(find.byType(Scrollable))
+        .firstWhere((s) => s.axisDirection == AxisDirection.down);
+    final ScrollPosition position = scrollable.controller!.position;
+
+    expect(position.maxScrollExtent, greaterThan(0));
+    expect(position.pixels, closeTo(position.maxScrollExtent, 1.0));
+  });
+
+  // -----------------------------------------------------------------------
   // 10. Raw events section shows event count
   // -----------------------------------------------------------------------
 

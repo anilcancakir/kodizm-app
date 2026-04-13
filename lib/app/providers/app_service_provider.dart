@@ -183,16 +183,40 @@ class AppServiceProvider extends ServiceProvider {
       });
     }
 
-    // Push notifications: initialize OneSignal with external user ID on
-    // session restore. Fresh login is covered by next app restart or hot
-    // restart, since magic_starter's auth controller navigates after login
-    // and the layout starts polling on mount.
-    if (Auth.check()) {
+    // Push notifications: re-initialize OneSignal on every auth state
+    // transition to authenticated. stateNotifier bumps on setUser/logout/
+    // restore, so both fresh login and session restore are covered.
+    // requestPermission() runs inside the same microtask as the login
+    // response callback, which preserves the originating user gesture
+    // (form submit) — browsers accept the permission prompt.
+    var lastPushUserId = '';
+    Auth.stateNotifier.addListener(() async {
+      if (!Auth.check()) {
+        lastPushUserId = '';
+        return;
+      }
+      final userId = Auth.id() ?? '';
+      if (userId.isEmpty || userId == lastPushUserId) return;
+      lastPushUserId = userId;
       try {
-        await Notify.initializePush('user_${Auth.id()}');
+        await Notify.initializePush('user_$userId');
         await Notify.requestPushPermission();
       } catch (e) {
-        Log.error('[AppServiceProvider.boot] Push init failed: $e');
+        Log.error('[AppServiceProvider] Push init failed: $e');
+      }
+    });
+    // Cover the case where session is already restored before the
+    // listener was attached (cached user path).
+    if (Auth.check()) {
+      final userId = Auth.id() ?? '';
+      if (userId.isNotEmpty) {
+        lastPushUserId = userId;
+        try {
+          await Notify.initializePush('user_$userId');
+          await Notify.requestPushPermission();
+        } catch (e) {
+          Log.error('[AppServiceProvider] Push init failed: $e');
+        }
       }
     }
 

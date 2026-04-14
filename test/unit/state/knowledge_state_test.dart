@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
 import 'package:magic/testing.dart';
 
-import 'package:app/app/state/document_state.dart';
+import 'package:app/app/state/knowledge_state.dart';
 
 // ---------------------------------------------------------------------------
 // Shared fixtures
@@ -15,6 +15,10 @@ const Map<String, dynamic> kDocumentA = {
   'content': '## Architecture\n\nThis project uses Flutter + Laravel.',
   'category': 'architecture',
   'metadata': null,
+  'type': 'document',
+  'memory_type': null,
+  'auto_inject': null,
+  'priority': null,
   'created_by_user_id': 'user-uuid-001',
   'created_by_user': {'id': 'user-uuid-001', 'name': 'Alice Smith'},
   'created_by_agent_role_id': null,
@@ -30,12 +34,35 @@ const Map<String, dynamic> kDocumentB = {
   'content': '## API\n\nEndpoints documented here.',
   'category': 'api',
   'metadata': null,
+  'type': 'document',
+  'memory_type': null,
+  'auto_inject': null,
+  'priority': null,
   'created_by_user_id': null,
   'created_by_user': null,
   'created_by_agent_role_id': 'role-uuid-001',
   'created_by_agent_role': {'id': 'role-uuid-001', 'name': 'Business Analyst'},
   'created_at': '2025-02-01T10:00:00.000Z',
   'updated_at': '2025-03-20T09:00:00.000Z',
+};
+
+const Map<String, dynamic> kMemoryA = {
+  'id': 'mem-uuid-001',
+  'project_id': 'proj-uuid-001',
+  'title': 'Architecture Notes',
+  'content': '# Architecture\n\nThis system uses a microservices approach.',
+  'category': null,
+  'metadata': null,
+  'type': 'memory',
+  'memory_type': 'project',
+  'auto_inject': true,
+  'priority': 1,
+  'created_by_user_id': 'user-uuid-001',
+  'created_by_user': {'name': 'Alice Smith'},
+  'created_by_agent_role_id': null,
+  'created_by_agent_role': null,
+  'created_at': '2025-01-10T10:00:00.000Z',
+  'updated_at': '2025-01-10T10:00:00.000Z',
 };
 
 // ---------------------------------------------------------------------------
@@ -45,11 +72,11 @@ const Map<String, dynamic> kDocumentB = {
 void main() {
   MagicTest.init();
 
-  group('DocumentState', () {
-    late DocumentState state;
+  group('KnowledgeState', () {
+    late KnowledgeState state;
 
     setUp(() {
-      state = DocumentState();
+      state = KnowledgeState();
     });
 
     tearDown(() {
@@ -229,6 +256,92 @@ void main() {
         fake.recorded.first.$1.url,
         equals('/teams/team-uuid-001/projects/proj-uuid-001/documents'),
       );
+    });
+
+    // -----------------------------------------------------------------------
+    // 6. loadMemories — loads memory entries via type=memory
+    // -----------------------------------------------------------------------
+
+    test('loadMemories populates list with memory-type entries', () async {
+      final fake = Http.fake(
+        (MagicRequest req) => MagicResponse(
+          data: {
+            'data': [kMemoryA],
+          },
+          statusCode: 200,
+        ),
+      );
+
+      await state.loadMemories('team-uuid-001', 'proj-uuid-001');
+
+      expect(state.isSuccess, isTrue);
+      expect(state.documents.length, equals(1));
+      expect(state.documents[0].id, equals('mem-uuid-001'));
+      expect(state.documents[0].isMemory, isTrue);
+      expect(state.documents[0].memoryType, equals('project'));
+      expect(state.documents[0].autoInject, isTrue);
+
+      expect(fake.recorded.length, equals(1));
+      expect(fake.recorded.first.$1.method, equals('GET'));
+    });
+
+    // -----------------------------------------------------------------------
+    // 7. createMemory — sends POST with memory fields
+    // -----------------------------------------------------------------------
+
+    test('createMemory sends POST with type=memory', () async {
+      final fake = Http.fake(
+        (MagicRequest req) =>
+            MagicResponse(data: {'data': kMemoryA}, statusCode: 201),
+      );
+
+      final result = await state.createMemory(
+        'team-uuid-001',
+        'proj-uuid-001',
+        'Architecture Notes',
+        '# Architecture\n\nThis system uses a microservices approach.',
+        'project',
+      );
+
+      expect(result, isNotNull);
+      expect(result!.id, equals('mem-uuid-001'));
+      expect(result.isMemory, isTrue);
+      expect(state.documents.length, equals(1));
+
+      expect(fake.recorded.first.$1.method, equals('POST'));
+    });
+
+    // -----------------------------------------------------------------------
+    // 8. deleteDocument — removes entry from list
+    // -----------------------------------------------------------------------
+
+    test('deleteDocument removes entry from list', () async {
+      Http.fake(
+        (MagicRequest req) => MagicResponse(
+          data: {
+            'data': [kDocumentA, kDocumentB],
+          },
+          statusCode: 200,
+        ),
+      );
+      await state.loadDocuments('team-uuid-001', 'proj-uuid-001');
+      expect(state.documents.length, equals(2));
+
+      Http.unfake();
+
+      Http.fake(
+        (MagicRequest req) => MagicResponse(data: null, statusCode: 204),
+      );
+
+      final result = await state.deleteDocument(
+        'team-uuid-001',
+        'proj-uuid-001',
+        'doc-uuid-001',
+      );
+
+      expect(result, isTrue);
+      expect(state.documents.length, equals(1));
+      expect(state.documents[0].id, equals('doc-uuid-002'));
     });
   });
 }

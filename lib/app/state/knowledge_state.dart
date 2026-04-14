@@ -4,13 +4,15 @@ import '../concerns/sentry_state_mixin.dart';
 import '../models/project_document.dart';
 
 // ---------------------------------------------------------------------------
-// DocumentState controller
+// KnowledgeState controller
 // ---------------------------------------------------------------------------
 
-/// Reactive state controller for project document CRUD operations.
+/// Reactive state controller for unified knowledge (documents + memories) CRUD.
 ///
-/// Manages the list of documents for a project, a single selected document,
-/// and an in-progress editing flag.
+/// Manages the list of knowledge entries for a project, a single selected
+/// entry, and an in-progress editing flag. Supports both document and memory
+/// operations through the unified `/documents` API endpoint with type
+/// filtering.
 ///
 /// The primary state (`rxState`) holds the `List<ProjectDocument>` for the
 /// active project. The secondary state fields ([selectedDocument],
@@ -20,28 +22,27 @@ import '../models/project_document.dart';
 ///
 /// ```dart
 /// // Access the singleton instance.
-/// final docs = DocumentState.instance;
+/// final knowledge = KnowledgeState.instance;
 ///
 /// // Fetch all documents for a project.
-/// await docs.loadDocuments('team-uuid-001', 'proj-uuid-001');
-/// final list = docs.documents; // List<ProjectDocument>
+/// await knowledge.loadDocuments('team-uuid-001', 'proj-uuid-001');
+/// final list = knowledge.documents; // List<ProjectDocument>
 ///
-/// // Fetch a single document.
-/// await docs.loadDocument('team-uuid-001', 'proj-uuid-001', 'doc-uuid-001');
-/// final selected = docs.selectedDocument;
+/// // Fetch memories for a project.
+/// await knowledge.loadMemories('team-uuid-001', 'proj-uuid-001');
 /// ```
-class DocumentState extends MagicController
+class KnowledgeState extends MagicController
     with
         MagicStateMixin<List<ProjectDocument>>,
         SentryStateMixin<List<ProjectDocument>> {
-  /// Creates a [DocumentState].
-  DocumentState();
+  /// Creates a [KnowledgeState].
+  KnowledgeState();
 
   /// Lazy singleton accessor.
   ///
   /// Uses [Magic.findOrPut] to ensure a single instance is shared across
   /// the application.
-  static DocumentState get instance => Magic.findOrPut(DocumentState.new);
+  static KnowledgeState get instance => Magic.findOrPut(KnowledgeState.new);
 
   // ---------------------------------------------------------------------------
   // Secondary state
@@ -70,17 +71,44 @@ class DocumentState extends MagicController
   /// Fetch all documents for the given [teamId] and [projectId].
   ///
   /// An optional [category] filter is forwarded as a query parameter.
+  /// When [type] is provided, it filters by knowledge type ('document' or
+  /// 'memory').
   /// Sets loading, then populates `rxState` with the parsed document list on
   /// success, or transitions to error on failure.
   Future<void> loadDocuments(
     String teamId,
     String projectId, {
     String? category,
+    String? type,
   }) async {
+    final Map<String, String> query = {};
+    if (category != null) query['category'] = category;
+    if (type != null) query['type'] = type;
+
     await fetchList<ProjectDocument>(
       '/teams/$teamId/projects/$projectId/documents',
       ProjectDocument.fromMap,
-      query: category != null ? {'category': category} : null,
+      query: query.isNotEmpty ? query : null,
+    );
+  }
+
+  /// Fetch all memory entries for the given [teamId] and [projectId].
+  ///
+  /// Convenience method that calls [loadDocuments] with `type='memory'`.
+  /// An optional [memoryType] filter (feedback, user, project, reference)
+  /// can be passed as a query parameter.
+  Future<void> loadMemories(
+    String teamId,
+    String projectId, {
+    String? memoryType,
+  }) async {
+    final Map<String, String> query = {'type': 'memory'};
+    if (memoryType != null) query['memory_type'] = memoryType;
+
+    await fetchList<ProjectDocument>(
+      '/teams/$teamId/projects/$projectId/documents',
+      ProjectDocument.fromMap,
+      query: query,
     );
   }
 
@@ -142,6 +170,44 @@ class DocumentState extends MagicController
     return null;
   }
 
+  /// Create a new memory entry under the given [teamId] and [projectId].
+  ///
+  /// On success, the created memory is appended to the in-memory list and
+  /// returned. Returns `null` on failure.
+  Future<ProjectDocument?> createMemory(
+    String teamId,
+    String projectId,
+    String title,
+    String content,
+    String memoryType, {
+    String? description,
+  }) async {
+    final Map<String, dynamic> payload = {
+      'title': title,
+      'content': content,
+      'type': 'memory',
+      'memory_type': memoryType,
+    };
+    if (description != null) payload['description'] = description;
+
+    final response = await Http.post(
+      '/teams/$teamId/projects/$projectId/documents',
+      data: payload,
+    );
+
+    if (response.successful) {
+      final Map<String, dynamic> docData =
+          (response.data as Map<String, dynamic>)['data']
+              as Map<String, dynamic>;
+      final doc = ProjectDocument.fromMap(docData);
+      final updated = [...documents, doc];
+      setSuccess(updated);
+      return doc;
+    }
+
+    return null;
+  }
+
   /// Update an existing document.
   ///
   /// Only non-null fields ([title], [content]) are included in the payload.
@@ -178,9 +244,9 @@ class DocumentState extends MagicController
     return null;
   }
 
-  /// Delete a document.
+  /// Delete a document or memory entry.
   ///
-  /// On success, the document is removed from the in-memory list.
+  /// On success, the entry is removed from the in-memory list.
   /// Returns `true` on success, `false` on failure.
   Future<bool> deleteDocument(
     String teamId,

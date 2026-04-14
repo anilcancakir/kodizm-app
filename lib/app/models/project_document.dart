@@ -1,14 +1,16 @@
-/// A knowledge-base document belonging to a project.
+/// A knowledge-base document or memory entry belonging to a project.
 ///
 /// Maps to `ProjectDocumentResource` from the Kodizm API. Supports markdown
 /// content, an optional category tag, arbitrary metadata, and attribution to
-/// either a human user or an agent role.
+/// either a human user or an agent role. Unified model for both documents
+/// and memories via the [type] field.
 ///
 /// ## Usage
 /// ```dart
 /// final doc = ProjectDocument.fromMap(json['document']);
 /// print(doc.title);        // 'Architecture Overview'
 /// print(doc.createdByUserName);  // 'Alice Smith'
+/// print(doc.isMemory);     // false
 /// ```
 class ProjectDocument {
   // -------
@@ -27,6 +29,10 @@ class ProjectDocument {
     this.createdByUserName,
     this.createdByAgentRoleId,
     this.createdByAgentRoleName,
+    this.type,
+    this.memoryType,
+    this.autoInject,
+    this.priority,
   });
 
   // -------
@@ -80,6 +86,38 @@ class ProjectDocument {
   final DateTime updatedAt;
 
   // -------
+  // Unified knowledge fields
+  // -------
+
+  /// The type of knowledge entry: `'document'` or `'memory'`.
+  ///
+  /// Null for legacy entries that predate the unified model.
+  final String? type;
+
+  /// The memory sub-type when [type] is `'memory'`.
+  ///
+  /// Known values: `'feedback'`, `'user'`, `'project'`, `'reference'`.
+  /// Null for document-type entries.
+  final String? memoryType;
+
+  /// Whether this entry is auto-injected into CLAUDE.md context.
+  ///
+  /// Only relevant for memory-type entries.
+  final bool? autoInject;
+
+  /// Injection priority for auto-injected entries.
+  ///
+  /// Lower numbers are injected first. Null when not set.
+  final int? priority;
+
+  // -------
+  // Convenience accessors
+  // -------
+
+  /// Returns `true` when this entry is a memory (not a document).
+  bool get isMemory => type == 'memory';
+
+  // -------
 
   /// Parses a [ProjectDocument] from a JSON-decoded map.
   ///
@@ -102,6 +140,10 @@ class ProjectDocument {
       createdByUserName: createdByUser?['name'] as String?,
       createdByAgentRoleId: map['created_by_agent_role_id'] as String?,
       createdByAgentRoleName: createdByAgentRole?['name'] as String?,
+      type: map['type'] as String?,
+      memoryType: map['memory_type'] as String?,
+      autoInject: map['auto_inject'] as bool?,
+      priority: map['priority'] as int?,
       createdAt: DateTime.parse(map['created_at'] as String),
       updatedAt: DateTime.parse(map['updated_at'] as String),
     );

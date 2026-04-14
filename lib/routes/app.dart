@@ -17,10 +17,8 @@ import '../resources/views/conversation/conversation_list_view.dart';
 import '../resources/views/nav/project_scoped_nav_view.dart';
 import '../resources/views/session/session_detail_view.dart';
 import '../resources/views/session/session_list_view.dart';
-import '../resources/views/document/document_detail_view.dart';
-import '../resources/views/document/document_list_view.dart';
-import '../resources/views/memory/memory_detail_view.dart';
-import '../resources/views/memory/memory_list_view.dart';
+import '../resources/views/document/knowledge_detail_view.dart';
+import '../resources/views/document/knowledge_list_view.dart';
 import '../resources/views/skill/skill_detail_view.dart';
 import '../resources/views/skill/skill_list_view.dart';
 import '../resources/views/skill/skill_marketplace_view.dart';
@@ -89,23 +87,14 @@ void registerAppRoutes() {
         (String projectId) => ConversationListView(projectId: projectId),
       ).title('Conversations');
       MagicRoute.page(
-        '/projects/:projectId/documents',
-        (String projectId) => DocumentListView(projectId: projectId),
-      ).title('Documents');
+        '/projects/:projectId/knowledge',
+        (String projectId) => KnowledgeListView(projectId: projectId),
+      ).title('Knowledge');
       MagicRoute.page(
-        '/projects/:projectId/documents/:documentId',
-        (String projectId, String documentId) =>
-            DocumentDetailView(projectId: projectId, documentId: documentId),
-      ).title('Document');
-      MagicRoute.page(
-        '/projects/:projectId/memories',
-        (String projectId) => MemoryListView(projectId: projectId),
-      ).title('Memories');
-      MagicRoute.page(
-        '/projects/:projectId/memories/:memoryId',
-        (String projectId, String memoryId) =>
-            MemoryDetailView(projectId: projectId, memoryId: memoryId),
-      ).title('Memory');
+        '/projects/:projectId/knowledge/:entryId',
+        (String projectId, String entryId) =>
+            KnowledgeDetailView(projectId: projectId, entryId: entryId),
+      ).title('Knowledge');
 
       // Top-level nav redirects — check current project and redirect.
       MagicRoute.page(
@@ -161,42 +150,27 @@ void registerAppRoutes() {
         (String projectId) => ConversationListView(projectId: projectId),
       ).title('Conversations');
 
-      // Top-level nav redirects for document and memory sections.
+      // Top-level nav redirect for knowledge section.
       MagicRoute.page(
-        '/documents',
-        () => const ProjectScopedNavView(targetPath: 'documents'),
-      ).title('Documents');
-      MagicRoute.page(
-        '/memories',
-        () => const ProjectScopedNavView(targetPath: 'memories'),
-      ).title('Memories');
+        '/knowledge',
+        () => const ProjectScopedNavView(targetPath: 'knowledge'),
+      ).title('Knowledge');
 
-      // Project-scoped document routes.
+      // Project-scoped knowledge routes.
       MagicRoute.page(
-        '/documents/:projectId',
-        (String projectId) => DocumentListView(projectId: projectId),
-      ).title('Documents');
+        '/knowledge/:projectId',
+        (String projectId) => KnowledgeListView(projectId: projectId),
+      ).title('Knowledge');
       MagicRoute.page(
-        '/documents/:projectId/:documentId',
-        (String projectId, String documentId) =>
-            DocumentDetailView(projectId: projectId, documentId: documentId),
-      ).title('Document');
-
-      // Project-scoped memory routes.
-      MagicRoute.page(
-        '/memories/:projectId',
-        (String projectId) => MemoryListView(projectId: projectId),
-      ).title('Memories');
-      MagicRoute.page(
-        '/memories/:projectId/new',
+        '/knowledge/:projectId/new',
         (String projectId) =>
-            MemoryDetailView(projectId: projectId, isCreateMode: true),
+            KnowledgeDetailView(projectId: projectId, isCreateMode: true),
       ).title('New Memory');
       MagicRoute.page(
-        '/memories/:projectId/:memoryId',
-        (String projectId, String memoryId) =>
-            MemoryDetailView(projectId: projectId, memoryId: memoryId),
-      ).title('Memory');
+        '/knowledge/:projectId/:entryId',
+        (String projectId, String entryId) =>
+            KnowledgeDetailView(projectId: projectId, entryId: entryId),
+      ).title('Knowledge');
     },
   );
 

@@ -344,6 +344,14 @@
     "title": "Dashboard",
     "total_tasks": "Total Tasks"
   },
+  "knowledge": {
+    "title": "Knowledge",
+    "documents_tab": "Documents",
+    "memories_tab": "Memories",
+    "empty_title": "No items yet",
+    "empty_description": "Create documents or memories to get started.",
+    "auto_inject": "Auto-inject"
+  },
   "documents": {
     "title": "Knowledge Base",
     "subtitle": "Project documents, guides, and architecture decisions",
@@ -485,8 +493,7 @@
     "billing": "Billing",
     "sessions": "Sessions",
     "conversations": "Conversations",
-    "knowledge": "Knowledge Base",
-    "memories": "Agent Memories",
+    "knowledge": "Knowledge",
     "integrations": "Integrations"
   },
   "notifications": {

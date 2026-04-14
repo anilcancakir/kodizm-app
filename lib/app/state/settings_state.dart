@@ -44,7 +44,7 @@ class _VaultStorage implements SettingsStorage {
 /// ## Usage
 ///
 /// ```dart
-/// // Initialise once (e.g. in AppSettingsView.initState).
+/// // Initialise once (e.g. in AppInfoView.initState).
 /// await SettingsState.instance.init();
 ///
 /// // Read a preference.

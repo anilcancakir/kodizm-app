@@ -10,7 +10,7 @@ import '../resources/views/task/task_create_view.dart';
 import '../resources/views/task/task_detail_view.dart';
 import '../resources/views/billing/billing_view.dart';
 import '../resources/views/billing/usage_history_view.dart';
-import '../resources/views/settings/app_settings_view.dart';
+import '../resources/views/settings/app_info_view.dart';
 import '../resources/views/settings/integrations_view.dart';
 import '../resources/views/conversation/conversation_chat_view.dart';
 import '../resources/views/conversation/conversation_list_view.dart';
@@ -145,11 +145,8 @@ void registerAppRoutes() {
         () => const UsageHistoryView(),
       ).title('Usage History');
 
-      // Settings routes.
-      MagicRoute.page(
-        '/settings/app',
-        () => const AppSettingsView(),
-      ).title('Settings');
+      // App info route.
+      MagicRoute.page('/app-info', () => const AppInfoView()).title('App Info');
       MagicRoute.page(
         '/settings/integrations',
         () => const IntegrationsView(),

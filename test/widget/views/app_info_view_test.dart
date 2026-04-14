@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:magic/magic.dart';
 
 import 'package:app/app/state/settings_state.dart';
-import 'package:app/resources/views/settings/app_settings_view.dart';
+import 'package:app/resources/views/settings/app_info_view.dart';
 import 'package:magic_starter/magic_starter.dart';
 
 // ---------------------------------------------------------------------------
@@ -63,7 +63,7 @@ class _TestAssetLoader implements TranslationLoader {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/// Pumps an [AppSettingsView] inside the standard test scaffold.
+/// Pumps an [AppInfoView] inside the standard test scaffold.
 Future<void> _pumpView(WidgetTester tester) async {
   tester.view.physicalSize = const Size(1440, 900);
   tester.view.devicePixelRatio = 1.0;
@@ -73,7 +73,7 @@ Future<void> _pumpView(WidgetTester tester) async {
     WindTheme(
       data: WindThemeData(),
       child: MaterialApp(
-        home: Scaffold(body: SingleChildScrollView(child: AppSettingsView())),
+        home: Scaffold(body: SingleChildScrollView(child: AppInfoView())),
       ),
     ),
   );
@@ -110,22 +110,22 @@ void main() {
   // 1. Widget can be constructed (const constructor smoke test)
   // -------------------------------------------------------------------------
 
-  testWidgets('widget constructor creates AppSettingsView', (tester) async {
+  testWidgets('widget constructor creates AppInfoView', (tester) async {
     await _pumpView(tester);
 
-    expect(find.byType(AppSettingsView), findsOneWidget);
+    expect(find.byType(AppInfoView), findsOneWidget);
   });
 
   // -------------------------------------------------------------------------
-  // 2. Renders MagicStarterPageHeader with settings.title text
+  // 2. Renders MagicStarterPageHeader with app_info.title text
   // -------------------------------------------------------------------------
 
   testWidgets('renders MagicStarterPageHeader with title', (tester) async {
     await _pumpView(tester);
 
     expect(find.byType(MagicStarterPageHeader), findsOneWidget);
-    // trans('settings.title') = 'App Settings'
-    expect(find.textContaining('App Settings'), findsOneWidget);
+    // trans('app_info.title') = 'App Info'
+    expect(find.textContaining('App Info'), findsOneWidget);
   });
 
   // -------------------------------------------------------------------------
@@ -135,11 +135,11 @@ void main() {
   testWidgets('renders 3 theme options: Light, Dark, System', (tester) async {
     await _pumpView(tester);
 
-    // trans('settings.theme_light') = 'Light'
+    // trans('app_info.theme_light') = 'Light'
     expect(find.textContaining('Light'), findsOneWidget);
-    // trans('settings.theme_dark') = 'Dark'
+    // trans('app_info.theme_dark') = 'Dark'
     expect(find.textContaining('Dark'), findsOneWidget);
-    // trans('settings.theme_system') = 'System'
+    // trans('app_info.theme_system') = 'System'
     expect(find.textContaining('System'), findsOneWidget);
   });
 
@@ -152,9 +152,9 @@ void main() {
   ) async {
     await _pumpView(tester);
 
-    // trans('settings.notifications') = 'Notifications'
+    // trans('app_info.notifications') = 'Notifications'
     expect(find.textContaining('Notifications'), findsWidgets);
-    // trans('settings.notify_run_completed') = 'Run completed'
+    // trans('app_info.notify_run_completed') = 'Run completed'
     expect(find.textContaining('Run completed'), findsOneWidget);
   });
 
@@ -165,13 +165,13 @@ void main() {
   testWidgets('renders about section with info labels', (tester) async {
     await _pumpView(tester);
 
-    // trans('settings.about') = 'About'
+    // trans('app_info.about') = 'About'
     expect(find.textContaining('About'), findsOneWidget);
-    // trans('settings.app_version') = 'App Version'
+    // trans('app_info.app_version') = 'App Version'
     expect(find.textContaining('App Version'), findsOneWidget);
-    // trans('settings.build_number') = 'Build Number'
+    // trans('app_info.build_number') = 'Build Number'
     expect(find.textContaining('Build Number'), findsOneWidget);
-    // trans('settings.api_server') = 'API Server'
+    // trans('app_info.api_server') = 'API Server'
     expect(find.textContaining('API Server'), findsOneWidget);
   });
 

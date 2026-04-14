@@ -476,7 +476,7 @@
     "dashboard": "Dashboard",
     "projects": "Projects",
     "profile": "Profile",
-    "settings": "Settings",
+    "app_info": "App Info",
     "system": "System",
     "tasks": "Tasks",
     "skills": "Skills",
@@ -778,9 +778,9 @@
     "update_failed": "Failed to update team.",
     "updated": "Team updated successfully."
   },
-  "settings": {
-    "title": "App Settings",
-    "subtitle": "Appearance, notifications, and app info",
+  "app_info": {
+    "title": "App Info",
+    "subtitle": "Appearance, notifications, and about",
     "appearance": "Appearance",
     "theme_mode": "Theme Mode",
     "theme_light": "Light",
@@ -1114,7 +1114,7 @@
     "projects": "Projects",
     "session_detail": "Session",
     "sessions": "Sessions",
-    "settings": "Settings",
+    "app_info": "App Info",
     "skill_detail": "Skill",
     "skill_marketplace": "Skill Marketplace",
     "skills": "Skills",

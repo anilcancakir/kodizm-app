@@ -56,3 +56,10 @@ app.*.map.json
 CLAUDE.local.md
 .playwright-cli/
 GEMINI.md
+
+# Stitch design tool outputs
+.stitch/
+*.bak
+
+# Local-only skill symlinks
+.claude/skills/stitch-design

@@ -1,157 +1,173 @@
 # Design System: Kodizm
 
-> Semantic design system for the Kodizm multi-agent SDLC platform.
-> Mobile-first, Apple-inspired clarity, Refactoring UI discipline.
-> Source brand: logo + tokens from kodizm.com.
+> Mobile-first iOS app design system for the Kodizm AI development platform.
+> Apple HIG compliant, Refactoring UI discipline, Navy + Amber brand identity.
+> Platform: Flutter (iOS primary, web secondary). Wind UI component system.
 
 ---
 
-## 1. Visual Theme & Atmosphere
+## Configuration Dials
 
-**Personality**: Confident, precise, trustworthy. The visual language of a professional engineering tool that respects the user's intelligence — not playful, not sterile, but *purposeful*. Think Linear meets Apple's developer tools: every pixel earns its place.
-
-**Mood**: Clean and spacious with deliberate density only where data demands it (task boards, streaming terminals, usage tables). The interface breathes through generous whitespace on primary screens, then tightens into focused, information-rich panels during agent execution.
-
-**Design Philosophy** (Refactoring UI principles):
-- **Hierarchy through weight and color, not size** — de-emphasize secondary content with softer colors rather than shrinking text
-- **Constrained choices** — all values come from pre-defined scales (spacing, type, color, shadow, radius)
-- **Labels are a last resort** — use context, formatting, and position to communicate meaning before reaching for a label
-- **Emphasize by de-emphasizing everything else** — make the primary action obvious by making surrounding elements quieter
-- **Start with too much whitespace** — then remove only what you must
+| Dial | Value | Rationale |
+|------|-------|-----------|
+| **Creativity** | `3` | Professional tool aesthetic. Clean, restrained, purposeful. No decorative flourishes. |
+| **Density** | `5` | Balanced: spacious primary screens, denser data views (task lists, chat). iOS native spacing. |
+| **Variance** | `3` | Predictable, consistent layouts. Users learn patterns once. iOS platform conventions. |
+| **Motion** | `4` | iOS-standard transitions (push, sheet, fade). Subtle haptic feedback. No gratuitous animation. |
 
 ---
 
-## 2. Color Palette & Roles
+## 1. Atmosphere
 
-### Brand Colors (from logo + tokens.css)
+**Atmosphere:** A focused, capable tool that feels like it belongs on your iPhone. Clean surfaces, generous spacing, and clear hierarchy let the content (tasks, agent conversations, project status) speak. The interface fades into the background during agent execution and surfaces just enough information to keep you informed without overwhelming. Think Linear's clarity meets Apple Reminders' simplicity.
 
-The brand pairs a deep authoritative navy with a warm confident amber — the clock tower and code. All shades are derived from the oklch tokens at hue 230 (primary) and hue 55-80 (secondary), mapped to Tailwind-compatible hex values.
+**Key Characteristics:**
+- **Purposeful restraint**: every element earns its place. No decorative chrome, no dashboard vanity metrics
+- **iOS-native feel**: platform navigation patterns, system gestures, haptic feedback, safe areas respected
+- **Information on demand**: complexity is accessible but never forced. Pipeline details behind a progress bar, tool usage behind a collapsible accordion
+- **Warm professionalism**: Navy conveys trust and engineering precision, Amber signals action and progress. Not cold, not playful.
 
-#### Primary — Deep Steel Navy (hue 230)
-The color of trust, engineering precision, and quiet authority.
+---
+
+## 2. Color Palette
+
+### Brand Colors
+
+The brand pairs deep authoritative navy with warm confident amber. Derived from oklch tokens at hue 230 (primary) and hue 55-80 (secondary).
+
+#### Primary: Deep Steel Navy (hue 230)
+
+| Token | Hex | Light Mode Role | Dark Mode Role |
+|-------|-----|-----------------|----------------|
+| `primary-50` | `#F0F4F8` | Tinted backgrounds, hover states | — |
+| `primary-100` | `#D9E2EC` | Subtle borders, disabled backgrounds | Faint tint on elevated surfaces |
+| `primary-200` | `#BCCCDC` | Placeholder text, tertiary icons | — |
+| `primary-300` | `#829AB1` | Secondary text, metadata | Tertiary text |
+| `primary-400` | `#486581` | Body text on light surfaces | Secondary text |
+| `primary-500` | `#334E68` | **Primary body text**, active nav labels | — |
+| `primary-600` | `#2B3F56` | Headings, card titles | — |
+| `primary-700` | `#243346` | Page titles, high-emphasis headings | Elevated card background |
+| `primary-800` | `#1E2A38` | — | Card/surface background |
+| `primary-900` | `#1A2332` | — | **Page background (dark mode)** |
+| `primary-950` | `#0F1520` | — | Deepest surfaces, terminal background |
+
+#### Secondary: Warm Amber Gold (hue 55-80)
 
 | Token | Hex | Role |
 |-------|-----|------|
-| `primary-50` | `#F0F4F8` | Tinted backgrounds, hover states on light surfaces |
-| `primary-100` | `#D9E2EC` | Subtle borders, divider lines, disabled backgrounds |
-| `primary-200` | `#BCCCDC` | Placeholder text, tertiary icons |
-| `primary-300` | `#829AB1` | Secondary text, breadcrumbs, metadata |
-| `primary-400` | `#486581` | Body text on light backgrounds, inactive nav items |
-| `primary-500` | `#334E68` | Primary body text, active nav labels — **the workhorse** |
-| `primary-600` | `#2B3F56` | Headings, emphasis text, card titles |
-| `primary-700` | `#243346` | Page titles, high-emphasis headings |
-| `primary-800` | `#1E2A38` | App shell background (dark mode), sidebar background |
-| `primary-900` | `#1A2332` | Terminal/streaming view background |
-| `primary-950` | `#0F1520` | Deepest overlay, modal backdrops |
-
-#### Secondary — Warm Amber Gold (hue 55-80)
-The color of action, progress, and the clock tower. Used sparingly for maximum impact.
-
-| Token | Hex | Role |
-|-------|-----|------|
-| `secondary-50` | `#FFFBEB` | Warning/info banner backgrounds |
-| `secondary-100` | `#FEF3C7` | Highlight backgrounds, selected row tint |
-| `secondary-200` | `#FDE68A` | Progress bar fills (partial), badge backgrounds |
-| `secondary-300` | `#FCD34D` | Star ratings, active indicator dots |
-| `secondary-400` | `#FBBF24` | Primary CTA buttons, floating action buttons — **the accent** |
-| `secondary-500` | `#D9A520` | CTA button hover state, active tab indicators |
-| `secondary-600` | `#B8860B` | CTA button pressed state, link hover on dark backgrounds |
-| `secondary-700` | `#92690A` | Badge text on light amber backgrounds |
-| `secondary-800` | `#755506` | High-contrast text on amber surfaces |
-| `secondary-900` | `#604505` | Dark amber for very small high-emphasis text |
-| `secondary-950` | `#3D2C03` | Reserved — almost never used |
+| `secondary-50` | `#FFFBEB` | Warning/info banner background (light) |
+| `secondary-100` | `#FEF3C7` | Highlight tint, selected row |
+| `secondary-200` | `#FDE68A` | Progress bar fill, badge background |
+| `secondary-300` | `#FCD34D` | Active indicators, star ratings |
+| `secondary-400` | `#FBBF24` | **Primary CTA**, accent actions |
+| `secondary-500` | `#D9A520` | CTA hover/pressed state |
+| `secondary-600` | `#B8860B` | CTA pressed, link hover on dark |
+| `secondary-700` | `#92690A` | Badge text on amber surfaces |
 
 #### Semantic Colors
 
-| Name | Hex | Role |
-|------|-----|------|
-| Success — Verdant Green | `#10B981` | Completed tasks, passing tests, healthy status, "done" badges |
-| Success Light | `#D1FAE5` | Success banner background |
-| Error — Signal Red | `#EF4444` | Failed runs, validation errors, destructive actions |
-| Error Light | `#FEE2E2` | Error banner background |
-| Warning — Warm Amber | `#F59E0B` | Pending states, attention needed, cost warnings |
-| Warning Light | `#FEF3C7` | Warning banner background (= secondary-100) |
-| Info — Calm Blue | `#3B82F6` | Informational badges, links, help text |
-| Info Light | `#DBEAFE` | Info banner background |
+| Name | Hex (Light) | Hex (Dark) | Usage |
+|------|-------------|------------|-------|
+| Success | `#34C759` | `#30D158` | Done status, passing tests, healthy |
+| Error | `#FF3B30` | `#FF453A` | Failed status, validation errors, destructive |
+| Warning | `#FF9500` | `#FF9F0A` | Attention needed, cost warnings |
+| Info | `#007AFF` | `#0A84FF` | Links, informational badges, help text |
 
-#### Neutral — Cool Slate (primary-tinted greys)
-Per Refactoring UI: "Greys don't have to be grey." These carry a subtle blue undertone from the primary hue for visual cohesion.
+> Semantic colors follow iOS system color values for native consistency.
 
-| Token | Hex | Role |
-|-------|-----|------|
-| `slate-50` | `#F8FAFC` | Page background (light mode) |
-| `slate-100` | `#F1F5F9` | Card backgrounds, inset panels, secondary surfaces |
-| `slate-200` | `#E2E8F0` | Borders, dividers, input stroke |
-| `slate-300` | `#CBD5E1` | Disabled text, placeholder icons |
-| `slate-400` | `#94A3B8` | Placeholder text, caption text |
-| `slate-500` | `#64748B` | Secondary body text, form labels |
-| `slate-600` | `#475569` | Primary body text (alternative to primary-500) |
-| `slate-700` | `#334155` | Subheadings, card titles |
-| `slate-800` | `#1E293B` | Main headings, high-emphasis text |
-| `slate-900` | `#0F172A` | Page titles, hero text |
-| `slate-950` | `#020617` | Maximum contrast text (sparingly) |
+#### Neutral: Cool Slate
+
+Primary-tinted greys (subtle blue undertone from hue 230).
+
+| Token | Hex | Light Mode Role | Dark Mode Role |
+|-------|-----|-----------------|----------------|
+| `slate-50` | `#F8FAFC` | **Page background** | — |
+| `slate-100` | `#F1F5F9` | Card/surface background, inset panels | — |
+| `slate-200` | `#E2E8F0` | Borders, dividers, input stroke | — |
+| `slate-300` | `#CBD5E1` | Disabled text, placeholder icons | Borders, dividers |
+| `slate-400` | `#94A3B8` | Placeholder text, caption text | Placeholder text |
+| `slate-500` | `#64748B` | Secondary body text, form labels | — |
+| `slate-600` | `#475569` | Primary body text (alternative) | Secondary text |
+| `slate-700` | `#334155` | Subheadings, card titles | Primary text |
+| `slate-800` | `#1E293B` | Main headings | Elevated surfaces |
+| `slate-900` | `#0F172A` | Page titles, hero text | Page background (alternative) |
+
+#### Task Status Colors (Simplified)
+
+| Status | Color | Hex (Light) | Hex (Dark) |
+|--------|-------|-------------|------------|
+| Todo | Slate | `#94A3B8` | `#94A3B8` |
+| In Progress | Amber | `#FBBF24` | `#FBBF24` |
+| Done | Green | `#34C759` | `#30D158` |
+| Failed | Red | `#FF3B30` | `#FF453A` |
+
+> Pipeline sub-states (analyzing, planning, coding, testing) shown as progress bar labels within "In Progress", not as separate statuses.
 
 #### Agent Role Colors
-Each SDLC agent role gets a distinct identifying color for avatars, badges, and timeline markers.
 
-| Agent | Color | Hex | Why |
-|-------|-------|-----|-----|
-| Business Analyst | Indigo | `#6366F1` | Strategic, analytical |
-| Lead Developer | Primary Navy | `#334E68` | Authority, architecture |
-| Developer | Teal | `#14B8A6` | Building, crafting |
-| Code Reviewer | Violet | `#8B5CF6` | Scrutiny, quality |
-| QA Engineer | Emerald | `#10B981` | Verification, green-light |
-| Product Manager | Blue | `#3B82F6` | Product vision, task management |
+| Agent | Color | Hex |
+|-------|-------|-----|
+| Business Analyst | Indigo | `#6366F1` |
+| Lead Developer | Navy | `#334E68` |
+| Developer | Teal | `#14B8A6` |
+| Code Reviewer | Violet | `#8B5CF6` |
+| QA Engineer | Emerald | `#10B981` |
+| Product Manager | Blue | `#007AFF` |
 
-#### Task Status Colors
+### Dark Mode
 
-| Status | Color | Hex |
-|--------|-------|-----|
-| Draft | `slate-300` | `#CBD5E1` |
-| Analysis | Indigo | `#6366F1` |
-| Planning | Blue | `#3B82F6` |
-| Design | Violet | `#8B5CF6` |
-| In Progress | Amber | `#FBBF24` |
-| Review | Orange | `#F97316` |
-| Testing | Teal | `#14B8A6` |
-| Done | Green | `#10B981` |
-| Failed | Red | `#EF4444` |
+Day 1 requirement. Follows iOS elevated surface model: each layer above base is progressively lighter.
+
+| Light Mode | Dark Mode | Surface |
+|------------|-----------|---------|
+| `slate-50` (#F8FAFC) | `primary-900` (#1A2332) | Page background |
+| `white` (#FFFFFF) | `primary-800` (#1E2A38) | Card/surface (base) |
+| `slate-100` (#F1F5F9) | `primary-700` (#243346) | Elevated surface (sheet, modal) |
+| `slate-200` (#E2E8F0) | `primary-700` (#243346) | Borders, dividers |
+| `slate-800` (#1E293B) | `slate-100` (#F1F5F9) | Heading text |
+| `primary-500` (#334E68) | `slate-300` (#CBD5E1) | Body text |
+| `slate-500` (#64748B) | `slate-400` (#94A3B8) | Secondary text |
+| `secondary-400` (#FBBF24) | `secondary-400` (#FBBF24) | Accent (unchanged) |
+
+> Terminal/streaming view is always dark (`primary-950` bg) regardless of system theme.
 
 ---
 
-## 3. Typography Rules
+## 3. Typography
 
-**Font Family**: `Albert Sans` — a geometric humanist sans-serif that mirrors Apple's SF Pro DNA: slightly rounded terminals, optical weight distribution, and clean geometric construction with enough warmth to avoid sterility. Variable font with full weight axis (100-900). The most SF Pro-like typeface available on Google Fonts.
+### Font Families
 
-**Fallback stack**: `'Albert Sans', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`
+- **Primary**: Albert Sans (Google Fonts). Geometric humanist sans-serif, closest to SF Pro available cross-platform. Variable font, weights 100-900.
+- **Monospace**: JetBrains Mono. Terminal output, code snippets, UUIDs, technical identifiers. Ligatures enabled.
+- **Fallback stack**: `'Albert Sans', ui-sans-serif, system-ui, -apple-system, sans-serif`
 
-**Flutter equivalent**: Google Fonts package — `GoogleFonts.albertSans()`.
+### iOS Type Scale
 
-### Type Scale (Constrained — Refactoring UI)
+Mapped to iOS HIG text styles. All sizes in logical points (pt). Albert Sans replaces SF Pro at matching optical sizes.
 
-Only these sizes exist. No in-between values.
-
-| Name | Size | Weight | Line Height | Letter Spacing | Use Case |
-|------|------|--------|-------------|---------------|----------|
-| `display` | 32px | 800 (ExtraBold) | 1.2 | -0.02em | Hero stats (dashboard balance, big numbers) |
-| `h1` | 24px | 700 (Bold) | 1.3 | -0.01em | Page titles ("Tasks", "Agent Run #42") |
-| `h2` | 20px | 600 (SemiBold) | 1.35 | -0.01em | Section headings, card titles |
-| `h3` | 16px | 600 (SemiBold) | 1.4 | 0 | Subsection headings, sidebar group labels |
-| `body` | 14px | 400 (Regular) | 1.6 | 0 | Primary body text, form inputs, table cells |
-| `body-medium` | 14px | 500 (Medium) | 1.6 | 0 | Labels, nav items, button text |
-| `small` | 12px | 400 (Regular) | 1.5 | 0.01em | Captions, timestamps, metadata, badges |
-| `tiny` | 11px | 500 (Medium) | 1.4 | 0.02em | Status dots labels, keyboard shortcuts |
-| `mono` | 13px | 400 (Regular) | 1.6 | 0 | Code, terminal output, UUIDs, token values |
-
-**Monospace Font**: `JetBrains Mono` — for terminal streaming view, code snippets, and technical identifiers. Ligatures enabled for operator rendering in agent output.
+| Style | Size | Weight | Line Height | Letter Spacing | Usage |
+|-------|------|--------|-------------|----------------|-------|
+| Large Title | 34pt | Bold (700) | 41pt | -0.02em | Dashboard hero stats, page entry headers |
+| Title 1 | 28pt | Bold (700) | 34pt | -0.01em | Page titles (rarely, most pages use Title 2) |
+| Title 2 | 22pt | Bold (700) | 28pt | -0.01em | Primary page titles ("Tasks", "Chat") |
+| Title 3 | 20pt | SemiBold (600) | 25pt | -0.01em | Section headings, modal titles |
+| Headline | 17pt | SemiBold (600) | 22pt | 0 | Card titles, list item primary text |
+| Body | 17pt | Regular (400) | 22pt | 0 | Primary body text, form inputs, chat messages |
+| Callout | 16pt | Regular (400) | 21pt | 0 | Supporting text, form labels |
+| Subheadline | 15pt | Regular (400) | 20pt | 0 | Secondary list text, metadata |
+| Footnote | 13pt | Regular (400) | 18pt | 0.01em | Timestamps, helper text, badge labels |
+| Caption 1 | 12pt | Regular (400) | 16pt | 0.01em | Tertiary metadata, status labels |
+| Caption 2 | 11pt | Medium (500) | 13pt | 0.02em | Smallest text (keyboard shortcuts, fine print) |
+| Mono | 13pt | Regular (400) | 18pt | 0 | Terminal output, code, UUIDs |
 
 ### Weight Rules
-- **Never use font-weight alone for hierarchy** — combine with color shifts (Refactoring UI: "Size isn't everything")
-- **Bold (700)** for page titles and high-emphasis headings only
-- **SemiBold (600)** for section headings and card titles
-- **Medium (500)** for interactive labels (buttons, nav, form labels)
-- **Regular (400)** for body text and long-form content
-- **No light/thin weights** — they reduce readability on mobile screens
+
+- **Bold (700)**: page titles, large title only
+- **SemiBold (600)**: section headings, card titles, tab labels
+- **Medium (500)**: buttons, nav items, interactive labels, smallest caption
+- **Regular (400)**: body text, form inputs, all long-form content
+- **No light/thin weights**: reduces readability on mobile screens (iOS HIG)
+- Hierarchy through weight + color, not size alone (Refactoring UI)
 
 ---
 
@@ -159,362 +175,613 @@ Only these sizes exist. No in-between values.
 
 ### Buttons
 
-| Variant | Background | Text | Border | Radius | Shadow | Use |
-|---------|-----------|------|--------|--------|--------|-----|
-| Primary | `secondary-400` (#FBBF24) | `primary-900` (#1A2332) | none | 8px (moderately rounded) | `0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)` | Main CTA: "Run Agent", "Create Task", "Save" |
-| Secondary | `white` | `primary-600` (#2B3F56) | 1px `slate-200` | 8px | `0 1px 2px rgba(0,0,0,0.05)` | Secondary actions: "Cancel", "Discard", "Filter" |
-| Ghost | `transparent` | `primary-500` (#334E68) | none | 8px | none | Tertiary: "Show more", inline actions |
-| Danger | `red-500` (#EF4444) | `white` | none | 8px | sm | Destructive: "Delete", "Cancel Run" |
-| Icon | `slate-100` (#F1F5F9) | `primary-400` (#486581) | none | 8px | none | Toolbar actions, compact controls |
+iOS HIG button hierarchy: Filled (highest emphasis) to Plain (lowest).
 
-**Hover behavior**: Darken background by one shade step (e.g., `secondary-400` → `secondary-500`). Transition: 150ms ease-out. No scale transforms — Apple-like restraint.
+| Variant | Background | Text | Radius | Height | Usage |
+|---------|-----------|------|--------|--------|-------|
+| Primary (Filled) | `secondary-400` | `primary-900` | 12pt | 50pt (large), 44pt (regular) | Main CTA: "Create Task", "Send", "Run Agent" |
+| Secondary (Tinted) | `secondary-400/15` | `secondary-600` | 12pt | 44pt | Secondary actions: "Filter", "Share" |
+| Outline | `transparent` + 1px `slate-200` | `primary-500` | 12pt | 44pt | Tertiary: "Cancel", "Discard" |
+| Ghost (Plain) | `transparent` | `info` (#007AFF) | 0 | 44pt | Inline actions, links, "Show more" |
+| Danger | `error` (#FF3B30) | `white` | 12pt | 44pt | Destructive: "Delete", "Cancel Run" |
+| Icon | `slate-100` | `primary-400` | 8pt | 44pt | Toolbar, compact controls |
 
-**Active/pressed**: Darken by two shade steps. Add `inset 0 1px 2px rgba(0,0,0,0.1)`.
+**States:**
+- Hover/press: darken one shade step, 150ms ease-out
+- Pressed: `opacity: 0.7` (iOS standard press feedback)
+- Disabled: `opacity: 0.35`, no interaction
+- Minimum touch target: **44x44pt** (iOS HIG mandatory)
 
-**Disabled**: `opacity: 0.5`, `cursor: not-allowed`. No grey replacement — maintain color identity at reduced intensity.
+### Cards and Containers
 
-**Button sizing** (constrained scale):
-| Size | Padding | Font | Height |
-|------|---------|------|--------|
-| `sm` | 8px 12px | 12px medium | 32px |
-| `md` | 10px 16px | 14px medium | 40px |
-| `lg` | 12px 24px | 16px medium | 48px |
+| Variant | Background | Border | Radius | Shadow | Usage |
+|---------|-----------|--------|--------|--------|-------|
+| Surface | `white` / `primary-800` (dark) | 1px `slate-200` | 12pt | `shadow-sm` | Task cards, project cards, chat bubbles |
+| Inset | `slate-50` / `primary-900` (dark) | none | 8pt | none | Code blocks, nested panels, detail sections |
+| Elevated | `white` / `primary-700` (dark) | none | 16pt | `shadow-lg` | Modals, sheets, dropdown menus |
+| Grouped | `slate-100` / `primary-800` (dark) | none | 12pt | none | iOS grouped list style (Settings, forms) |
+| Terminal | `primary-950` (#0F1520) | none | 12pt | none | Agent streaming output (always dark) |
 
-### Cards & Containers
+**Concentric corners** (iOS HIG): nested elements reduce radius by padding amount. Card at 12pt radius with 16pt padding = inner elements at max 0pt radius (flat).
 
-| Variant | Background | Border | Radius | Shadow | Use |
-|---------|-----------|--------|--------|--------|-----|
-| Surface | `white` | 1px `slate-200` | 12px | `0 1px 3px rgba(0,0,0,0.08)` | Task cards, project cards, knowledge docs |
-| Inset | `slate-50` | none | 8px | `inset 0 1px 2px rgba(0,0,0,0.06)` | Code blocks, nested info panels, detail sections |
-| Elevated | `white` | none | 16px | `0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1)` | Modals, popovers, dropdown menus |
-| Terminal | `primary-900` (#1A2332) | none | 12px | none | Agent streaming output, NDJSON terminal |
+### Inputs and Forms
 
-**Card hover** (interactive cards only): Translate Y -1px, shadow lifts one level. Transition 200ms ease.
-
-### Inputs & Forms
+iOS-style inputs, grouped in Inset Grouped table pattern.
 
 | Element | Background | Border | Radius | Focus State |
 |---------|-----------|--------|--------|-------------|
-| Text input | `white` | 1px `slate-300` | 8px | 2px ring `secondary-400/30`, border → `secondary-400` |
-| Textarea | `white` | 1px `slate-300` | 8px | Same as text input |
-| Select | `white` | 1px `slate-300` | 8px | Same as text input |
-| Search | `slate-50` | none | 20px (pill) | Border appears as 1px `secondary-400` |
-| Toggle | `slate-200` (off) / `secondary-400` (on) | none | full (pill) | Ring on focus |
+| Text field | `white` / `primary-800` | 1px `slate-300` | 8pt | 2px ring `info/30`, border to `info` |
+| Textarea | `white` / `primary-800` | 1px `slate-300` | 8pt | Same as text field |
+| Search | `slate-100` / `primary-700` | none | 10pt (pill) | Border appears as 1px `info` |
+| Toggle | `slate-200` (off) / `success` (on) | none | full (pill) | Ring on focus |
+| Segmented Control | `slate-100` / `primary-700` | none | 8pt | Selected segment: `white` raised |
 
-**Validation states**:
-- Error: border → `red-500`, ring → `red-500/20`, helper text in `red-600`
-- Success: border → `green-500` (only on explicit validation, not default)
-
-### Badges & Status Indicators
-
-| Variant | Style | Use |
-|---------|-------|-----|
-| Status badge | Pill shape, `{color}-50` bg + `{color}-700` text | Task status, run status |
-| Count badge | Circle, `secondary-400` bg + `primary-900` text | Unread counts, notification dots |
-| Agent badge | Pill, `{agent-color}/10` bg + `{agent-color}` text | Agent role identification |
-| Priority badge | `P0` = red bg, `P1` = amber bg, `P2` = blue bg, `P3` = slate bg | Task priority |
+**Validation:**
+- Error: border to `error`, helper text in `error`
+- Label position: above field (iOS standard), or inline for grouped lists
+- Keyboard type: match content (`emailAddress`, `numberPad`, `url`)
 
 ### Navigation
 
-**Sidebar** (desktop):
-- Width: 240px (collapsible to 64px icon-only)
-- Background: `white` with right border `slate-200`
-- Active item: `secondary-400/10` background + `secondary-600` text + 3px left border `secondary-400`
-- Inactive item: `slate-500` text → hover: `primary-600` text + `slate-50` bg
-- Section dividers: 1px `slate-100` + uppercase `tiny` label in `slate-400`
+#### Tab Bar (Bottom, 4 tabs)
 
-**Bottom navigation** (mobile):
-- Background: `white` with top border `slate-200`
-- Active: `secondary-500` icon + label
-- Inactive: `slate-400` icon, no label (icon only for space efficiency)
-- Height: 56px + safe area
-- Items: Dashboard, Tasks, Runs, Knowledge, Settings
+| Property | Value |
+|----------|-------|
+| Tabs | Home, Chat, Tasks, Settings |
+| Height | 49pt + safe area bottom inset |
+| Background | `white` / `primary-800` (dark), top 0.5px `slate-200` separator |
+| Active icon | `secondary-500` (Amber), filled variant |
+| Active label | `secondary-500`, Caption 1 (12pt Medium) |
+| Inactive icon | `slate-400`, outline variant |
+| Inactive label | `slate-400`, Caption 1 |
+| Icon size | 24pt (SF Symbols / Heroicons) |
 
-**Tab bar** (within pages):
-- Underline style: 2px bottom border `secondary-400` on active tab
-- Active text: `primary-700` semibold
-- Inactive text: `slate-400` regular → hover: `slate-600`
+**HIG rules:**
+- Tab bar persistent across all screens (never hidden)
+- Re-tap active tab to pop to root
+- Badge on tab for unread content (circle, `error` color)
+- Never use tab bar for actions, only navigation
 
-### Task Board (Kanban)
+#### Navigation Bar (Top)
 
-**Column headers**: Uppercase `small` text in respective status color, with colored dot indicator (8px circle).
+| Property | Value |
+|----------|-------|
+| Height | 44pt + safe area top inset |
+| Background | `white` / `primary-900` (dark), translucent with blur |
+| Title | Title 2 or Headline, centered or left-aligned |
+| Large Title | 34pt Bold, left-aligned, collapses on scroll |
+| Back button | `info` (#007AFF) color, chevron + previous title |
+| Right actions | Max 2 items, `info` color |
 
-**Task card** (in board):
-- Width: fills column (min 280px)
-- Padding: 12px
-- Content stack: Title (h3 weight) → Assignee avatar (24px circle) + Priority badge → bottom row: task ID (`mono tiny slate-400`) + comment count icon
-- Drag handle: subtle 6-dot grip pattern in `slate-300`, visible on hover only
-- Drop zone: dashed 2px `secondary-400` border with `secondary-50` fill
+**Project switcher:** left side of nav bar, project name + chevron down. Tapping opens a half-sheet (.medium detent) with project list.
 
-### Agent Streaming Terminal
+### Loaders
 
-- Background: `primary-900` (#1A2332)
-- Text: `slate-100` (#F1F5F9) at `mono` 13px
-- System messages: `slate-400` italic
-- Assistant output: `slate-100` regular
-- Error text: `red-400` (#F87171)
-- Question highlight: `secondary-400` (#FBBF24) with left border accent
-- File change indicator: `teal-400` (#2DD4BF)
-- Scrollbar: thin, `slate-700` thumb on `primary-900` track
-- Line height: 1.6 for readability in long streaming sessions
-- Max height: 60vh on desktop, 70vh on mobile — sticky at bottom with auto-scroll
+- **Primary**: skeleton screens (pulsing `slate-200` to `slate-100`, 1500ms ease-in-out loop)
+- **Secondary**: `CupertinoActivityIndicator` for indeterminate actions (agent starting, container provisioning)
+- **Progress**: linear progress bar (`secondary-400` fill on `slate-200` track) for pipeline steps
+- Never fake progress. Show real pipeline stage labels.
 
-### AI Chat / Q&A Panel
+### Empty States
 
-**Question from agent** (incoming):
-- Left-aligned bubble, `slate-100` bg, `slate-700` text
-- Agent avatar (28px) with role color ring
-- Max width: 80% of container
+- Centered icon (48pt, outline, `slate-300`) + title (Headline) + description (Body, `slate-500`) + optional CTA button
+- Examples: "No tasks yet", "Start a conversation", "Connect a project"
+- Tone: encouraging, not apologetic. Guide the user to the next action.
 
-**Answer from user** (outgoing):
-- Right-aligned bubble, `secondary-400/15` bg, `primary-600` text
-- No avatar needed (it's you)
-- Max width: 80% of container
+### Error States
 
-**Input area**:
-- Sticky bottom, `white` bg with top shadow
-- Multi-line textarea with "Send" button (`secondary-400` primary style)
-- Placeholder: "Answer the agent's question..." in `slate-400`
+- **Inline**: below input field, `error` color text with SF Symbol exclamation
+- **Banner**: full-width, `error` light bg (`#FEE2E2` / dark equivalent), icon + message + dismiss
+- **Toast**: bottom notification, 300ms slide-up, auto-dismiss after 4s, `shadow-lg`
+- **Full page**: centered icon + title + description + retry button (connection lost, server error)
 
 ---
 
-## 5. Spacing & Layout System
+## 5. Screen Architecture
 
-### Spacing Scale (Constrained — Refactoring UI)
+> Replaces "Hero Section" from template. Kodizm is an app, not a marketing site.
 
-Based on a 4px base unit. Only these values exist.
+### App Shell (Mobile)
 
-| Token | Value | Common Use |
-|-------|-------|-----------|
-| `space-0` | 0 | Reset |
-| `space-1` | 4px | Tight inline gaps (icon + label) |
-| `space-2` | 8px | Badge padding, compact list items |
-| `space-3` | 12px | Card inner padding (compact), form field gap |
-| `space-4` | 16px | Standard card padding, section gap |
-| `space-5` | 20px | Between form groups |
-| `space-6` | 24px | Between cards, standard section spacing |
-| `space-8` | 32px | Between major sections |
-| `space-10` | 40px | Page top padding |
-| `space-12` | 48px | Between page sections |
-| `space-16` | 64px | Hero spacing, major visual breaks |
-
-### Layout Breakpoints
-
-| Name | Width | Layout Behavior |
-|------|-------|----------------|
-| `mobile` | < 640px | Single column, bottom nav, full-width cards, sidebar hidden |
-| `tablet` | 640-1023px | Two-column task board, sidebar as overlay drawer |
-| `desktop` | 1024-1279px | Sidebar visible, 3-column task board, split view |
-| `wide` | >= 1280px | 4+ column board, expanded detail panels, generous padding |
-
-### Layout Patterns
-
-**App Shell** (desktop):
-```
-+----------+----------------------------------------+
-| Sidebar  |  Header (breadcrumb + search + avatar) |
-| 240px    |----------------------------------------|
-|          |  Page Content (max-width: 1200px)      |
-|          |  centered with auto margins             |
-+----------+----------------------------------------+
-```
-
-**App Shell** (mobile):
 ```
 +----------------------------------------+
-|  Header (hamburger + title + avatar)   |
+|  [Project v]    Title         [A] [P]  |  <- Nav bar (44pt + safe area)
 |----------------------------------------|
-|  Page Content (full width, 16px pad)   |
+|                                        |
+|  Page Content                          |  <- Scrollable area
+|  (full width, 16pt horizontal padding) |
 |                                        |
 |                                        |
 |----------------------------------------|
-|  Bottom Nav (5 items)                  |
+|  Home    Chat    Tasks    Settings     |  <- Tab bar (49pt + safe area)
 +----------------------------------------+
 ```
 
-**Split View** (agent run, desktop):
+### Tab Destinations
+
+| Tab | Icon | Content | Large Title |
+|-----|------|---------|-------------|
+| Home | `house.fill` | Activity feed: in-progress tasks, recent completions, agent questions, quick actions | "Home" |
+| Chat | `bubble.left.and.bubble.right.fill` | Conversation list (interactive + task runs). Badge for unread questions. | "Chat" |
+| Tasks | `checkmark.circle.fill` | Task list with status filter chips (Todo, In Progress, Done, Failed). Pull-to-refresh. | "Tasks" |
+| Settings | `gearshape.fill` | Profile, team, billing, notifications, appearance. Grouped list (Inset Grouped style). | "Settings" |
+
+### Project Switcher
+
 ```
-+----------+---------------------+------------------+
-| Sidebar  | Task Detail         | Terminal Stream  |
-| 240px    | (scrollable)        | (auto-scroll)    |
-|          | 400px               | flex-1           |
-+----------+---------------------+------------------+
++----------------------------------------+
+|  -- (grabber)                          |
+|  Select Project                  Done  |
+|----------------------------------------|
+|  [Search projects...]                  |
+|                                        |
+|  * Kodizm App           3 active       |
+|    API Service           1 active       |
+|    Marketing Site        idle           |
+|                                        |
+|  [+ Add Project]                       |
++----------------------------------------+
 ```
 
-**Split View** (agent run, mobile):
-- Swipeable tabs: Detail | Terminal | Q&A
-- Active tab fills viewport height minus header and bottom nav
+- Half-sheet (.medium detent), swipe down or "Done" to dismiss
+- Current project marked with checkmark
+- Shows active task count per project
+- "All Projects" option at top for cross-project view
 
-### Content Width Constraints
+### Key Screens Flow
 
-| Context | Max Width | Why |
-|---------|-----------|-----|
-| Prose content | 640px | Readable line length (Refactoring UI: ~65 chars) |
-| Form layouts | 480px | Focused input experience |
-| Card grids | 1200px | Enough for 3-4 columns with gutters |
-| Task board | 100% viewport | Horizontal scroll is expected for boards |
-| Tables | 100% container | With horizontal scroll on overflow |
+```
+Home
+ +- Activity card -> push to Task Detail
+ +- Activity card -> push to Chat Detail
+ +- Quick action "+" -> sheet: New Task
+
+Chat
+ +- Conversation list -> push to Chat Detail
+ +- Chat Detail: iMessage-style bubbles
+ +- "+" button -> sheet: New Conversation (select project + type message)
+
+Tasks
+ +- Task list -> push to Task Detail
+ +- Task Detail: status badge, progress bar, sections accordion, "Run Agent" CTA
+ +- Filter chips: Todo | In Progress | Done | Failed
+
+Settings
+ +- Profile -> push to edit
+ +- Team -> push to members, roles
+ +- Project Settings -> push to knowledge, skills, config, repos
+ +- Billing -> push to balance, usage history
+ +- Appearance -> push to dark mode toggle, notifications
+```
 
 ---
 
-## 6. Depth & Elevation
+## 6. Layout Principles
 
-Following Refactoring UI's "emulate a light source" principle — light comes from above. Shadows are always soft and directional (down + slightly spread).
+### Spacing System (iOS Native)
+
+Based on iOS HIG spacing conventions.
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `space-1` | 4pt | Tight inline gaps (icon + label), badge internal padding |
+| `space-2` | 8pt | Group spacing, compact list item gaps, between related elements |
+| `space-3` | 12pt | Card inner padding (compact), input field vertical padding |
+| `space-4` | 16pt | **Standard margin** (horizontal page padding), list item padding |
+| `space-5` | 20pt | **Section spacing** within grouped lists |
+| `space-6` | 24pt | Between cards, between form groups |
+| `space-8` | 32pt | Between major content sections |
+| `space-10` | 40pt | Page top padding (below nav bar) |
+| `space-12` | 48pt | Between page sections (rare, for visual breathing room) |
+
+### Touch Targets
+
+- Minimum tap target: **44x44pt** (iOS HIG, mandatory, no exceptions)
+- Minimum spacing between targets: **8pt**
+- List row minimum height: **44pt**
+- Tab bar item width: distributed equally across screen width
+
+### Content Width
+
+| Context | Behavior |
+|---------|----------|
+| Mobile (< 640pt) | Full width, 16pt horizontal padding |
+| Tablet (640-1024pt) | Max content width 640pt, centered |
+| Desktop/Web (> 1024pt) | Sidebar (280pt) + content (max 800pt), centered |
+
+### Safe Areas
+
+- Bottom: tab bar respects `safeAreaInset.bottom` (home indicator)
+- Top: nav bar respects `safeAreaInset.top` (Dynamic Island, notch)
+- No content under notch/Dynamic Island
+- Keyboard: input fields scroll above keyboard with padding
+
+### Alignment
+
+- Text: left-aligned (body, lists, cards). Center-aligned only for empty states and modals.
+- Lists: full-width dividers for plain lists, inset dividers for grouped lists (16pt left inset)
+- Cards: full-width in mobile, 16pt side margins
+
+---
+
+## 7. Responsive Rules
+
+### Breakpoints
+
+| Name | Width | Layout |
+|------|-------|--------|
+| Mobile (primary) | < 640pt | Single column, bottom tab bar, full-width content |
+| Tablet | 640-1024pt | Two-column where appropriate (chat list + detail), tab bar |
+| Desktop/Web | > 1024pt | Sidebar navigation replaces tab bar, multi-pane layouts |
+
+### Mobile Collapse Behavior (Primary Design Target)
+
+- All content single column
+- Cards full-width with 16pt horizontal margin
+- Chat: full-screen conversation (no split)
+- Tasks: vertical list (no kanban board on mobile)
+- Project detail: stacked sections, each expandable
+
+### Tablet Adaptations
+
+- Chat: split view (conversation list left, chat detail right)
+- Tasks: optional 2-column kanban board
+- Settings: sidebar navigation + content pane
+- Project switcher: popover instead of sheet
+
+### Desktop/Web Adaptations
+
+- Tab bar replaced by left sidebar (280pt, collapsible to 64pt icons)
+- Chat: three-pane (conversations | chat | detail panel)
+- Tasks: full kanban board (3-4 columns)
+- Dashboard: 2x2 or 4-column stat grid
+
+### Typography Scaling
+
+- iOS type scale maintained across all breakpoints
+- No fluid/clamp sizing (matches iOS point-based system)
+- Dynamic Type support: layouts must accommodate 12 size variants without clipping
+
+### Testing Viewports
+
+| Device | Width | Purpose |
+|--------|-------|---------|
+| iPhone SE | 375pt | Minimum supported width |
+| iPhone 15 | 393pt | Standard iPhone |
+| iPhone 15 Pro Max | 430pt | Large iPhone |
+| iPad Mini | 744pt | Tablet minimum |
+| iPad Pro 11" | 834pt | Standard tablet |
+| Desktop | 1280pt | Web primary |
+| Desktop wide | 1440pt | Web maximum content |
+
+---
+
+## 8. Motion Intent
+
+### Animation Philosophy
+
+iOS-standard, restrained, purposeful. Every animation serves spatial comprehension (where did that come from? where did it go?). Motion dial: 4/10.
+
+### Transition Patterns
+
+| Trigger | Animation | Duration | Easing |
+|---------|-----------|----------|--------|
+| Push navigation | Slide from right | 350ms | iOS spring (damping: 1.0) |
+| Pop navigation | Slide to right | 350ms | iOS spring |
+| Sheet present | Slide from bottom | 400ms | iOS spring (damping: 0.85) |
+| Sheet dismiss | Slide to bottom + fade | 300ms | ease-in |
+| Modal present | Scale 0.95 to 1.0 + fade | 250ms | ease-out |
+| Modal dismiss | Scale 1.0 to 0.95 + fade | 200ms | ease-in |
+| Tab switch | Cross-fade | 0ms | Instant (iOS standard) |
+| Toast enter | Slide up from bottom | 300ms | spring (slight overshoot) |
+| Toast exit | Fade + slide down | 200ms | ease-in |
+| Page transition | Fade | 200ms | ease-in-out |
+
+### Interaction Feedback
+
+| Element | Feedback |
+|---------|----------|
+| Button press | `opacity: 0.7` on touch down, restore on release. 100ms. |
+| Card press | Slight scale down (0.98), restore on release. 150ms. |
+| Swipe actions | Elastic resistance at boundaries |
+| Pull-to-refresh | iOS native rubber-band + spinner |
+| Tab bar tap | Haptic: `selection` feedback |
+| Destructive action | Haptic: `notification.warning` |
+| Task completion | Haptic: `notification.success` |
+
+### Loading States
+
+- **Skeleton screens** for content loading (pulsing `slate-200` to `slate-100`, 1500ms)
+- **CupertinoActivityIndicator** for indeterminate waits
+- **Linear progress bar** for pipeline stages with stage label
+- **Streaming text**: immediate append, no typewriter effect
+- Never fake progress
+
+---
+
+## 9. Anti-Patterns
+
+### Visual Anti-Patterns
+
+- **Gratuitous gradients or glassmorphism**: we are not implementing Liquid Glass in Flutter. Clean solid surfaces only
+- **Dashboard vanity metrics**: no "total runs ever" or decorative charts. Every metric must be actionable
+- **Colored backgrounds on cards**: cards are `white`/`primary-800`. Status shown via badges, dots, or progress bars, not card background tinting
+- **Shadows as decoration**: shadows indicate elevation (sheet above page). No shadows on flat elements
+
+### Typography Anti-Patterns
+
+- **More than 2 font sizes on a single card**: Headline + Body or Headline + Subheadline maximum
+- **All-caps text**: except for very short labels (2-3 words) in Caption 2 size
+- **Light/thin font weights**: never below Regular (400) on any screen
+- **Font size for hierarchy**: use weight + color shifts, not size jumps (Refactoring UI)
+
+### Layout Anti-Patterns
+
+- **Horizontal scrolling content** (except: kanban board columns on tablet/desktop)
+- **Cards inside cards**: maximum one level of nesting (card > inset panel). No deeper
+- **Fixed position elements in scroll content**: only tab bar (bottom) and nav bar (top) are fixed
+- **Max-width constraints on mobile**: content fills available width with 16pt margins, period
+- **SingleChildScrollView wrapping entire pages**: layout system handles scrolling
+
+### Interaction Anti-Patterns
+
+- **Custom back button behavior**: always use iOS standard back (chevron + previous title)
+- **Swipe gestures replacing visible controls**: swipe is a shortcut, never the only path
+- **Hiding the tab bar**: tab bar is always visible (iOS HIG), even during agent execution
+- **Auto-switching tabs programmatically**: user controls tab navigation, app never switches
+- **Modal on top of modal**: maximum one level of modal presentation
+
+### iOS HIG Violations to Avoid
+
+- Touch targets below 44x44pt
+- Text below 11pt (Caption 2 minimum)
+- Color as only information channel (always pair with icon, text, or shape)
+- Disabling system gestures (edge swipe back, swipe down dismiss)
+- Fixed-coded hex colors that don't adapt to dark mode
+
+---
+
+## 10. Chat View Specification
+
+> The chat view is Kodizm's core UX. Detailed specification for the iMessage-style agent conversation.
+
+### Message Types
+
+| Type | Alignment | Style |
+|------|-----------|-------|
+| Agent text | Left | Surface card bubble, `slate-700` text (light) / `slate-200` (dark) |
+| User text | Right | `secondary-400/15` bg bubble, `primary-600` text (light) / `secondary-100` (dark) |
+| Agent question | Left | Surface card + amber left border (4pt), question icon, answer buttons below |
+| Tool use | Left | Collapsible accordion: "Used 3 tools" with chevron. Collapsed by default. |
+| Thinking | Left | Collapsible, italic `slate-400` text: "Thinking..." |
+| Code block | Left | Inset card (`primary-950` bg), monospace, syntax highlighted, copy button |
+| File change | Left | Compact card: file icon + path + diff summary (green/red counts) |
+| Error | Left | `error` left border, error icon, message in `error` color |
+| Progress | Left | Linear progress bar + stage label ("Analyzing...", "Planning...", "Coding...") |
+
+### Chat Layout
+
+```
++----------------------------------------+
+|  < Back    Fix auth bug        ● Live  |  <- Nav bar
+|----------------------------------------|
+|                                        |
+|  [Agent avatar]                        |
+|  +---------------------------+         |
+|  | Analyzing the auth module |         |
+|  | to find the token issue.  |         |
+|  +---------------------------+         |
+|                                        |
+|  > Used 3 tools                  (v)   |  <- Collapsible
+|                                        |
+|                  +------------------+  |
+|                  | Can you check    |  |
+|                  | the refresh flow |  |
+|                  +------------------+  |  <- User bubble (right)
+|                                        |
+|  [Agent avatar]                        |
+|  +---------------------------+         |
+|  | Found it! The bug is in   |         |
+|  | auth_service.dart:42.     |         |
+|  | The token...              |         |
+|  +---------------------------+         |
+|                                        |
+|  +-[progress]------ 60% ----+         |
+|  | Coding...                 |         |
+|  +---------------------------+         |
+|                                        |
+|----------------------------------------|
+|  [+]  Type a message...        [Send]  |  <- Input bar (sticky bottom)
++----------------------------------------+
+```
+
+### Agent Question Flow
+
+When agent asks a question, the chat shows structured options:
+
+```
+|  [Agent avatar]                        |
+|  +---------------------------+         |
+|  | amber border                        |
+|  | Should I also update the  |         |
+|  | refresh token logic?      |         |
+|  +---------------------------+         |
+|                                        |
+|  [Yes, update both]  [No, just fix]   |  <- Tappable chips
+|  [Let me explain...]                   |  <- Opens text input
+```
+
+### Input Bar
+
+- Sticky at bottom, above keyboard when active
+- Background: `white` / `primary-800`, top shadow
+- Attachment button (+) on left: images, files
+- Text area: auto-growing, max 5 lines before scroll
+- Send button: `secondary-400` filled circle with arrow icon, visible only when text is non-empty
+- Disabled state when agent is executing (show "Agent is working..." placeholder)
+
+---
+
+## 11. Home Feed Specification
+
+### Feed Item Types
+
+| Type | Content | Action |
+|------|---------|--------|
+| Task in progress | Task title + project name + progress bar + stage label | Push to task detail |
+| Task completed | Task title + project name + "Done" badge + time | Push to task detail |
+| Task failed | Task title + project name + "Failed" badge + error snippet | Push to task detail |
+| Agent question | Task title + question preview + "Needs your input" | Push to chat view |
+| Quick actions | "New Task", "New Conversation" | Sheet / push |
+
+### Feed Layout
+
+```
++----------------------------------------+
+|  Kodizm App  v               🔔  👤   |  <- Project switcher + actions
+|                                        |
+|  Home                                  |  <- Large Title
+|----------------------------------------|
+|                                        |
+|  Needs Input (1)                       |  <- Section header (amber dot)
+|  +----------------------------------+  |
+|  | Fix auth token refresh           |  |
+|  | "Should I also update..."    >   |  |
+|  +----------------------------------+  |
+|                                        |
+|  In Progress (3)                       |  <- Section header (amber dot)
+|  +----------------------------------+  |
+|  | Add dark mode support            |  |
+|  | Marketing Site                   |  |
+|  | ████████░░░░ Coding...       >   |  |
+|  +----------------------------------+  |
+|  +----------------------------------+  |
+|  | Refactor auth module             |  |
+|  | API Service                      |  |
+|  | ██████████░░ Testing...      >   |  |
+|  +----------------------------------+  |
+|                                        |
+|  Recent (5)                            |  <- Section header
+|  +----------------------------------+  |
+|  | Fix login redirect   ✓ Done  2h  |  |
+|  +----------------------------------+  |
+|  +----------------------------------+  |
+|  | Update README         ✓ Done  4h  |  |
+|  +----------------------------------+  |
+|                                        |
+|                  [+ New Task]          |  <- Floating action
+|----------------------------------------|
+|  🏠    💬    ✅    ⚙️                  |
++----------------------------------------+
+```
+
+### Priority Ordering
+
+1. **Needs Input** (agent questions waiting for answer, always on top, amber accent)
+2. **In Progress** (actively running tasks with progress)
+3. **Recent** (last 10 completed/failed tasks, chronological)
+
+---
+
+## 12. Depth and Elevation
 
 ### Shadow Scale
 
-| Level | CSS | Use |
-|-------|-----|-----|
-| `shadow-none` | none | Flat elements, inset panels |
-| `shadow-xs` | `0 1px 2px rgba(0,0,0,0.05)` | Subtle lift: buttons at rest, input borders |
-| `shadow-sm` | `0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)` | Cards at rest, raised buttons |
-| `shadow-md` | `0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1)` | Cards on hover, dropdown menus |
-| `shadow-lg` | `0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)` | Modals, slide-over panels |
-| `shadow-xl` | `0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)` | Command palette, full-screen overlays |
+| Level | Value | Usage |
+|-------|-------|-------|
+| `shadow-none` | none | Flat elements, inline content, tab bar |
+| `shadow-xs` | `0 1px 2px rgba(0,0,0,0.05)` | Subtle lift: input fields, segmented controls |
+| `shadow-sm` | `0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06)` | Cards at rest |
+| `shadow-md` | `0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1)` | Pressed cards, dropdowns |
+| `shadow-lg` | `0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1)` | Sheets, modals |
+| `shadow-xl` | `0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)` | Popovers, command palette |
 
 ### Elevation Hierarchy
 
-1. **Base layer** (`shadow-none`): Page background, sidebar, bottom nav
-2. **Content layer** (`shadow-sm`): Cards, form containers, list items
-3. **Interactive layer** (`shadow-md`): Hovered cards, dropdown menus, tooltips
-4. **Overlay layer** (`shadow-lg`): Modals, slide-over detail panels, notification toasts
-5. **Command layer** (`shadow-xl`): Command palette (Cmd+K), full-screen dialogs
+1. **Base** (`shadow-none`): page background, tab bar, nav bar
+2. **Content** (`shadow-sm`): cards, list items, form containers
+3. **Interactive** (`shadow-md`): active cards, dropdown menus
+4. **Overlay** (`shadow-lg`): sheets, modals, project switcher
+5. **Command** (`shadow-xl`): command palette, full-screen overlays
 
-**No borders between elevation levels** — use shadow alone to communicate depth (Refactoring UI: "Use fewer borders"). Borders are reserved for same-level separation (table cells, form inputs, list dividers).
-
----
-
-## 7. Motion & Transitions
-
-Restrained, purposeful motion. No gratuitous animations — every transition serves comprehension.
-
-| Trigger | Duration | Easing | Property |
-|---------|----------|--------|----------|
-| Button hover/press | 150ms | ease-out | background-color, box-shadow |
-| Card hover lift | 200ms | ease-out | transform, box-shadow |
-| Sidebar collapse | 200ms | ease-in-out | width |
-| Modal enter | 200ms | ease-out | opacity, transform (scale 0.95→1) |
-| Modal exit | 150ms | ease-in | opacity, transform (scale 1→0.95) |
-| Page transition | 200ms | ease-in-out | opacity |
-| Toast enter | 300ms | spring (overdamp) | transform (slide-up), opacity |
-| Toast exit | 200ms | ease-in | opacity, transform (slide-down) |
-| Streaming text | 0ms | — | Immediate append, no typewriter effect |
-| Skeleton pulse | 1500ms | ease-in-out | opacity (0.5→1→0.5 loop) |
-| Task drag | 0ms pickup, 200ms drop | ease-out | transform, box-shadow |
-
-**Loading states**: Skeleton screens over spinners. Pulsing rectangles in `slate-200` → `slate-100` that mirror the shape of the content being loaded. Spinners only for indeterminate async actions (agent starting, container provisioning).
+Prefer shadow over borders for depth separation (Refactoring UI). Borders reserved for same-level dividers (list separators, input outlines).
 
 ---
 
-## 8. Iconography
+## 13. Iconography
 
-**Icon set**: Heroicons (outline variant for navigation, solid variant for active states and small inline indicators).
+### Icon Set
 
-**Why Heroicons**: Tailwind ecosystem native, Apple-inspired simplicity, consistent stroke width, MIT licensed.
+Heroicons (outline + solid variants). Closest to SF Symbols aesthetic available cross-platform.
 
-| Context | Style | Size |
-|---------|-------|------|
-| Navigation (sidebar, bottom nav) | Outline (inactive), Solid (active) | 24px |
-| Inline with text (labels, metadata) | Outline, 1.5px stroke | 16px |
-| Buttons | Outline, 1.5px stroke | 20px |
-| Empty states | Outline, 1px stroke | 48px |
-| Status indicators | Solid filled circle | 8px |
+| Context | Variant | Size |
+|---------|---------|------|
+| Tab bar (inactive) | Outline, 1.5px stroke | 24pt |
+| Tab bar (active) | Solid filled | 24pt |
+| Nav bar actions | Outline, 1.5px stroke | 22pt |
+| List items, inline | Outline, 1.5px stroke | 20pt |
+| Buttons (with text) | Outline, 1.5px stroke | 20pt |
+| Empty states | Outline, 1px stroke | 48pt |
+| Status indicators | Solid circle | 8pt |
 
-**Custom icons** (not in Heroicons): Agent role avatars use a simple monogram system — first letter of role name in a colored circle (per agent role color).
+### Agent Avatars
 
----
-
-## 9. Dark Mode (Post-MVP)
-
-The color system is designed for dark mode compatibility. Invert the neutral scale, keep semantic colors at adjusted lightness:
-
-| Light | Dark |
-|-------|------|
-| `slate-50` (page bg) | `primary-900` (#1A2332) |
-| `white` (card bg) | `primary-800` (#1E2A38) |
-| `slate-200` (border) | `primary-700` (#243346) |
-| `slate-800` (heading text) | `slate-100` (#F1F5F9) |
-| `slate-500` (body text) | `slate-400` (#94A3B8) |
-| `secondary-400` (CTA) | `secondary-400` (unchanged — amber works on dark) |
-
-The terminal/streaming view is *always* dark (`primary-900` bg) regardless of system theme — it provides natural visual separation and is easier on the eyes during long agent runs.
+Monogram system: first letter of role name in a 28pt colored circle (per agent role color table).
 
 ---
 
-## 10. Responsive Patterns (Mobile-First)
+## 14. Accessibility Checklist
 
-### Information Density Ladder
+Per iOS HIG and WCAG AA requirements:
 
-| Screen | Mobile | Tablet | Desktop |
-|--------|--------|--------|---------|
-| Task Board | Vertical list (no columns) | 2 columns | 3-4 columns (horizontal scroll) |
-| Task Detail | Full-screen sheet | Half-screen panel | Side panel (40% width) |
-| Agent Run | Tab switcher (Detail/Terminal/Q&A) | Detail left + Terminal right | Three-pane split |
-| Dashboard | Stacked stat cards | 2x2 grid | 4-column grid |
-| Settings | Full-width sections | Two-column form | Sidebar nav + content |
-
-### Touch Targets
-- Minimum tap target: 44x44px (Apple HIG)
-- Minimum spacing between targets: 8px
-- Swipe gestures: Task cards (swipe right = quick-assign), Agent run tabs (horizontal swipe)
-
-### Safe Areas
-- Bottom navigation respects `safe-area-inset-bottom`
-- Sticky headers respect `safe-area-inset-top`
-- No content under notch/dynamic island
+- [ ] All touch targets >= 44x44pt
+- [ ] All text meets WCAG AA contrast (4.5:1 body, 3:1 large text)
+- [ ] Color never sole information channel (always paired with text/icon/shape)
+- [ ] Dynamic Type supported (layout adapts to all 12 sizes without clipping)
+- [ ] VoiceOver labels on all interactive elements
+- [ ] Reduce Motion respected (disable non-essential animations)
+- [ ] Dark mode complete (every screen, every state)
+- [ ] Keyboard navigation for web deployment
+- [ ] Focus order logical (follows reading order)
+- [ ] Minimum text size 11pt (Caption 2)
 
 ---
 
-## 11. Token Reference (Flutter)
+## 15. Stitch Generation Notes
 
-For the Flutter implementation using magic_starter framework:
+### Atmosphere Language
 
-```dart
-// Colors — define in app theme
-static const primaryNavy = Color(0xFF334E68);      // primary-500
-static const primaryDark = Color(0xFF1A2332);       // primary-900
-static const accentAmber = Color(0xFFFBBF24);       // secondary-400
-static const accentAmberDark = Color(0xFFD9A520);   // secondary-500
-static const surfaceBg = Color(0xFFF8FAFC);         // slate-50
-static const cardBg = Color(0xFFFFFFFF);            // white
-static const borderColor = Color(0xFFE2E8F0);       // slate-200
-static const textPrimary = Color(0xFF334E68);       // primary-500
-static const textSecondary = Color(0xFF64748B);     // slate-500
-static const textTertiary = Color(0xFF94A3B8);      // slate-400
+- **Overall feel:** "Clean, capable, iOS-native professional tool. Navy and amber brand on white surfaces with generous spacing. Linear meets Apple Reminders."
+- **Interaction feel:** "Direct, responsive, no unnecessary transitions. Content-focused with ambient awareness of background processes."
 
-// Agent Role Colors
-static const agentBA = Color(0xFF6366F1);           // indigo
-static const agentLead = Color(0xFF334E68);         // navy
-static const agentDev = Color(0xFF14B8A6);          // teal
-static const agentReviewer = Color(0xFF8B5CF6);     // violet
-static const agentQA = Color(0xFF10B981);           // emerald
+### Color References
 
-// Spacing scale (use as multiples of base unit)
-static const double spaceUnit = 4.0;
-// space-1: 4, space-2: 8, space-3: 12, space-4: 16, etc.
+- Deep Navy (#334E68) - primary brand, headings, body text
+- Amber Gold (#FBBF24) - accent, CTAs, active states, progress
+- System Blue (#007AFF) - links, info, ghost buttons
+- System Green (#34C759) - success, done, healthy
+- System Red (#FF3B30) - error, failed, destructive
+- Cool Slate (#F8FAFC) - page background (light)
+- Dark Navy (#1A2332) - page background (dark)
 
-// Border radius
-static const double radiusSm = 6.0;
-static const double radiusMd = 8.0;
-static const double radiusLg = 12.0;
-static const double radiusXl = 16.0;
-static const double radiusFull = 9999.0;  // pills, avatars
-```
+### Typography References
 
----
+- **Headings:** Albert Sans, Bold/SemiBold, iOS type scale (34pt down to 17pt)
+- **Body:** Albert Sans, Regular 400, 17pt/22pt line height
+- **Code/Terminal:** JetBrains Mono, Regular 400, 13pt/18pt
 
-## 12. Refactoring UI Checklist
+### Component Prompts
 
-Apply these checks to every screen before shipping:
+- **Task card:** "Rounded 12pt card, white surface, subtle shadow. Task title (Headline weight), project name below (Subheadline, slate-500). Right side: status dot + chevron. If in progress: thin amber progress bar at bottom with stage label."
+- **Chat bubble (agent):** "Left-aligned rounded card, slate-50 background, 12pt padding. Body text. Max width 80%. Small agent avatar (28pt circle) above-left."
+- **Chat bubble (user):** "Right-aligned rounded card, amber-15% tinted background, 12pt padding. Body text. Max width 80%. No avatar."
+- **Activity feed item:** "Full-width list row, 16pt padding. Title (Headline) + subtitle (Subheadline, slate-500) + right accessory (badge or chevron). Min height 44pt. Divider between items."
+- **Project switcher:** "Half-sheet with grabber, search bar at top, list of projects with checkmark on current. Each row: project name (Headline) + active task count (Subheadline, slate-400)."
 
-- [ ] **Hierarchy**: Can you tell what's most important in < 2 seconds?
-- [ ] **Weight over size**: Are you using font weight + color to create hierarchy, not just font size?
-- [ ] **De-emphasis**: Is supporting content visually quieter (lighter color, smaller, or less bold)?
-- [ ] **Labels**: Have you eliminated any labels that are obvious from context?
-- [ ] **Whitespace**: Does the layout feel spacious? Start with too much and remove.
-- [ ] **Borders**: Are you using shadows/spacing/background instead of borders where possible?
-- [ ] **Color purpose**: Does every use of color convey meaning, not just decoration?
-- [ ] **Constrained values**: Are all sizes, spacings, and colors from the defined scales?
-- [ ] **Empty states**: Does every list/table/panel have a meaningful empty state?
-- [ ] **Touch targets**: Are all interactive elements >= 44x44px on mobile?
-- [ ] **Contrast**: Does text meet WCAG AA (4.5:1 for body, 3:1 for large text)?
+### Incremental Iteration
+
+1. Focus on ONE component per prompt
+2. Reference exact color tokens and type styles from this document
+3. Always specify light AND dark mode appearance
+4. Include safe area handling for all full-screen layouts
+5. Verify 44pt minimum touch targets on all interactive elements

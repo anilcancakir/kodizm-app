@@ -6,7 +6,7 @@ import 'package:magic/magic.dart';
 ///
 /// Displays real version + formatted build date from `.env` (App) or
 /// `/health` endpoint (API). Single tap switches the displayed source;
-/// long-press navigates to `/settings/app`.
+/// long-press navigates to `/app-info`.
 ///
 /// ## Usage
 ///
@@ -125,7 +125,7 @@ class _SidebarFooterState extends State<SidebarFooter> {
 
     return WAnchor(
       onTap: () => setState(() => _showApp = !_showApp),
-      onLongPress: () => MagicRoute.to('/settings/app'),
+      onLongPress: () => MagicRoute.to('/app-info'),
       child: WDiv(
         className: 'w-full px-4 py-3',
         child: WDiv(

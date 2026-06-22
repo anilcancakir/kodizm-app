@@ -67,8 +67,8 @@ class AppServiceProvider extends ServiceProvider {
           path: '/knowledge',
         ),
         MagicStarterNavItem(
-          icon: Icons.settings_outlined,
-          labelKey: 'nav.settings',
+          icon: Icons.info_outline,
+          labelKey: 'nav.app_info',
           path: MagicStarterConfig.profileRoute(),
         ),
       ],
@@ -89,16 +89,16 @@ class AppServiceProvider extends ServiceProvider {
           path: '/conversations',
         ),
         MagicStarterNavItem(
-          icon: Icons.settings_outlined,
-          labelKey: 'nav.settings',
+          icon: Icons.info_outline,
+          labelKey: 'nav.app_info',
           path: MagicStarterConfig.profileRoute(),
         ),
       ],
       profileMenuItems: [
         MagicStarterNavItem(
-          icon: Icons.tune_outlined,
-          labelKey: 'nav.settings',
-          path: '/settings/app',
+          icon: Icons.info_outline,
+          labelKey: 'nav.app_info',
+          path: '/app-info',
         ),
         MagicStarterNavItem(
           icon: Icons.link_outlined,

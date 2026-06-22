@@ -5,7 +5,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import '../../../app/state/settings_state.dart';
 import 'package:magic_starter/magic_starter.dart';
 
-/// App-level settings view — theme mode, notifications, and about info.
+/// App info view — theme mode, notifications, and about info.
 ///
 /// Uses [SettingsState] for notification preferences (persisted to secure
 /// storage) and [WindThemeController] via [WindTheme.of] for theme toggling
@@ -14,17 +14,17 @@ import 'package:magic_starter/magic_starter.dart';
 /// ## Usage
 ///
 /// ```dart
-/// MagicRoute.to('/settings');
+/// MagicRoute.to('/app-info');
 /// ```
-class AppSettingsView extends StatefulWidget {
-  /// Creates the [AppSettingsView].
-  const AppSettingsView({super.key});
+class AppInfoView extends StatefulWidget {
+  /// Creates the [AppInfoView].
+  const AppInfoView({super.key});
 
   @override
-  State<AppSettingsView> createState() => _AppSettingsViewState();
+  State<AppInfoView> createState() => _AppInfoViewState();
 }
 
-class _AppSettingsViewState extends State<AppSettingsView> {
+class _AppInfoViewState extends State<AppInfoView> {
   String _appVersion = '';
   String _buildNumber = '';
   String _apiCommit = '';
@@ -101,8 +101,8 @@ class _SettingsContent extends StatelessWidget {
       className: 'p-4 lg:p-6 flex flex-col gap-6',
       children: [
         MagicStarterPageHeader(
-          title: trans('settings.title'),
-          subtitle: trans('settings.subtitle'),
+          title: trans('app_info.title'),
+          subtitle: trans('app_info.subtitle'),
         ),
         _AppearanceCard(),
         if (!kIsWeb) _NotificationsCard(),
@@ -132,19 +132,19 @@ class _AppearanceCard extends StatelessWidget {
     final isLight = !isSystem && controller.brightness == Brightness.light;
 
     return MagicStarterCard(
-      title: trans('settings.appearance'),
+      title: trans('app_info.appearance'),
       child: WDiv(
         className: 'flex flex-col gap-3',
         children: [
           WText(
-            trans('settings.theme_mode'),
+            trans('app_info.theme_mode'),
             className: 'text-sm font-medium text-slate-700 dark:text-slate-300',
           ),
           WDiv(
             className: 'flex flex-row gap-2',
             children: [
               _ThemeChip(
-                label: trans('settings.theme_light'),
+                label: trans('app_info.theme_light'),
                 isActive: isLight,
                 onTap: () {
                   WindTheme.of(
@@ -153,7 +153,7 @@ class _AppearanceCard extends StatelessWidget {
                 },
               ),
               _ThemeChip(
-                label: trans('settings.theme_dark'),
+                label: trans('app_info.theme_dark'),
                 isActive: isDark,
                 onTap: () {
                   WindTheme.of(
@@ -162,7 +162,7 @@ class _AppearanceCard extends StatelessWidget {
                 },
               ),
               _ThemeChip(
-                label: trans('settings.theme_system'),
+                label: trans('app_info.theme_system'),
                 isActive: isSystem,
                 onTap: () => WindTheme.of(context).resetToSystem(),
               ),
@@ -221,24 +221,24 @@ class _NotificationsCard extends StatelessWidget {
     final state = Magic.findOrPut(SettingsState.new);
 
     return MagicStarterCard(
-      title: trans('settings.notifications'),
+      title: trans('app_info.notifications'),
       child: WDiv(
         className: 'flex flex-col gap-4',
         children: [
           _NotificationToggle(
-            label: trans('settings.notify_run_completed'),
+            label: trans('app_info.notify_run_completed'),
             value: state.notifyRunCompleted,
             onChanged: (val) =>
                 state.setNotificationPref(SettingsState.keyRunCompleted, val),
           ),
           _NotificationToggle(
-            label: trans('settings.notify_run_failed'),
+            label: trans('app_info.notify_run_failed'),
             value: state.notifyRunFailed,
             onChanged: (val) =>
                 state.setNotificationPref(SettingsState.keyRunFailed, val),
           ),
           _NotificationToggle(
-            label: trans('settings.notify_question_pending'),
+            label: trans('app_info.notify_question_pending'),
             value: state.notifyQuestionPending,
             onChanged: (val) => state.setNotificationPref(
               SettingsState.keyQuestionPending,
@@ -246,7 +246,7 @@ class _NotificationsCard extends StatelessWidget {
             ),
           ),
           _NotificationToggle(
-            label: trans('settings.notify_balance_low'),
+            label: trans('app_info.notify_balance_low'),
             value: state.notifyBalanceLow,
             onChanged: (val) =>
                 state.setNotificationPref(SettingsState.keyBalanceLow, val),
@@ -347,46 +347,46 @@ class _AboutCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MagicStarterCard(
-      title: trans('settings.about'),
+      title: trans('app_info.about'),
       child: WDiv(
         className: 'flex flex-col gap-4',
         children: [
           _InfoRow(
-            label: trans('settings.app_version'),
+            label: trans('app_info.app_version'),
             value: appVersion.isEmpty ? '–' : appVersion,
           ),
           _InfoRow(
-            label: trans('settings.build_number'),
+            label: trans('app_info.build_number'),
             value: buildNumber.isEmpty ? '–' : buildNumber,
           ),
           _InfoRow(
-            label: trans('settings.commit_hash'),
+            label: trans('app_info.commit_hash'),
             value: env('APP_BUILD_HASH', 'dev'),
           ),
           _InfoRow(
-            label: trans('settings.build_date'),
+            label: trans('app_info.build_date'),
             value: _formatBuildDate(),
           ),
           _InfoRow(
-            label: trans('settings.environment'),
+            label: trans('app_info.environment'),
             value: env('APP_ENV', 'local'),
           ),
           _InfoRow(
-            label: trans('settings.api_server'),
+            label: trans('app_info.api_server'),
             value: env('API_URL', ''),
           ),
           _InfoRow(
-            label: trans('settings.api_commit'),
+            label: trans('app_info.api_commit'),
             value: apiCommit.isEmpty ? '–' : apiCommit,
           ),
           _InfoRow(
-            label: trans('settings.api_build_date'),
+            label: trans('app_info.api_build_date'),
             value: apiCommit.isEmpty ? '–' : _formatDateString(apiBuildDate),
           ),
           const WSpacer(className: 'h-2'),
-          _LinkRow(label: trans('settings.terms'), url: env('TERMS_URL', '')),
+          _LinkRow(label: trans('app_info.terms'), url: env('TERMS_URL', '')),
           _LinkRow(
-            label: trans('settings.privacy'),
+            label: trans('app_info.privacy'),
             url: env('PRIVACY_URL', ''),
           ),
         ],
